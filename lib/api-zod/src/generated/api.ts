@@ -213,9 +213,14 @@ export const RevokeWebhookParams = zod.object({
 export const RevokeWebhookResponse = zod.void()
 
 
+export const listEventsQueryPageSizeMax = 50;
+
+
+
 export const ListEventsQueryParams = zod.object({
   "before": zod.coerce.string().optional(),
-  "view": zod.enum(['all', 'notes']).optional()
+  "view": zod.enum(['all', 'notes']).optional(),
+  "pageSize": zod.coerce.number().int().min(1).max(listEventsQueryPageSizeMax).optional().describe('Maximum messages per page; defaults to 50 for existing callers')
 })
 
 export const ListEventsResponse = zod.object({

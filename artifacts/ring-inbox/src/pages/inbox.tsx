@@ -3,9 +3,11 @@ import { Link, useSearch } from "wouter";
 import { useMutationState, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Code2 } from "lucide-react";
-import { useListEvents, getListEventsQueryKey, listEvents, useGetOrganizer, getGetOrganizerQueryKey, useUnderstandEvent, type InboxEvent, type ActionItem, type ProcessingJob } from "@workspace/api-client-react";
+import { useGetOrganizer, getGetOrganizerQueryKey, useUnderstandEvent, type InboxEvent, type ActionItem, type ProcessingJob } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { mergeEvents, prioritizeEvents } from "@/lib/feed-order";
+import { prioritizeEvents } from "@/lib/feed-order";
+import { useInboxFeed } from "@/hooks/use-inbox-feed";
+import { FeedScrollAnchor } from "@/components/feed-scroll-anchor";
 import { ActionItemRow } from "./items";
 
 function ts(s: string) { return format(new Date(s), "MMM d, h:mm a"); }
@@ -66,23 +68,15 @@ export function EventCard({ e, items, job, highlight, embedded, localPending }: 
 
 /** The signed-in shell embeds the same feed and cards as the full Inbox route. */
 export function InboxFeed({ embedded = false, selectedNote = null }: { embedded?: boolean; selectedNote?: string | null }) {
-  const q = useListEvents(undefined, { query: { queryKey: getListEventsQueryKey() } });
+  const q = useInboxFeed();
   const organizer = useGetOrganizer({ query: { queryKey: getGetOrganizerQueryKey() } });
   const search = useSearch();
   const target = embedded ? selectedNote : new URLSearchParams(search).get("event");
-  const [older, setOlder] = useState<InboxEvent[]>([]);
-  const [cursor, setCursor] = useState<string | null | undefined>(undefined);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [moreErr, setMoreErr] = useState(false);
+  const { loadingMore, moreErr, loadMore } = q;
   const feedRoot = useRef<HTMLDivElement>(null);
-  // Retain every page already shown, including previous heads. An SSE refresh
-  // can shift a note off the first page without removing it from the visible feed.
-  useEffect(() => {
-    if (q.data) setOlder(previous => mergeEvents(previous, q.data.items));
-  }, [q.data]);
-  const head = q.data?.items;
-  const nextCursor = cursor === undefined ? q.data?.nextCursor : cursor;
-  const all = useMemo(() => mergeEvents(older, head ?? []), [older, head]);
+  const sentinel = useRef<HTMLDivElement>(null);
+  const nextCursor = q.data?.nextCursor;
+  const all = q.data?.items ?? [];
   const byEvent = useMemo(() => {
     const m = new Map<string, ActionItem[]>();
     for (const i of organizer.data?.items ?? []) if (i.sourceEventId) m.set(i.sourceEventId, [...(m.get(i.sourceEventId) ?? []), i]);
@@ -94,33 +88,32 @@ export function InboxFeed({ embedded = false, selectedNote = null }: { embedded?
     select: mutation => (mutation.state.variables as { id: string } | undefined)?.id,
   });
   const localPending = new Set(pendingIds.filter((id): id is string => !!id));
-  const activeIds = [...jobs.values()].filter(job => job.status === "pending" || job.status === "processing").map(job => job.eventId);
-  const missingActive = embedded && [...activeIds, ...localPending].some(id => !all.some(event => event.id === id));
   const displayed = embedded ? prioritizeEvents(all, [...jobs.values()], localPending) : all;
-  const processingId = embedded && displayed[0] && jobs.get(displayed[0].id)?.status === "processing" ? displayed[0].id : null;
-  useEffect(() => {
-    if (processingId && !target) feedRoot.current?.parentElement?.scrollTo({ top: 0 });
-  }, [processingId, target]);
   const found = !target || all.some((e) => e.id === target);
-  const searching = ((!!target && !found) || missingActive) && !!nextCursor && !moreErr && !q.isLoading && !q.isError;
-
-  async function loadMore() {
-    if (!nextCursor || loadingMore) return;
-    setLoadingMore(true); setMoreErr(false);
-    try { const p = await listEvents({ before: nextCursor }); setOlder((o) => mergeEvents(o, p.items)); setCursor(p.nextCursor); }
-    catch { setMoreErr(true); } finally { setLoadingMore(false); }
-  }
+  const searching = !!target && !found && !!nextCursor && !moreErr && !q.isLoading && !q.isError;
 
   const loadRef = useRef(loadMore);
   loadRef.current = loadMore;
   useEffect(() => { if (searching && !loadingMore) void loadRef.current(); }, [searching, loadingMore, all.length]);
+  useEffect(() => {
+    const element = sentinel.current;
+    if (!element || !nextCursor || loadingMore || moreErr || q.isError || typeof IntersectionObserver === "undefined") return;
+    const root = embedded ? feedRoot.current?.closest<HTMLElement>("[data-inbox-scroll]") ?? null : null;
+    let active = true;
+    const observer = new IntersectionObserver(entries => {
+      if (active && entries.some(entry => entry.isIntersecting)) void loadRef.current();
+    }, { root, rootMargin: "0px 0px 240px 0px" });
+    observer.observe(element);
+    return () => { active = false; observer.disconnect(); };
+  }, [embedded, nextCursor, loadingMore, moreErr, q.isError, all.length]);
 
   return (
     <div ref={feedRoot}>
-      {target && !found && !searching && !q.isLoading && <p className="mb-3 text-sm text-muted-foreground" data-testid="text-source-missing">That note is no longer in the inbox.</p>}
+      {target && !found && !nextCursor && !q.isLoading && !q.isError && <p className="mb-3 text-sm text-muted-foreground" data-testid="text-source-missing">That note is no longer in the inbox.</p>}
+      {searching && <p role="status" className="mb-3 text-sm text-muted-foreground">Looking for the linked note…</p>}
       {q.isLoading ? (
         <div className="space-y-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-28 w-full" />)}</div>
-      ) : q.isError ? (
+      ) : q.isError && !q.data ? (
         <div className="rounded-lg border border-destructive/40 p-5 text-sm">
           Could not load events. <button className="underline" data-testid="button-retry" onClick={() => q.refetch()}>Retry</button>
         </div>
@@ -132,14 +125,19 @@ export function InboxFeed({ embedded = false, selectedNote = null }: { embedded?
           <Link href="/webhooks" data-testid="link-setup" className="mt-5 inline-block rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground">Set up a webhook</Link>
         </div>
       ) : (
-        <div className="space-y-3">
+        <FeedScrollAnchor embedded={embedded} target={target}>
+        <div className="space-y-3" aria-busy={loadingMore}>
           {displayed.map((e) => <EventCard key={e.id} e={e} items={byEvent.get(e.id) ?? []} job={jobs.get(e.id)} highlight={e.id === target} embedded={embedded} localPending={localPending.has(e.id)} />)}
-          {nextCursor && (
-            <button type="button" onClick={loadMore} disabled={loadingMore} data-testid="button-load-more" className="w-full rounded-md border border-border py-2 text-sm text-muted-foreground hover:bg-secondary disabled:opacity-50">
-              {loadingMore ? "Loading..." : moreErr ? "Failed, try again" : "Load older events"}
-            </button>
-          )}
+          <div ref={sentinel} aria-hidden="true" className="h-px" data-testid="inbox-bottom-sentinel" />
+          <div role="status" aria-live="polite" className="text-center text-xs text-muted-foreground">
+            {loadingMore ? "Loading older messages…" : moreErr ? "Could not load older messages. Retry below." : !nextCursor ? "You’ve reached the beginning of your messages." : ""}
+          </div>
+          <button type="button" onClick={() => void loadMore(true)} aria-disabled={loadingMore || !nextCursor} tabIndex={nextCursor ? 0 : -1} data-testid="button-load-more" className="w-full rounded-md border border-border py-2 text-sm text-muted-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:opacity-50">
+            {loadingMore ? "Loading…" : moreErr ? "Retry loading older messages" : nextCursor ? "Load older messages" : "All messages loaded"}
+          </button>
+          {q.isError && <p role="alert" className="text-sm text-destructive">Could not refresh messages. <button type="button" className="underline" onClick={() => q.refetch()}>Retry refresh</button></p>}
         </div>
+        </FeedScrollAnchor>
       )}
     </div>
   );

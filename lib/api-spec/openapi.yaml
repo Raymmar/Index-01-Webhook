@@ -154,12 +154,15 @@ paths:
       parameters:
         - { name: before, in: query, schema: { type: string } }
         - { name: view, in: query, schema: { type: string, enum: [all, notes] } }
+        - { name: pageSize, in: query, description: "Maximum messages per page; defaults to 50 for existing callers", schema: { type: integer, minimum: 1, maximum: 50 } }
       responses:
         "200":
           description: Latest received events
           content:
             application/json:
               schema: { $ref: "#/components/schemas/EventPage" }
+        "400":
+          description: Invalid page size or cursor
   /events/stream:
     get:
       operationId: streamEvents

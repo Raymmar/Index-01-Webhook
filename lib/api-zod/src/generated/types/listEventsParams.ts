@@ -10,4 +10,10 @@ import type { ListEventsView } from './listEventsView';
 export type ListEventsParams = {
 before?: string;
 view?: ListEventsView;
+/**
+ * Maximum messages per page; defaults to 50 for existing callers
+ * @minimum 1
+ * @maximum 50
+ */
+pageSize?: number;
 };

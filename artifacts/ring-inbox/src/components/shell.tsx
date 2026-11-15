@@ -177,7 +177,7 @@ export function Shell({ children }: { children: ReactNode }) {
             document.querySelector<HTMLButtonElement>('button[data-testid="link-inbox"]')?.focus();
           }} />
         </header>
-        <div tabIndex={0} aria-label="Incoming message feed" className="max-h-[50dvh] min-h-0 overflow-y-auto overscroll-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:max-h-none lg:flex-1">
+        <div data-inbox-scroll tabIndex={0} aria-label="Incoming message feed" className="max-h-[50dvh] min-h-0 overflow-y-auto overscroll-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:max-h-none lg:flex-1">
           <InboxFeed embedded selectedNote={selectedNote} />
         </div>
       </section>}
@@ -191,7 +191,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <SheetTitle className="font-display text-3xl font-normal">Incoming messages</SheetTitle>
             <CloseInboxButton onClick={() => setInboxOpen(false)} />
           </header>
-          <div tabIndex={0} aria-label="Incoming message feed" className="min-h-0 flex-1 overflow-y-auto overscroll-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <div data-inbox-scroll tabIndex={0} aria-label="Incoming message feed" className="min-h-0 flex-1 overflow-y-auto overscroll-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <InboxFeed embedded selectedNote={selectedNote} />
           </div>
         </SheetContent>

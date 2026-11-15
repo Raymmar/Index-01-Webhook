@@ -74,29 +74,38 @@ router.get("/events/stream", async (_req, res): Promise<void> => {
 router.get("/events", async (req, res): Promise<void> => {
   const query = ListEventsQueryParams.safeParse(req.query);
   if (!query.success) { res.status(400).json({ error: "Invalid query" }); return; }
+  const pageSize = query.data.pageSize ?? 50;
   let older;
   if (query.data.before) {
-    const [time, id] = query.data.before.split("|");
+    const [time, id, extra] = query.data.before.split("|");
     const date = new Date(time!);
-    if (!id || !Number.isFinite(date.getTime())) { res.status(400).json({ error: "Invalid cursor" }); return; }
-    older = or(lt(eventsTable.receivedAt, date), and(eq(eventsTable.receivedAt, date), lt(eventsTable.id, id)));
+    if (!id || extra !== undefined || !Number.isFinite(date.getTime())) { res.status(400).json({ error: "Invalid cursor" }); return; }
+    // PostgreSQL defaults have microsecond precision; Date only retains millis.
+    // Preserve the remaining digits or manual notes can be skipped at a boundary.
+    const micros = time!.match(/\.(\d{1,6})Z$/)?.[1]?.slice(3).padEnd(3, "0") ?? "000";
+    const timestamp = date.toISOString().replace(/Z$/, `${micros}Z`);
+    older = or(sql`${eventsTable.receivedAt} < ${timestamp}::timestamptz`,
+      and(sql`${eventsTable.receivedAt} = ${timestamp}::timestamptz`, lt(eventsTable.id, id)));
   }
-  const rows = await db.select({ event: eventsTable, webhookName: webhooksTable.name }).from(eventsTable)
+  const rows = await db.select({
+    event: eventsTable, webhookName: webhooksTable.name,
+    cursorTime: sql<string>`to_char(${eventsTable.receivedAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+  }).from(eventsTable)
     .leftJoin(webhooksTable, eq(eventsTable.webhookId, webhooksTable.id))
     .where(and(eq(eventsTable.ownerId, res.locals.ownerId), older,
       query.data.view === "notes" ? and(
         sql`NOT EXISTS (SELECT 1 FROM ${actionsTable} WHERE ${actionsTable.sourceEventId} = ${eventsTable.id} AND ${actionsTable.ownerId} = ${eventsTable.ownerId} AND ${actionsTable.removedAt} IS NULL)`,
       ) : undefined,
     ))
-    .orderBy(desc(eventsTable.receivedAt), desc(eventsTable.id)).limit(51);
-  const items = rows.slice(0, 50).map(({ event, webhookName }) => ({
+    .orderBy(desc(eventsTable.receivedAt), desc(eventsTable.id)).limit(pageSize + 1);
+  const items = rows.slice(0, pageSize).map(({ event, webhookName }) => ({
     id: event.id, webhookId: event.webhookId, webhookName: webhookName ?? "Manual", receivedAt: event.receivedAt.toISOString(),
     recordedAt: event.recordedAt?.toISOString() ?? null, kind: event.kind,
     transcription: event.transcription, audioSize: event.audioSize,
     audioUrl: event.audioPath ? `/api/events/${event.id}/audio` : null, payload: event.payload,
   }));
   const last = items.at(-1);
-  res.json(ListEventsResponse.parse({ items, nextCursor: rows.length > 50 && last ? `${last.receivedAt}|${last.id}` : null }));
+  res.json(ListEventsResponse.parse({ items, nextCursor: rows.length > pageSize && last ? `${rows[pageSize - 1]!.cursorTime}|${last.id}` : null }));
 });
 
 router.get("/events/:id/audio", async (req, res): Promise<void> => {

@@ -1100,7 +1100,7 @@ export const getListEventsQueryKey = (params?: ListEventsParams,) => {
     }
 
 
-export const getListEventsQueryOptions = <TData = Awaited<ReturnType<typeof listEvents>>, TError = ErrorType<unknown>>(params?: ListEventsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listEvents>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+export const getListEventsQueryOptions = <TData = Awaited<ReturnType<typeof listEvents>>, TError = ErrorType<void>>(params?: ListEventsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listEvents>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -1119,10 +1119,10 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type ListEventsQueryResult = NonNullable<Awaited<ReturnType<typeof listEvents>>>
-export type ListEventsQueryError = ErrorType<unknown>
+export type ListEventsQueryError = ErrorType<void>
 
 
-export function useListEvents<TData = Awaited<ReturnType<typeof listEvents>>, TError = ErrorType<unknown>>(
+export function useListEvents<TData = Awaited<ReturnType<typeof listEvents>>, TError = ErrorType<void>>(
  params: undefined |  ListEventsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listEvents>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof listEvents>>,
@@ -1132,7 +1132,7 @@ export function useListEvents<TData = Awaited<ReturnType<typeof listEvents>>, TE
       >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useListEvents<TData = Awaited<ReturnType<typeof listEvents>>, TError = ErrorType<unknown>>(
+export function useListEvents<TData = Awaited<ReturnType<typeof listEvents>>, TError = ErrorType<void>>(
  params?: ListEventsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listEvents>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof listEvents>>,
@@ -1142,12 +1142,12 @@ export function useListEvents<TData = Awaited<ReturnType<typeof listEvents>>, TE
       >, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useListEvents<TData = Awaited<ReturnType<typeof listEvents>>, TError = ErrorType<unknown>>(
+export function useListEvents<TData = Awaited<ReturnType<typeof listEvents>>, TError = ErrorType<void>>(
  params?: ListEventsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listEvents>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 
-export function useListEvents<TData = Awaited<ReturnType<typeof listEvents>>, TError = ErrorType<unknown>>(
+export function useListEvents<TData = Awaited<ReturnType<typeof listEvents>>, TError = ErrorType<void>>(
  params?: ListEventsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listEvents>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
