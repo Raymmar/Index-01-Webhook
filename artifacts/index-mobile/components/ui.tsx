@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { Animated, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View, type GestureResponderHandlers, type TextInputProps, type TextProps } from 'react-native';
+import { Animated, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View, type GestureResponderHandlers, type TextInputProps, type TextProps, type ViewProps } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollViewCompat } from './KeyboardAwareScrollViewCompat';
@@ -50,9 +50,9 @@ export function errorMessage(error: unknown): string {
   const e = error as { data?: { error?: string; message?: string }; errors?: { longMessage?: string; message?: string }[]; message?: string } | null;
   return e?.errors?.[0]?.longMessage || e?.errors?.[0]?.message || e?.data?.error || e?.data?.message || e?.message || 'Could not load. Please try again.';
 }
-export function Sheet({ visible, title, onClose, children, panHandlers }: { visible: boolean; title: string; onClose: () => void; children: ReactNode; panHandlers?: GestureResponderHandlers }) {
+export function Sheet({ visible, title, onClose, children, panHandlers }: { visible: boolean; title: string; onClose: () => void; children: ReactNode; panHandlers?: GestureResponderHandlers & Pick<ViewProps, 'onTouchStart' | 'onTouchMove' | 'onTouchEnd' | 'onTouchCancel'> }) {
   const insets = useSafeAreaInsets();
-  return <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}><View style={s.screen} {...panHandlers}><KeyboardAwareScrollViewCompat bottomOffset={30} contentContainerStyle={[s.content, { paddingTop: 22 + (Platform.OS === 'android' ? insets.top : Platform.OS === 'web' ? 67 : 0), paddingBottom: 32 + insets.bottom }]}><View style={s.between}><Text style={s.subheading}>{title}</Text><IconButton name="x" label="Close" onPress={onClose} /></View>{children}</KeyboardAwareScrollViewCompat></View></Modal>;
+  return <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}><View style={s.screen}><KeyboardAwareScrollViewCompat {...panHandlers} directionalLockEnabled bottomOffset={30} contentContainerStyle={[s.content, { paddingTop: 22 + (Platform.OS === 'android' ? insets.top : Platform.OS === 'web' ? 67 : 0), paddingBottom: 32 + insets.bottom }]}><View style={s.between}><Text style={s.subheading}>{title}</Text><IconButton name="x" label="Close" onPress={onClose} /></View>{children}</KeyboardAwareScrollViewCompat></View></Modal>;
 }
 export function Confirm({ title, message, onConfirm, onClose, pending, error }: { title: string; message: string; onConfirm: () => void; onClose: () => void; pending?: boolean; error?: unknown }) {
   return <Sheet visible title={title} onClose={() => { if (!pending) onClose(); }}><Copy>{message}</Copy>{!!error && <Text style={s.error}>{errorMessage(error)}</Text>}<Button label={pending ? 'Saving…' : title} danger disabled={pending} onPress={onConfirm} /><Button label="Cancel" quiet disabled={pending} onPress={onClose} /></Sheet>;

@@ -26,6 +26,7 @@ export function ItemEditor({ item: initialItem, tasks = [], tz, onClose }: { ite
   const [savedTasks, setSavedTasks] = useState<Record<string, ActionItem>>({});
   const [pendingNavigation, setPendingNavigation] = useState<ActionItem | 'close' | null>(null);
   const saving = useRef(false);
+  const titleFocused = useRef(false);
   const [title, setTitle] = useState(item?.title ?? '');
   const [due, setDue] = useState<Date | null>(item?.dueAt ? new Date(item.dueAt) : null);
   const [picker, setPicker] = useState<'date' | 'time' | null>(null);
@@ -89,24 +90,20 @@ export function ItemEditor({ item: initialItem, tasks = [], tz, onClose }: { ite
     else create.mutate({ data: { title: title.trim(), dueAt } }, options);
   };
   return <Sheet visible title={item ? 'Edit task' : 'New task'} onClose={() => requestNavigation('close')} panHandlers={swipe.panHandlers}>
-    {item && index >= 0 && taskOrder.length > 1 && <View style={s.between}>
-      <IconButton name="chevron-left" label="Previous task" disabled={busy || !!pendingNavigation || index === 0} onPress={() => move('previous')} />
-      <Text style={s.muted}>{index + 1} of {taskOrder.length}</Text>
-      <IconButton name="chevron-right" label="Next task" disabled={busy || !!pendingNavigation || index === taskOrder.length - 1} onPress={() => move('next')} />
-    </View>}
+    {item && index >= 0 && taskOrder.length > 1 && <Text style={s.muted}>{index + 1} of {taskOrder.length}</Text>}
     {!!pendingNavigation && <View style={s.card} onTouchStart={swipe.blockSwipe}>
       <Copy>Save changes before {pendingNavigation === 'close' ? 'closing' : 'switching tasks'}?</Copy>
       <Button label={busy ? 'Saving…' : 'Save changes'} disabled={busy || !title.trim()} onPress={() => save(pendingNavigation)} />
       <Button label="Discard changes" quiet disabled={busy} onPress={() => navigate(pendingNavigation)} />
       <Button label="Keep editing" quiet disabled={busy} onPress={() => setPendingNavigation(null)} />
     </View>}
-    <Text style={s.label}>Task</Text><View onTouchStart={swipe.blockSwipe}><Field accessibilityLabel="Task title" placeholder="What needs doing?" value={title} onChangeText={setTitle} editable={!busy && !pendingNavigation} multiline maxLength={500} style={{ minHeight: 105, textAlignVertical: 'top', lineHeight: 26 }} /></View>
+    <Text style={s.label}>Task</Text><View onTouchStart={() => { if (titleFocused.current) swipe.blockSwipe(); }}><Field accessibilityLabel="Task title" placeholder="What needs doing?" value={title} onChangeText={setTitle} onFocus={() => { titleFocused.current = true; swipe.blockSwipe(); }} onBlur={() => { titleFocused.current = false; }} editable={!busy && !pendingNavigation} multiline maxLength={500} style={{ minHeight: 105, textAlignVertical: 'top', lineHeight: 26 }} /></View>
     <Text style={s.label}>Due date</Text>
-    <View onTouchStart={swipe.blockSwipe} pointerEvents={busy || pendingNavigation ? 'none' : 'auto'} style={{ gap: 12 }}>
-    {Platform.OS === 'web' ? <><Field accessibilityLabel="Due date in saved timezone" placeholder="YYYY-MM-DDTHH:mm" autoCapitalize="none" value={webDate} onChangeText={setWebDate} /><Text style={s.muted}>Browser preview uses typed dates. The iOS app uses the native date and time picker.</Text></> : <View style={s.card}>
+    <View pointerEvents={busy || pendingNavigation ? 'none' : 'auto'} style={{ gap: 12 }}>
+    {Platform.OS === 'web' ? <><View onTouchStart={swipe.blockSwipe}><Field accessibilityLabel="Due date in saved timezone" placeholder="YYYY-MM-DDTHH:mm" autoCapitalize="none" value={webDate} onChangeText={setWebDate} /></View><Text style={s.muted}>Browser preview uses typed dates. The iOS app uses the native date and time picker.</Text></> : <View style={s.card}>
       <View style={s.between}><Copy>{due ? formatInTimeZone(due, tz, 'EEE, MMM d · h:mm a') : 'No date'}</Copy>{due && <IconButton name="x" label="Clear date" onPress={() => { setDue(null); setPicker(null); }} />}</View>
       <View style={s.row}><Button label={due ? 'Change date' : 'Add date'} quiet onPress={() => { if (!due) setDue(new Date()); setPicker('date'); }} /><Button label="Set time" quiet onPress={() => { if (!due) setDue(new Date()); setPicker('time'); }} /></View>
-      {picker && <DateTimePicker value={due ?? new Date()} mode={picker} display={Platform.OS === 'ios' ? 'spinner' : 'default'} timeZoneName={tz} themeVariant="light" textColor={c.foreground} accentColor={c.accent} onChange={(event, date) => { if (Platform.OS === 'android') setPicker(null); if (event.type !== 'dismissed' && date) setDue(date); }} />}
+      {picker && <View onTouchStart={swipe.blockSwipe}><DateTimePicker value={due ?? new Date()} mode={picker} display={Platform.OS === 'ios' ? 'spinner' : 'default'} timeZoneName={tz} themeVariant="light" textColor={c.foreground} accentColor={c.accent} onChange={(event, date) => { if (Platform.OS === 'android') setPicker(null); if (event.type !== 'dismissed' && date) setDue(date); }} /></View>}
     </View>}
     </View>
     <Text style={s.muted}>{tz.replaceAll('_', ' ')}</Text>{!!error && <Text style={s.error}>{error}</Text>}
