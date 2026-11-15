@@ -6,6 +6,8 @@ import { IconButton, s, c, errorMessage } from './ui';
 import { origin } from '@/lib/session';
 
 const time = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+// Shared across every mounted recording, including recordings in other tabs.
+let currentPlayback: { owner: object; pause: () => void } | null = null;
 export function Recording({ url }: { url: string }) {
   const { getToken } = useAuth();
   const player = useAudioPlayer(null);
@@ -16,9 +18,22 @@ export function Recording({ url }: { url: string }) {
   const loaded = useRef(false);
   const bearer = useRef<string | null>(null);
   const active = useRef(true);
-  useEffect(() => { active.current = true; return () => { active.current = false; if (blob.current) URL.revokeObjectURL(blob.current); }; }, []);
+  const owner = useRef<object>({});
+  useEffect(() => { active.current = true; return () => {
+    active.current = false;
+    if (currentPlayback?.owner === owner.current) currentPlayback = null;
+    if (blob.current) URL.revokeObjectURL(blob.current);
+  }; }, []);
   async function toggle() {
-    if (status.playing) { player.pause(); return; }
+    if (player.playing) {
+      player.pause();
+      if (currentPlayback?.owner === owner.current) currentPlayback = null;
+      return;
+    }
+    currentPlayback?.pause();
+    const request = { owner: owner.current, pause: () => player.pause() };
+    currentPlayback = request;
+    const isCurrent = () => active.current && currentPlayback === request;
     setBusy(true); setError('');
     try {
       if (Platform.OS !== 'web') {
@@ -35,7 +50,7 @@ export function Recording({ url }: { url: string }) {
       if (new URL(uri).origin !== origin) throw new Error('This recording is not hosted by your Index server.');
       const token = await getToken({ skipCache: true });
       if (!token) throw new Error('Sign in again to play this recording.');
-      if (!active.current) return;
+      if (!isCurrent()) return;
       if (!loaded.current || !!status.error || (Platform.OS !== 'web' && bearer.current !== token)) {
         const position = player.currentTime;
         if (Platform.OS === 'web') {
@@ -44,7 +59,7 @@ export function Recording({ url }: { url: string }) {
           const response = await fetch(uri, { headers: { Authorization: `Bearer ${token}` }, credentials: 'omit' });
           if (!response.ok) throw new Error(`Could not load recording (${response.status}).`);
           const bytes = await response.blob();
-          if (!active.current) return;
+          if (!isCurrent()) return;
           if (blob.current) URL.revokeObjectURL(blob.current);
           blob.current = URL.createObjectURL(bytes);
           player.replace({ uri: blob.current });
@@ -52,10 +67,17 @@ export function Recording({ url }: { url: string }) {
         loaded.current = true; bearer.current = token;
         if (position > 0) await player.seekTo(position);
       }
-      if (!active.current) return;
+      if (!isCurrent()) return;
       if (status.didJustFinish || (status.duration > 0 && status.currentTime >= status.duration)) await player.seekTo(0);
+      if (!isCurrent()) return;
       player.play();
-    } catch (e) { if (active.current) { loaded.current = false; setError(errorMessage(e)); } }
+    } catch (e) {
+      if (isCurrent()) {
+        currentPlayback = null;
+        loaded.current = false;
+        setError(errorMessage(e));
+      }
+    }
     finally { if (active.current) setBusy(false); }
   }
   const ratio = status.duration ? Math.max(0, Math.min(1, status.currentTime / status.duration)) : 0;

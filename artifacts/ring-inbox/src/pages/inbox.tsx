@@ -43,7 +43,12 @@ export function EventCard({ e, items, job, highlight, embedded, localPending }: 
       {e.transcription ? <p className="app-content-text whitespace-pre-wrap break-words" data-testid={`text-transcription-${e.id}`}>{e.transcription}</p> : <p className="text-sm text-muted-foreground">{e.kind === "recording" ? "Transcript unavailable" : "Webhook event received"}</p>}
       {e.audioUrl && (
         <div className="mt-2">
-          <audio controls preload="none" src={e.audioUrl} className="h-8 w-full" data-testid={`audio-${e.id}`} />
+          <audio controls preload="none" src={e.audioUrl} onPlay={event => {
+            const playing = event.currentTarget;
+            playing.ownerDocument.querySelectorAll("audio").forEach(audio => {
+              if (audio !== playing) audio.pause();
+            });
+          }} className="h-8 w-full" data-testid={`audio-${e.id}`} />
         </div>
       )}
       {items.length > 0 && <ul className="mt-2 divide-y divide-border border-t border-border" aria-label="Linked tasks">
