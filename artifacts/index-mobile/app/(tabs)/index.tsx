@@ -9,6 +9,7 @@ import { useGetOrganizer, useGetSettings, useUpdateItem, useDeleteItem, getGetOr
 import { Page, Copy, Skeleton, Failure, Empty, IconButton, Button, Confirm, Sheet, s, c, errorMessage } from '@/components/ui';
 import { ItemEditor } from '@/components/item-editor';
 import { deviceZone, useLive } from '@/lib/session';
+import { useHorizontalSwipe } from '@/hooks/use-horizontal-swipe';
 
 type TaskStatus = 'open' | 'completed' | 'dismissed';
 const statusLabels: Record<TaskStatus, string> = { open: 'Open', completed: 'Completed', dismissed: 'Dismissed' };
@@ -44,6 +45,7 @@ export default function Dashboard() {
   const [week, setWeek] = useState(0);
   const [date, setDate] = useState<string | null>(null);
   const [editor, setEditor] = useState<ActionItem | 'new' | null>(null);
+  const [editorTasks, setEditorTasks] = useState<ActionItem[]>([]);
   const [menu, setMenu] = useState<ActionItem | null>(null);
   const [confirm, setConfirm] = useState<{ item: ActionItem; kind: 'note' | 'dismiss' } | null>(null);
   const [error, setError] = useState('');
@@ -63,8 +65,17 @@ export default function Dashboard() {
   const days = Array.from({ length: 7 }, (_, i) => addDays(first, i));
   const dayOf = (value: string) => formatInTimeZone(value, tz, 'yyyy-MM-dd');
   const visible = items.filter(i => i.status === status && (filter === 'all' || (filter === 'scheduled' ? !!i.dueAt : !i.dueAt)) && (!date || (!!i.dueAt && dayOf(i.dueAt) === date))).sort((a, b) => a.dueAt && b.dueAt ? a.dueAt.localeCompare(b.dueAt) || b.createdAt.localeCompare(a.createdAt) : a.dueAt ? -1 : b.dueAt ? 1 : b.createdAt.localeCompare(a.createdAt));
+  function openEditor(item: ActionItem) {
+    setEditorTasks([...visible]);
+    setEditor(item);
+  }
+  function changeWeek(direction: 'next' | 'previous') {
+    setWeek(w => w + (direction === 'next' ? 1 : -1));
+    setDate(null);
+  }
+  const calendarSwipe = useHorizontalSwipe(changeWeek);
   return <Page compact title="Dashboard" action={<View style={[s.row, { gap: 4 }]}><View style={[s.row, { gap: 5 }]}><View style={{ height: 5, width: 5, borderRadius: 3, backgroundColor: live === 'live' ? c.accent : c.mutedForeground }} /><Text style={[s.muted, { fontSize: 10 }]}>{live === 'live' ? 'Live' : live === 'paused' ? 'Paused' : 'Connecting'}</Text></View><IconButton name="plus" label="New task" onPress={() => setEditor('new')} /></View>}>
-    <View style={[s.card, { padding: 4, gap: 2 }]}>
+    <View testID="swipe-week-calendar" {...calendarSwipe.panHandlers} style={[s.card, { padding: 4, gap: 2 }]}>
       <View style={[s.between, { gap: 4 }]}><IconButton name="chevron-left" label="Previous week" onPress={() => { setWeek(w => w - 1); setDate(null); }} /><Text style={s.muted}>{format(first, 'MMM d')} – {format(days[6], 'MMM d')}</Text><IconButton name="chevron-right" label="Next week" onPress={() => { setWeek(w => w + 1); setDate(null); }} /></View>
       <View style={{ flexDirection: 'row' }}>{days.map(day => {
         const key = format(day, 'yyyy-MM-dd'); const count = open.filter(i => i.dueAt && dayOf(i.dueAt) === key).length;
@@ -81,13 +92,13 @@ export default function Dashboard() {
       <View style={[s.card, { padding: 0, gap: 0 }]}>{visible.map((item, i) => <View key={item.id} style={{ padding: 14, borderTopWidth: i ? 1 : 0, borderTopColor: c.border }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 7 }}>
           <IconButton name={item.status === 'completed' ? 'check-circle' : item.status === 'dismissed' ? 'rotate-ccw' : 'circle'} label={`${item.status === 'open' ? 'Complete' : 'Reopen'} ${item.title}`} disabled={update.isPending} onPress={() => patch(item, { status: item.status === 'open' ? 'completed' : 'open' })} color={item.status === 'completed' ? c.success : c.mutedForeground} />
-          <Pressable accessibilityRole="button" accessibilityLabel={`Edit ${item.title}`} style={{ flex: 1, paddingTop: 9, gap: 6 }} onPress={() => setEditor(item)}><Copy style={{ fontSize: 16, lineHeight: 25, textDecorationLine: item.status !== 'open' ? 'line-through' : 'none', color: item.status !== 'open' ? c.mutedForeground : c.foreground }}>{item.title}</Copy><Text style={[s.muted, { color: item.dueAt && item.status === 'open' && new Date(item.dueAt).getTime() < Date.now() ? c.accent : c.mutedForeground }]}>{item.dueAt ? `${new Date(item.dueAt).getTime() < Date.now() && item.status === 'open' ? 'Overdue · ' : ''}${formatInTimeZone(item.dueAt, tz, 'MMM d · h:mm a')}` : 'No date'}</Text>{item.needsReview && <Text style={{ ...s.muted, color: c.accent }}>Check time{item.originalTimeText ? `: “${item.originalTimeText}”` : ''}</Text>}</Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Edit ${item.title}`} style={{ flex: 1, paddingTop: 9, gap: 6 }} onPress={() => openEditor(item)}><Copy style={{ fontSize: 16, lineHeight: 25, textDecorationLine: item.status !== 'open' ? 'line-through' : 'none', color: item.status !== 'open' ? c.mutedForeground : c.foreground }}>{item.title}</Copy><Text style={[s.muted, { color: item.dueAt && item.status === 'open' && new Date(item.dueAt).getTime() < Date.now() ? c.accent : c.mutedForeground }]}>{item.dueAt ? `${new Date(item.dueAt).getTime() < Date.now() && item.status === 'open' ? 'Overdue · ' : ''}${formatInTimeZone(item.dueAt, tz, 'MMM d · h:mm a')}` : 'No date'}</Text>{item.needsReview && <Text style={{ ...s.muted, color: c.accent }}>Check time{item.originalTimeText ? `: “${item.originalTimeText}”` : ''}</Text>}</Pressable>
           <IconButton name="more-horizontal" label={`Actions for ${item.title}`} onPress={() => { setError(''); setMenu(item); }} />
         </View>
       </View>)}</View>}
     <Text style={s.muted}>{tz.replaceAll('_', ' ')}</Text>
-    {editor && <ItemEditor item={editor === 'new' ? undefined : editor} tz={tz} onClose={() => setEditor(null)} />}
-    {!!menu && <Sheet visible title="Task actions" onClose={() => setMenu(null)}><Copy>{menu.title}</Copy><Button label="Edit task" quiet onPress={() => { setEditor(menu); setMenu(null); }} /><Button label="Original message" quiet onPress={() => { router.navigate({ pathname: '/inbox', params: { focus: menu.sourceEventId } }); setMenu(null); }} /><Button label={menu.status === 'dismissed' ? 'Restore task' : 'Dismiss task'} quiet disabled={update.isPending} onPress={() => menu.status === 'dismissed' ? patch(menu, { status: 'open' }) : (setConfirm({ item: menu, kind: 'dismiss' }), setMenu(null))} /><Button label="Make a note" quiet onPress={() => { setConfirm({ item: menu, kind: 'note' }); setMenu(null); }} />{!!error && <Text style={s.error}>{error}</Text>}</Sheet>}
+    {editor && <ItemEditor item={editor === 'new' ? undefined : editor} tasks={editorTasks} tz={tz} onClose={() => setEditor(null)} />}
+    {!!menu && <Sheet visible title="Task actions" onClose={() => setMenu(null)}><Copy>{menu.title}</Copy><Button label="Edit task" quiet onPress={() => { openEditor(menu); setMenu(null); }} /><Button label="Original message" quiet onPress={() => { router.navigate({ pathname: '/inbox', params: { focus: menu.sourceEventId } }); setMenu(null); }} /><Button label={menu.status === 'dismissed' ? 'Restore task' : 'Dismiss task'} quiet disabled={update.isPending} onPress={() => menu.status === 'dismissed' ? patch(menu, { status: 'open' }) : (setConfirm({ item: menu, kind: 'dismiss' }), setMenu(null))} /><Button label="Make a note" quiet onPress={() => { setConfirm({ item: menu, kind: 'note' }); setMenu(null); }} />{!!error && <Text style={s.error}>{error}</Text>}</Sheet>}
     {!!confirm && <Confirm title={confirm.kind === 'note' ? 'Make a note' : 'Dismiss task'} message={confirm.kind === 'note' ? 'Remove this task’s action and due date. The original message and audio remain in your inbox.' : 'Move this task out of your open list. You can restore it later.'} pending={update.isPending || del.isPending} error={error || undefined} onClose={() => { setConfirm(null); setError(''); }} onConfirm={() => confirm.kind === 'note' ? del.mutate({ id: confirm.item.id }, { onSuccess: () => { invalidate(); setConfirm(null); }, onError: e => setError(errorMessage(e)) }) : patch(confirm.item, { status: 'dismissed' })} />}
   </Page>;
 }
