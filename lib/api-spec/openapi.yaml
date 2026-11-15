@@ -38,7 +38,7 @@ paths:
       operationId: getOrganizer
       responses:
         "200":
-          description: Account-scoped tasks, reminders and processing states
+          description: Actionable inbox items and processing states
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Organizer" }
@@ -234,8 +234,8 @@ components:
       required: [id, sourceEventId, kind, title, dueAt, timezone, status, needsReview, originalTimeText, createdAt]
       properties:
         id: { type: string }
-        sourceEventId: { type: [string, "null"] }
-        kind: { type: string, enum: [task, reminder] }
+        sourceEventId: { type: string, description: Same identifier as the original inbox item }
+        kind: { type: string, enum: [task] }
         title: { type: string }
         dueAt: { type: [string, "null"] }
         timezone: { type: string }
@@ -245,9 +245,9 @@ components:
         createdAt: { type: string }
     ItemInput:
       type: object
-      required: [kind, title]
+      required: [title]
       properties:
-        kind: { type: string, enum: [task, reminder] }
+        kind: { type: string, enum: [task, reminder], deprecated: true, description: Accepted for older clients; all actionable messages are tasks }
         title: { type: string, minLength: 1, maxLength: 500 }
         dueAt: { type: [string, "null"] }
     ItemUpdate:
@@ -302,7 +302,7 @@ components:
       required: [id, webhookId, webhookName, receivedAt, recordedAt, kind, transcription, audioUrl, audioSize, payload]
       properties:
         id: { type: string }
-        webhookId: { type: string }
+        webhookId: { type: [string, "null"] }
         webhookName: { type: string }
         receivedAt: { type: string }
         recordedAt: { type: [string, "null"] }

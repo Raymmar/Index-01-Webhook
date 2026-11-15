@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startUnderstandingWorker } from "./lib/understanding-worker";
+import { migrateUnifiedItems } from "./lib/unified-items";
 
 const rawPort = process.env["PORT"];
 
@@ -16,6 +17,7 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+await migrateUnifiedItems();
 app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");

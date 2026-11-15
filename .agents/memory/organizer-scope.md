@@ -3,12 +3,13 @@ name: Organizer product scope
 description: User-approved direction for future AI organization and remix ownership.
 ---
 
-The original webhook is the note. AI must never create additional notes from it;
-one webhook may produce multiple tasks and reminders.
-
-Provide a Notes view for original messages that produce no task or reminder.
-Do not create a second note record for that view.
-**Why:** The user needs to find non-actionable voice notes separately.
+Use ONE inbox-item primitive. A message is a note by default; an explicit action
+makes that same item a task; a due date makes it scheduled. These are attributes
+and filtered views of the same item, never separate extracted records.
+Tasks has All, Scheduled, and Unscheduled filters; Notes filters non-actionable
+inbox items. Keep transcript, audio, status, and date together.
+**Why:** The user explicitly replaced the earlier multi-extraction model:
+"these are just distinctions on the same item. They're not a bunch of different items."
 
 Use UTC for reminder instants and localized display. Detect the owner's timezone,
 save it, and provide a settings override.
@@ -33,8 +34,8 @@ page. On wide screens it opens between main navigation and page content; on
 small screens it overlays the page. The Inbox nav control toggles it and its
 header offers Close inbox. Original-note links open the message in the drawer.
 Pin the note being processed at the top and highlight it; restore chronological
-placement when processing finishes. Tasks and Reminders
-retain their own pages and share the same item UI with Dashboard. Sort open
+placement when processing finishes. Tasks shares its item UI with Dashboard.
+There is no separate Reminders page. Sort open
 actions by due-date urgency, not arrival time.
 **Why:** The user refined "always available" to a sliding drawer rather than an
 always-open panel or separate Inbox page.

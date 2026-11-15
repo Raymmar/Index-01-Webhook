@@ -11,5 +11,4 @@ export type ActionItemKind = typeof ActionItemKind[keyof typeof ActionItemKind];
 
 export const ActionItemKind = {
   task: 'task',
-  reminder: 'reminder',
 } as const;

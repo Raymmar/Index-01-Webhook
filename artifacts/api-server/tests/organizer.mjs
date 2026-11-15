@@ -28,7 +28,8 @@ import inbox from "./src/routes/inbox";
 import receive from "./src/routes/receive";
 import { accountFor } from "./src/lib/account";
 import { processNextJob } from "./src/lib/understanding-worker";
-import { resolveDue } from "./src/lib/understanding";
+import { resolveDue, extractActions } from "./src/lib/understanding";
+import { migrateUnifiedItems } from "./src/lib/unified-items";
 import { processingFailure } from "./src/lib/ai-models";
 import { eq } from "drizzle-orm";
 export async function check() {
@@ -86,15 +87,15 @@ export async function check() {
     const job = data.jobs.find(j => j.eventId === receipt.id);
     assert.equal(job.status, "completed", JSON.stringify(job));
     const items = data.items.filter(i => i.sourceEventId === receipt.id);
-    assert.equal(items.filter(i => i.kind === "task").length, 2);
-    assert.equal(items.filter(i => i.kind === "reminder").length, 3);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].id, receipt.id);
+    assert.equal(items[0].kind, "task");
     assert.ok(items.some(i => i.dueAt === "2026-11-15T17:28:00.000Z"));
-    assert.ok(items.some(i => i.dueAt === "2026-11-16T17:00:00.000Z"));
-    assert.ok(items.some(i => i.title.toLowerCase().includes("plants") && i.dueAt === "2026-11-16T16:58:00.000Z" && !i.needsReview));
     assert.equal((await db.select().from(eventsTable)).length, 1);
     await api("/events/" + receipt.id + "/understand", "POST");
     await processNextJob();
-    assert.equal((await db.select().from(itemsTable)).length, items.length);
+    assert.equal((await db.select().from(itemsTable)).length, 0);
+    assert.equal((await (await api("/organizer")).json()).items.length, 1);
     const target = items[0];
     assert.equal((await api("/items/" + target.id, "PATCH", "other", { title: "Wrong owner" })).status, 404);
     assert.equal((await api("/items/" + target.id, "DELETE", "other")).status, 404);
@@ -102,14 +103,19 @@ export async function check() {
     assert.equal((await (await api("/organizer", "GET", "other")).json()).messageCount, 0);
     assert.equal((await api("/items/" + target.id, "PATCH", "owner", { title: "Changed", status: "completed" })).status, 200);
     assert.equal((await api("/items/" + target.id, "PATCH", "owner", { status: "open" })).status, 200);
+    assert.equal((await api("/items/" + target.id, "PATCH", "owner", { dueAt: null })).status, 200);
+    const unscheduled = (await (await api("/organizer")).json()).items[0];
+    assert.equal(unscheduled.dueAt, null);
+    assert.equal(unscheduled.needsReview, false);
+    assert.equal(unscheduled.id, receipt.id);
     assert.equal((await api("/items/" + target.id, "DELETE")).status, 204);
     assert.equal((await db.select().from(eventsTable)).length, 1);
+    assert.equal((await (await api("/events?view=notes")).json()).items[0].id, receipt.id);
     assert.equal((await api("/items", "POST", "owner", { kind: "reminder", title: "Manual", dueAt: "2026-11-20T09:00:00Z" })).status, 201);
     assert.equal((await api("/items", "POST", "owner", { kind: "reminder", title: "Bad", dueAt: "2026-11-20T09:00" })).status, 400);
     const ambiguous = { kind: "reminder", title: "DST", localDueAt: "2027-03-14T02:30", minutesFromRecording: null, originalTimeText: "2:30", needsReview: false };
     assert.equal(resolveDue(ambiguous, new Date(), "America/Los_Angeles").needsReview, true);
-    // Notes are original events, filtered before pagination; unfinished jobs
-    // and messages with linked actions must not be classified as plain notes.
+    // All messages are notes by default; tasks are a filtered view of them.
     const [original] = await db.select().from(eventsTable).where(eq(eventsTable.id, receipt.id));
     const noteFixtures = Array.from({length: 54}, (_, index) => ({
       ...original, id: "plain-note-" + index,
@@ -124,20 +130,52 @@ export async function check() {
     const notesPage = await (await api("/events?view=notes")).json();
     assert.equal(notesPage.items.length, 50);
     assert.ok(notesPage.nextCursor);
-    assert.ok(notesPage.items.every(event => event.id.startsWith("plain-note-") && !["plain-note-0", "plain-note-1", "plain-note-53"].includes(event.id)));
+    assert.ok(notesPage.items.every(event => event.id.startsWith("plain-note-") || event.id === receipt.id));
     const olderNotes = await (await api("/events?view=notes&before=" + encodeURIComponent(notesPage.nextCursor))).json();
-    assert.equal(olderNotes.items.length, 1);
+    assert.equal(olderNotes.items.length, 5);
     assert.equal(olderNotes.nextCursor, null);
-    assert.equal(new Set([...notesPage.items, ...olderNotes.items].map(e => e.id)).size, 51);
+    assert.equal(new Set([...notesPage.items, ...olderNotes.items].map(e => e.id)).size, 55);
     assert.equal((await (await api("/events?view=notes", "GET", "other")).json()).items.length, 0);
     assert.equal((await api("/events?view=invalid")).status, 400);
     console.log("PASS: notes classification, original-event retention, pagination and account isolation");
     ambiguous.localDueAt = "2026-11-01T01:30";
     assert.equal(resolveDue(ambiguous, new Date(), "America/Los_Angeles").needsReview, true);
+    const input = { recordedAt: new Date("2026-11-15T16:58:00Z"), timezone: "America/Los_Angeles", provider: "replit", model: "gpt-5-mini" };
+    assert.deepEqual(await extractActions({ ...input, transcript: "Index webhook test event" }), []);
+    assert.deepEqual(await extractActions({ ...input, transcript: "I like warm colors. Maybe someday a new dashboard could be interesting. It is Tuesday at nine." }), []);
+    const dated = await extractActions({ ...input, transcript: "Remind me tomorrow to call Sam." });
+    assert.equal(dated.length, 1);
+    assert.equal(dated[0].dueAt.toISOString(), "2026-11-16T16:58:00.000Z");
+    const noDate = await extractActions({ ...input, transcript: "I need to buy printer paper." });
+    assert.equal(noDate.length, 1);
+    assert.equal(noDate[0].dueAt, null);
+
+    // Migration preserves originals and dates, archives old rows, and is idempotent.
+    await db.insert(eventsTable).values({ ...original, id: "legacy-message", unifiedAt: null });
+    await db.insert(eventsTable).values({ ...original, id: "legacy-test", transcription: "Index webhook test event", unifiedAt: null });
+    await db.insert(itemsTable).values([
+      {id:"legacy-a",ownerId:"owner",sourceEventId:"legacy-message",kind:"task",title:"First action",timezone:"America/Los_Angeles",status:"completed"},
+      {id:"legacy-b",ownerId:"owner",sourceEventId:"legacy-message",kind:"reminder",title:"Second action",timezone:"America/Los_Angeles",dueAt:new Date("2026-11-20T18:00:00Z")},
+      {id:"legacy-test-action",ownerId:"owner",sourceEventId:"legacy-test",kind:"task",title:"Index webhook test event",timezone:"UTC"},
+      {id:"legacy-manual",ownerId:"owner",sourceEventId:null,kind:"reminder",title:"Manual item",timezone:"UTC",dueAt:new Date("2026-11-21T18:00:00Z")},
+    ]);
+    await migrateUnifiedItems();
+    const once = await db.select().from(eventsTable).where(eq(eventsTable.id,"legacy-message"));
+    assert.equal(once[0].isActionable,true);
+    assert.ok(once[0].actionTitle.includes("First action"));
+    assert.ok(once[0].actionTitle.includes("Second action"));
+    assert.equal(once[0].dueAt.toISOString(),"2026-11-20T18:00:00.000Z");
+    assert.equal(once[0].status,"open");
+    assert.equal((await db.select().from(eventsTable).where(eq(eventsTable.id,"legacy-test")))[0].isActionable,false);
+    assert.equal((await db.select().from(eventsTable).where(eq(eventsTable.id,"legacy-manual")))[0].webhookId,null);
+    await migrateUnifiedItems();
+    assert.deepEqual(await db.select().from(eventsTable).where(eq(eventsTable.id,"legacy-message")),once);
+    assert.equal((await db.select().from(itemsTable)).length,4);
+    console.log("PASS: one message/one item, conservative AI classification, safe idempotent legacy migration");
     await api("/settings", "PATCH", "owner", { allowSignups: false });
     assert.equal((await api("/organizer", "GET", "other")).status, 403);
     console.log("PASS: atomic first owner, access toggle, per-user timezone and owner-only settings");
-    console.log("PASS: real AI extracted two tasks, three reminders; UTC/relative/ambiguous time handling");
+    console.log("PASS: real AI annotates the original item with optional due date");
     console.log("PASS: concurrent workers and repeated processing do not duplicate items or notes");
     console.log("PASS: cross-account isolation, CRUD/undo, original note retention, DST validation");
   } finally {

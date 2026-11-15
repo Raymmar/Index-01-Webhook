@@ -55,8 +55,8 @@ export const GetOrganizerResponse = zod.object({
   "messageCount": zod.number().int().min(getOrganizerResponseMessageCountMin),
   "items": zod.array(zod.object({
   "id": zod.string(),
-  "sourceEventId": zod.string().nullable(),
-  "kind": zod.enum(['task', 'reminder']),
+  "sourceEventId": zod.string().describe('Same identifier as the original inbox item'),
+  "kind": zod.enum(['task']),
   "title": zod.string(),
   "dueAt": zod.string().nullable(),
   "timezone": zod.string(),
@@ -85,15 +85,15 @@ export const createItemBodyTitleMax = 500;
 
 
 export const CreateItemBody = zod.object({
-  "kind": zod.enum(['task', 'reminder']),
+  "kind": zod.enum(['task', 'reminder']).optional().describe('Accepted for older clients; all actionable messages are tasks'),
   "title": zod.string().min(1).max(createItemBodyTitleMax),
   "dueAt": zod.string().nullish()
 })
 
 export const CreateItemResponse = zod.object({
   "id": zod.string(),
-  "sourceEventId": zod.string().nullable(),
-  "kind": zod.enum(['task', 'reminder']),
+  "sourceEventId": zod.string().describe('Same identifier as the original inbox item'),
+  "kind": zod.enum(['task']),
   "title": zod.string(),
   "dueAt": zod.string().nullable(),
   "timezone": zod.string(),
@@ -121,8 +121,8 @@ export const UpdateItemBody = zod.object({
 
 export const UpdateItemResponse = zod.object({
   "id": zod.string(),
-  "sourceEventId": zod.string().nullable(),
-  "kind": zod.enum(['task', 'reminder']),
+  "sourceEventId": zod.string().describe('Same identifier as the original inbox item'),
+  "kind": zod.enum(['task']),
   "title": zod.string(),
   "dueAt": zod.string().nullable(),
   "timezone": zod.string(),
@@ -221,7 +221,7 @@ export const ListEventsQueryParams = zod.object({
 export const ListEventsResponse = zod.object({
   "items": zod.array(zod.object({
   "id": zod.string(),
-  "webhookId": zod.string(),
+  "webhookId": zod.string().nullable(),
   "webhookName": zod.string(),
   "receivedAt": zod.string(),
   "recordedAt": zod.string().nullable(),

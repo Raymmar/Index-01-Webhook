@@ -21,6 +21,8 @@ export const jobsTable = pgTable("understanding_jobs", {
   leaseId: text("lease_id"),
   error: text("error"),
 }, (t) => [index("jobs_owner_idx").on(t.ownerId)]);
+// Legacy extraction archive, retained for lossless migration/history only.
+// Active items are inbox_events with is_actionable=true.
 export const itemsTable = pgTable("action_items", {
   id: text("id").primaryKey(),
   ownerId: text("owner_id").notNull(),

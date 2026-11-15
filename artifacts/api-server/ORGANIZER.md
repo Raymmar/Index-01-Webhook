@@ -1,7 +1,19 @@
 # Ring understanding layer
 
-The original webhook is the only note. The understanding layer creates linked
-tasks and reminders, never another note and never external side effects.
+The original inbox message is the only item. AI annotates that row with
+isActionable, actionTitle, and optional dueAt; it never creates another action
+record. Notes means not actionable; Tasks means actionable; Scheduled means
+actionable with a due date. One message containing multiple explicit actions
+receives one summary and its earliest deadline, with the full transcript retained.
+No external side effects are executed.
+
+Legacy action rows are retained as a read-only archive. Startup runs an
+idempotent transaction that attaches their attributes to the original message,
+combines summaries where necessary, and promotes previously manual actions into
+inbox items without a webhook. Existing per-action dates and statuses remain in
+the archive. Known Pebble test labels remain non-actionable. No records are deleted.
+The deprecated API input kind accepts old clients, but every returned action has
+the same ID as its inbox item. Removing the action converts it back to a note.
 
 ## Provider configuration
 
@@ -27,7 +39,8 @@ permits overrides. Extraction anchors relative dates to receivedAt.
 Date-only cues use the receipt's local hour/minute on the specified day; morning,
 afternoon, evening, and tonight default to 09:00, 13:00, 18:00, and 20:00.
 Explicit times take precedence. Resolved dates are stored as timestamptz/UTC.
-Missing time cues, contradictory instructions, or invalid DST times require review. Changes to the display timezone do not
+Missing time cues leave tasks unscheduled. Contradictory instructions or invalid
+DST times require review. Changes to the display timezone do not
 reschedule saved instants.
 
 ## Durable processing
@@ -38,9 +51,9 @@ polling. SSE refreshes the frontend when data changes.
 
 Workers claim rows with SKIP LOCKED and a five-minute lease. Three attempts with
 backoff are allowed; failures are visible and manually retryable. An expired
-lease can be recovered after a restart. Lease fencing plus atomic item insertion
+lease can be recovered after a restart. Lease fencing plus atomic message update
 and job completion prevents duplicate items from concurrent/retried processing.
-Completed jobs are not re-extracted, so user edits/deletions are respected.
+Completed jobs are not re-extracted, and user edits win over in-flight AI responses.
 Historical notes are organized only when requested.
 
 The worker runs with the API process. An inactive/stopped deployment cannot run
@@ -57,7 +70,7 @@ NODE_ENV=production node artifacts/api-server/tests/organizer.mjs
 ```
 
 This creates a temporary PostgreSQL schema, tests API ownership/CRUD, worker
-concurrency, timestamp handling and one managed AI extraction, then removes the
+concurrency, migration preservation, timestamp handling and managed AI classification, then removes the
 schema. It uses a synthetic transcript and incurs a small model request. Real
 Clerk sign-in is separately verified by the browser test; test identities are
 stubbed only inside this isolated route harness, never in application code.

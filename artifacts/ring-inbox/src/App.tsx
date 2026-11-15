@@ -150,8 +150,8 @@ function PrivateRoutes() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/notes" component={Notes} />
       <Route path="/inbox" component={LegacyInboxRedirect} />
-      <Route path="/tasks">{() => <Items kind="task" />}</Route>
-      <Route path="/reminders">{() => <Items kind="reminder" />}</Route>
+      <Route path="/tasks" component={Items} />
+      <Route path="/reminders">{() => <Redirect to="/tasks?schedule=scheduled" />}</Route>
       <Route path="/webhooks" component={Webhooks} />
       <Route path="/settings" component={SettingsPage} />
     </Switch>

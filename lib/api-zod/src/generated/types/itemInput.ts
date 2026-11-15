@@ -8,7 +8,11 @@
 import type { ItemInputKind } from './itemInputKind';
 
 export interface ItemInput {
-  kind: ItemInputKind;
+  /**
+     * Accepted for older clients; all actionable messages are tasks
+     * @deprecated
+     */
+  kind?: ItemInputKind;
   /**
      * @minLength 1
      * @maxLength 500

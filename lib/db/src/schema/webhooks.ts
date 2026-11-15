@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, jsonb, index, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
 export const webhooksTable = pgTable("webhooks", {
@@ -15,7 +15,7 @@ export const webhooksTable = pgTable("webhooks", {
 export const eventsTable = pgTable("inbox_events", {
   id: text("id").primaryKey(),
   ownerId: text("owner_id").notNull(),
-  webhookId: text("webhook_id").notNull().references(() => webhooksTable.id),
+  webhookId: text("webhook_id").references(() => webhooksTable.id),
   receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
   recordedAt: timestamp("recorded_at", { withTimezone: true }),
   kind: text("kind").notNull(),
@@ -23,6 +23,15 @@ export const eventsTable = pgTable("inbox_events", {
   audioPath: text("audio_path"),
   audioSize: integer("audio_size"),
   payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  isActionable: boolean("is_actionable").notNull().default(false),
+  actionTitle: text("action_title"),
+  dueAt: timestamp("due_at", { withTimezone: true }),
+  timezone: text("timezone").notNull().default("UTC"),
+  status: text("status").notNull().default("open"),
+  needsReview: boolean("needs_review").notNull().default(false),
+  originalTimeText: text("original_time_text"),
+  unifiedAt: timestamp("unified_at", { withTimezone: true }),
+  editedAt: timestamp("edited_at", { withTimezone: true }),
 }, (t) => [index("events_owner_received_idx").on(t.ownerId, t.receivedAt, t.id)]);
 
 export const insertWebhookSchema = createInsertSchema(webhooksTable);

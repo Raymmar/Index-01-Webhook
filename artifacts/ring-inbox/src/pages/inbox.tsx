@@ -12,8 +12,6 @@ function size(n: number) { return n > 1048576 ? `${(n / 1048576).toFixed(1)} MB`
 
 function Organize({ e, items, job, pending, error, onOrganize }: { e: InboxEvent; items: ActionItem[]; job?: ProcessingJob; pending: boolean; error: boolean; onOrganize: () => void }) {
   const busy = pending || job?.status === "pending" || job?.status === "processing";
-  const tasks = items.filter((i) => i.kind === "task").length;
-  const rems = items.filter((i) => i.kind === "reminder").length;
   const btn = "rounded px-1.5 py-0.5 text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
   if (busy) return <span role="status" className="flex items-center gap-1.5" data-testid={`status-organizing-${e.id}`}><span className="ri-pulse h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />{job?.status === "processing" ? "Processing with AI" : "Queued"}</span>;
   if (job?.status === "failed" || error) {
@@ -23,8 +21,8 @@ function Organize({ e, items, job, pending, error, onOrganize }: { e: InboxEvent
   if (items.length) {
     return (
       <span className="flex items-center gap-2" data-testid={`text-extracted-${e.id}`}>
-        {tasks > 0 && <Link href="/tasks" className="hover:text-foreground">{tasks} {tasks === 1 ? "task" : "tasks"}</Link>}
-        {rems > 0 && <Link href="/reminders" className="hover:text-foreground">{rems} {rems === 1 ? "reminder" : "reminders"}</Link>}
+        <Link href={items[0]?.dueAt ? "/tasks?schedule=scheduled" : "/tasks"} className="hover:text-foreground">{items[0]?.dueAt ? "Scheduled task" : "Task"}</Link>
+        {items[0]?.status !== "open" && <span>{items[0]?.status === "completed" ? "Completed" : "Dismissed"}</span>}
       </span>
     );
   }

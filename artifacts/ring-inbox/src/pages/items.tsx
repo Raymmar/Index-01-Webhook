@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useInboxDrawer } from "@/hooks/use-inbox-drawer";
+import { useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, CornerUpLeft, MoreVertical, Trash2, X } from "lucide-react";
 import { useGetOrganizer, getGetOrganizerQueryKey, useGetSettings, getGetSettingsQueryKey, useCreateItem, useUpdateItem, useDeleteItem, type ActionItem, type ItemUpdate } from "@workspace/api-client-react";
@@ -11,7 +12,6 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { browserZone, formatDue, toLocalInput, tryLocalInput } from "@/lib/tz";
 import { compareActionItems } from "@/lib/action-order";
 
-type Kind = "task" | "reminder";
 const field = "rounded-md border border-input bg-card px-2.5 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 function useInvalidate() {
@@ -19,7 +19,7 @@ function useInvalidate() {
   return () => qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() });
 }
 
-export function ActionItemRow({ item, tz, showKind = false }: { item: ActionItem; tz: string; showKind?: boolean }) {
+export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
   const { openInbox } = useInboxDrawer();
   const invalidate = useInvalidate();
   const { toast } = useToast();
@@ -76,7 +76,6 @@ export function ActionItemRow({ item, tz, showKind = false }: { item: ActionItem
           aria-label="Title" data-testid={`input-title-${item.id}`}
           className={`app-content-text w-full rounded bg-transparent px-1 -mx-1 outline-none hover:bg-secondary/50 focus:bg-card focus-visible:ring-2 focus-visible:ring-ring ${done ? "text-muted-foreground line-through" : ""}`} />
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-          {showKind && <span>{item.kind === "task" ? "Task" : "Reminder"}</span>}
           {editingDate ? (
             <span className="flex items-center gap-1">
               <input type="datetime-local" value={date} onChange={(e) => { setDate(e.target.value); setDateErr(""); }} autoFocus aria-invalid={!!dateErr} data-testid={`input-due-${item.id}`} className={`${field} py-0.5 text-xs`}
@@ -89,7 +88,7 @@ export function ActionItemRow({ item, tz, showKind = false }: { item: ActionItem
           ) : (
             <button type="button" onClick={() => { setDate(toLocalInput(item.dueAt, tz)); setEditingDate(true); }} data-testid={`button-due-${item.id}`}
               className="rounded hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              {item.dueAt ? <time dateTime={item.dueAt}>{formatDue(item.dueAt, tz)}</time> : item.kind === "reminder" ? "Set a time" : "No date"}
+              {item.dueAt ? <time dateTime={item.dueAt}>{formatDue(item.dueAt, tz)}</time> : "No date"}
             </button>
           )}
           {item.needsReview && <span className="rounded border border-accent/50 px-1.5 text-accent" title={item.originalTimeText ?? undefined} data-testid={`status-review-${item.id}`}>Check time{item.originalTimeText ? `: “${item.originalTimeText}”` : ""}</span>}
@@ -106,14 +105,14 @@ export function ActionItemRow({ item, tz, showKind = false }: { item: ActionItem
             ? <DropdownMenuItem onSelect={() => patch({ status: "open" })} data-testid={`menu-restore-${item.id}`}><CornerUpLeft className="mr-2 h-4 w-4" />Restore</DropdownMenuItem>
             : <DropdownMenuItem onSelect={() => setConfirm("dismiss")} data-testid={`menu-dismiss-${item.id}`}><X className="mr-2 h-4 w-4" />Dismiss</DropdownMenuItem>}
           <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => setConfirm("delete")} data-testid={`menu-delete-${item.id}`}><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setConfirm("delete")} data-testid={`menu-delete-${item.id}`}><Trash2 className="mr-2 h-4 w-4" />Make a note</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <AlertDialog open={!!confirm} onOpenChange={(o) => { if (!o) setConfirm(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-display text-2xl font-normal">{confirm === "delete" ? "Delete this item?" : "Dismiss this item?"}</AlertDialogTitle>
-            <AlertDialogDescription>{confirm === "delete" ? "It will be removed permanently. The original note stays in the inbox." : "It moves out of your open list. You can restore it later."}</AlertDialogDescription>
+            <AlertDialogTitle className="font-display text-2xl font-normal">{confirm === "delete" ? "Make this a note?" : "Dismiss this task?"}</AlertDialogTitle>
+            <AlertDialogDescription>{confirm === "delete" ? "Remove its action and due date. The original message and audio stay in your inbox." : "It moves out of your open list. You can restore it later."}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancel-confirm">Cancel</AlertDialogCancel>
@@ -122,7 +121,7 @@ export function ActionItemRow({ item, tz, showKind = false }: { item: ActionItem
                 if (confirm === "delete") del.mutate({ id: item.id }, { onError: () => toast({ variant: "destructive", description: "Could not delete. Try again." }) });
                 else patch({ status: "dismissed" }, { label: "Dismissed.", data: { status: "open" } });
                 setConfirm(null);
-              }}>{confirm === "delete" ? "Delete" : "Dismiss"}</AlertDialogAction>
+              }}>{confirm === "delete" ? "Make a note" : "Dismiss"}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -130,7 +129,7 @@ export function ActionItemRow({ item, tz, showKind = false }: { item: ActionItem
   );
 }
 
-function Composer({ kind, tz }: { kind: Kind; tz: string }) {
+function Composer({ tz }: { tz: string }) {
   const invalidate = useInvalidate();
   const create = useCreateItem({ mutation: { onSettled: invalidate } });
   const [title, setTitle] = useState("");
@@ -143,27 +142,33 @@ function Composer({ kind, tz }: { kind: Kind; tz: string }) {
       if (!t) return;
       const { iso, error } = tryLocalInput(date, tz);
       if (error) { setDateErr(error); return; }
-      create.mutate({ data: { kind, title: t, dueAt: iso } }, { onSuccess: () => { setTitle(""); setDate(""); } });
+      create.mutate({ data: { title: t, dueAt: iso } }, { onSuccess: () => { setTitle(""); setDate(""); } });
     }}>
-      <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={500} placeholder={kind === "task" ? "New task" : "New reminder"} data-testid="input-new-title" className={`${field} flex-1 py-2`} />
-      <input type="datetime-local" value={date} onChange={(e) => { setDate(e.target.value); setDateErr(""); }} aria-invalid={!!dateErr} required={kind === "reminder"} aria-label="Due" data-testid="input-new-due" className={`${field} py-2`} />
-      <button disabled={create.isPending || !title.trim() || (kind === "reminder" && !date)} data-testid="button-add" className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50">{create.isPending ? "Adding..." : "Add"}</button>
+      <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={500} placeholder="New task" data-testid="input-new-title" className={`${field} min-w-0 flex-1 py-2`} />
+      <input type="datetime-local" value={date} onChange={(e) => { setDate(e.target.value); setDateErr(""); }} aria-invalid={!!dateErr} aria-label="Due (optional)" data-testid="input-new-due" className={`${field} min-w-0 py-2`} />
+      <button disabled={create.isPending || !title.trim()} data-testid="button-add" className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50">{create.isPending ? "Adding..." : "Add"}</button>
       {dateErr && <p role="alert" className="text-sm text-destructive sm:self-center" data-testid="text-new-due-error">{dateErr}</p>}
       {create.isError && <p className="text-sm text-destructive sm:self-center">Could not add.</p>}
     </form>
   );
 }
 
-export default function Items({ kind }: { kind: Kind }) {
+export default function Items() {
   const q = useGetOrganizer({ query: { queryKey: getGetOrganizerQueryKey() } });
   const settings = useGetSettings({ query: { queryKey: getGetSettingsQueryKey() } });
   const tz = settings.data?.timezone ?? browserZone();
   const [show, setShow] = useState<"open" | "done">("open");
-  const mine = (q.data?.items ?? []).filter((i) => i.kind === kind);
+  const search = useSearch();
+  const [schedule, setSchedule] = useState("all");
+  useEffect(() => {
+    const value = new URLSearchParams(search).get("schedule");
+    setSchedule(value === "scheduled" || value === "unscheduled" ? value : "all");
+  }, [search]);
+  const mine = (q.data?.items ?? []).filter(i => schedule === "all" || (schedule === "scheduled" ? !!i.dueAt : !i.dueAt));
   const open = mine.filter((i) => i.status === "open").sort(compareActionItems);
   const closed = mine.filter((i) => i.status !== "open").sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const list = show === "open" ? open : closed;
-  const label = kind === "task" ? "Tasks" : "Reminders";
+  const label = "Tasks";
 
   return (
     <div className="space-y-6">
@@ -178,14 +183,17 @@ export default function Items({ kind }: { kind: Kind }) {
           ))}
         </div>
       </div>
-      <Composer kind={kind} tz={tz} />
+      <Composer tz={tz} />
+      <div className="flex gap-1" aria-label="Task schedule">
+        {(["all", "scheduled", "unscheduled"] as const).map(value => <button key={value} type="button" aria-pressed={schedule === value} data-testid={`filter-${value}`} onClick={() => setSchedule(value)} className={`rounded-md px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${schedule === value ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary"}`}>{value === "all" ? "All" : value === "scheduled" ? "Scheduled" : "Unscheduled"}</button>)}
+      </div>
       {q.isLoading ? (
         <div className="space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
       ) : q.isError ? (
         <div className="rounded-lg border border-destructive/40 p-5 text-sm">Could not load {label.toLowerCase()}. <button className="underline" data-testid="button-retry" onClick={() => q.refetch()}>Retry</button></div>
       ) : list.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-10 text-center" data-testid="empty-items">
-          <p className="font-display text-2xl">{show === "open" ? (kind === "task" ? "Nothing to do." : "Nothing coming up.") : "Nothing closed yet."}</p>
+          <p className="font-display text-2xl">{show === "open" ? "Nothing to do." : "Nothing closed yet."}</p>
           {show === "open" && <p className="mt-1 text-sm text-muted-foreground">Speak to your ring, or add one above.</p>}
         </div>
       ) : (

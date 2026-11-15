@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useClerk, useUser } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { BellRing, FileText, Inbox as InboxIcon, LayoutDashboard, ListChecks, Menu, Settings as SettingsIcon, Webhook } from "lucide-react";
+import { FileText, Inbox as InboxIcon, LayoutDashboard, ListChecks, Menu, Settings as SettingsIcon, Webhook } from "lucide-react";
 import { useGetSettings, getGetSettingsQueryKey, useGetOrganizer, getGetOrganizerQueryKey, useUpdateSettings } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -22,7 +22,6 @@ const NAV = [
   { href: "/inbox", label: "Inbox", icon: InboxIcon },
   { href: "/notes", label: "Notes", icon: FileText },
   { href: "/tasks", label: "Tasks", icon: ListChecks },
-  { href: "/reminders", label: "Reminders", icon: BellRing },
 ];
 const ADMIN = [
   { href: "/webhooks", label: "Webhooks", icon: Webhook },
@@ -115,8 +114,7 @@ export function Shell({ children }: { children: ReactNode }) {
   if (!allowed) return <Denied />;
 
   const items = organizer.data?.items ?? [];
-  const openCount = (k: string) => items.filter((i) => i.kind === k && i.status === "open").length;
-  const counts: Record<string, number> = { "/tasks": openCount("task"), "/reminders": openCount("reminder") };
+  const counts: Record<string, number> = { "/tasks": items.filter(i => i.status === "open").length };
   const close = () => setOpen(false);
 
   const sidebar = (

@@ -10,7 +10,8 @@ import type { InboxEventPayload } from './inboxEventPayload';
 
 export interface InboxEvent {
   id: string;
-  webhookId: string;
+  /** @nullable */
+  webhookId: string | null;
   webhookName: string;
   receivedAt: string;
   /** @nullable */

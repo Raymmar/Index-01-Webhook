@@ -85,7 +85,7 @@ router.post("/receive/:id", limiter, async (req, res, next): Promise<void> => {
         kind: multipart ? "recording" : "json",
         transcription: typeof body.transcription === "string" ? body.transcription : null,
         audioPath, audioSize: file?.size ?? null,
-        payload: redact(body) as Record<string, unknown>,
+        payload: redact(body) as Record<string, unknown>, unifiedAt: new Date(),
       });
       if (typeof body.transcription === "string" && body.transcription.trim()) {
         await tx.insert(jobsTable).values({ eventId: id, ownerId: hook.ownerId }).onConflictDoNothing();

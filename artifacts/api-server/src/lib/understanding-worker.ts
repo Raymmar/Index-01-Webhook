@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { db, jobsTable, eventsTable, appSettingsTable, preferencesTable, itemsTable } from "@workspace/db";
+import { db, jobsTable, eventsTable, appSettingsTable, preferencesTable } from "@workspace/db";
 import { and, eq, lte, lt, or, sql } from "drizzle-orm";
 import { batchProcess } from "@workspace/integrations-openai-ai-server/batch";
 import { extractActions } from "./understanding";
@@ -43,11 +43,16 @@ export async function processNextJob() {
     await db.transaction(async tx => {
       const [locked] = await tx.select().from(jobsTable).where(and(eq(jobsTable.eventId, job.eventId), eq(jobsTable.leaseId, leaseId))).for("update");
       if (!locked || locked.status !== "processing") return;
-      if (actions.length) await tx.insert(itemsTable).values(actions.map(item => ({
-        id: randomUUID(), ownerId: job.ownerId, sourceEventId: job.eventId, kind: item.kind,
-        title: item.title, dueAt: item.dueAt, timezone: job.timezone,
-        needsReview: item.needsReview, originalTimeText: item.originalTimeText,
-      })));
+      const action = actions[0];
+      // Classification enriches this message in-place. User edits/removal made
+      // during processing win over an older model response.
+      await tx.update(eventsTable).set({
+        isActionable: !!action, actionTitle: action?.title ?? null,
+        dueAt: action?.dueAt ?? null, timezone: job.timezone,
+        needsReview: action?.needsReview ?? false,
+        originalTimeText: action?.originalTimeText ?? null,
+        unifiedAt: new Date(),
+      }).where(and(eq(eventsTable.id, job.eventId), eq(eventsTable.ownerId, job.ownerId), sql`${eventsTable.editedAt} IS NULL`));
       await tx.update(jobsTable).set({ status: "completed", leaseId: null, error: null }).where(eq(jobsTable.eventId, job.eventId));
       await tx.execute(sql`SELECT pg_notify('ring_inbox_changed', ${job.ownerId})`);
     });

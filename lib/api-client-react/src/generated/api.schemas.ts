@@ -54,7 +54,6 @@ export type ActionItemKind = typeof ActionItemKind[keyof typeof ActionItemKind];
 
 export const ActionItemKind = {
   task: 'task',
-  reminder: 'reminder',
 } as const;
 
 export type ActionItemStatus = typeof ActionItemStatus[keyof typeof ActionItemStatus];
@@ -68,8 +67,8 @@ export const ActionItemStatus = {
 
 export interface ActionItem {
   id: string;
-  /** @nullable */
-  sourceEventId: string | null;
+  /** Same identifier as the original inbox item */
+  sourceEventId: string;
   kind: ActionItemKind;
   title: string;
   /** @nullable */
@@ -82,6 +81,10 @@ export interface ActionItem {
   createdAt: string;
 }
 
+/**
+ * Accepted for older clients; all actionable messages are tasks
+ * @deprecated
+ */
 export type ItemInputKind = typeof ItemInputKind[keyof typeof ItemInputKind];
 
 
@@ -91,7 +94,11 @@ export const ItemInputKind = {
 } as const;
 
 export interface ItemInput {
-  kind: ItemInputKind;
+  /**
+     * Accepted for older clients; all actionable messages are tasks
+     * @deprecated
+     */
+  kind?: ItemInputKind;
   /**
      * @minLength 1
      * @maxLength 500
@@ -182,7 +189,8 @@ export type InboxEventPayload = { [key: string]: unknown };
 
 export interface InboxEvent {
   id: string;
-  webhookId: string;
+  /** @nullable */
+  webhookId: string | null;
   webhookName: string;
   receivedAt: string;
   /** @nullable */

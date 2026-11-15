@@ -1,11 +1,12 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { randomUUID } from "node:crypto";
-import { db, appSettingsTable, preferencesTable, itemsTable, jobsTable, eventsTable } from "@workspace/db";
+import { db, appSettingsTable, preferencesTable, jobsTable, eventsTable } from "@workspace/db";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { UpdateSettingsBody, CreateItemBody, UpdateItemBody, UpdateItemParams, DeleteItemParams, UnderstandEventParams } from "@workspace/api-zod";
 import { accountFor, validTimezone, parseInstant } from "../lib/account";
 import { managedModels, directModels } from "../lib/ai-models";
+import { publicAction } from "../lib/unified-items";
 
 const router: IRouter = Router();
 router.use(async (req, res, next) => {
@@ -58,15 +59,11 @@ router.patch("/settings", async (req, res): Promise<void> => {
   res.json(settings(await accountFor(res.locals.ownerId)));
 });
 router.get("/organizer", async (_req, res) => {
-  const items = await db.select().from(itemsTable).where(eq(itemsTable.ownerId, res.locals.ownerId)).orderBy(desc(itemsTable.createdAt));
+  const items = await db.select().from(eventsTable).where(and(eq(eventsTable.ownerId, res.locals.ownerId), eq(eventsTable.isActionable, true))).orderBy(desc(eventsTable.receivedAt));
   const jobs = await db.select({ eventId: jobsTable.eventId, status: jobsTable.status, error: jobsTable.error }).from(jobsTable).where(eq(jobsTable.ownerId, res.locals.ownerId));
   const [messages] = await db.select({ total: sql<number>`count(*)::int` }).from(eventsTable).where(eq(eventsTable.ownerId, res.locals.ownerId));
-  res.json({ items: items.map(publicItem), jobs, messageCount: messages.total });
+  res.json({ items: items.map(publicAction), jobs, messageCount: messages.total });
 });
-function publicItem(item: typeof itemsTable.$inferSelect) {
-  const { ownerId: _owner, ...rest } = item;
-  return { ...rest, dueAt: item.dueAt?.toISOString() ?? null, createdAt: item.createdAt.toISOString() };
-}
 router.post("/events/:id/understand", async (req, res): Promise<void> => {
   const params = UnderstandEventParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid note" }); return; }
@@ -90,36 +87,42 @@ router.post("/items", async (req, res): Promise<void> => {
   if (!res.locals.account.timezone) { res.status(400).json({ error: "Set your timezone first" }); return; }
   let dueAt;
   try { dueAt = parseInstant(body.data.dueAt); } catch { res.status(400).json({ error: "Invalid date" }); return; }
-  const [item] = await db.insert(itemsTable).values({
-    id: randomUUID(), ownerId: res.locals.ownerId, kind: body.data.kind, title: body.data.title.trim(), dueAt,
-    timezone: res.locals.account.timezone, needsReview: body.data.kind === "reminder" && !dueAt,
+  const [item] = await db.insert(eventsTable).values({
+    id: randomUUID(), ownerId: res.locals.ownerId, kind: "json",
+    transcription: body.data.title.trim(), payload: { source: "manual" },
+    isActionable: true, actionTitle: body.data.title.trim(), dueAt,
+    timezone: res.locals.account.timezone, unifiedAt: new Date(), editedAt: new Date(),
   }).returning();
   await db.execute(sql`SELECT pg_notify('ring_inbox_changed', ${res.locals.ownerId})`);
-  res.status(201).json(publicItem(item!));
+  res.status(201).json(publicAction(item!));
 });
 router.patch("/items/:id", async (req, res): Promise<void> => {
   const params = UpdateItemParams.safeParse(req.params);
   const body = UpdateItemBody.safeParse(req.body);
   if (!params.success || !body.success || (body.data.title !== undefined && !body.data.title.trim())) { res.status(400).json({ error: "Invalid item" }); return; }
-  const [current] = await db.select().from(itemsTable).where(and(eq(itemsTable.id, params.data.id), eq(itemsTable.ownerId, res.locals.ownerId)));
+  const [current] = await db.select().from(eventsTable).where(and(eq(eventsTable.id, params.data.id), eq(eventsTable.ownerId, res.locals.ownerId), eq(eventsTable.isActionable, true)));
   if (!current) { res.status(404).json({ error: "Item not found" }); return; }
   let dueAt = current.dueAt;
   try { if (body.data.dueAt !== undefined) dueAt = parseInstant(body.data.dueAt); }
   catch { res.status(400).json({ error: "Invalid date" }); return; }
-  const [item] = await db.update(itemsTable).set({
-    ...(body.data.title !== undefined ? { title: body.data.title.trim() } : {}),
+  const [item] = await db.update(eventsTable).set({
+    ...(body.data.title !== undefined ? { actionTitle: body.data.title.trim() } : {}),
     ...(body.data.status ? { status: body.data.status } : {}),
-    dueAt,
-    needsReview: current.kind === "reminder" && !dueAt ? true
-      : body.data.dueAt !== undefined ? false : body.data.needsReview ?? current.needsReview,
-  }).where(and(eq(itemsTable.id, params.data.id), eq(itemsTable.ownerId, res.locals.ownerId))).returning();
+    ...(body.data.dueAt !== undefined ? { dueAt } : {}),
+    editedAt: new Date(),
+    needsReview: body.data.dueAt !== undefined ? false : body.data.needsReview ?? current.needsReview,
+  }).where(and(eq(eventsTable.id, params.data.id), eq(eventsTable.ownerId, res.locals.ownerId), eq(eventsTable.isActionable, true))).returning();
+  if (!item) { res.status(404).json({ error: "Item not found" }); return; }
   await db.execute(sql`SELECT pg_notify('ring_inbox_changed', ${res.locals.ownerId})`);
-  res.json(publicItem(item!));
+  res.json(publicAction(item!));
 });
 router.delete("/items/:id", async (req, res): Promise<void> => {
   const params = DeleteItemParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid item" }); return; }
-  const rows = await db.delete(itemsTable).where(and(eq(itemsTable.id, params.data.id), eq(itemsTable.ownerId, res.locals.ownerId))).returning({ id: itemsTable.id });
+  const rows = await db.update(eventsTable).set({
+    isActionable: false, actionTitle: null, dueAt: null, status: "open",
+    needsReview: false, originalTimeText: null, editedAt: new Date(),
+  }).where(and(eq(eventsTable.id, params.data.id), eq(eventsTable.ownerId, res.locals.ownerId), eq(eventsTable.isActionable, true))).returning({ id: eventsTable.id });
   if (!rows.length) { res.status(404).json({ error: "Item not found" }); return; }
   await db.execute(sql`SELECT pg_notify('ring_inbox_changed', ${res.locals.ownerId})`);
   res.status(204).end();

@@ -29,7 +29,7 @@ export default function Dashboard() {
   const today = new Date(`${todayKey}T12:00:00`);
   const [week, setWeek] = useState(0);
   const [date, setDate] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "task" | "reminder">("all");
+  const [filter, setFilter] = useState<"all" | "scheduled" | "unscheduled">("all");
   const [closed, setClosed] = useState(false);
   const first = addDays(startOfWeek(today, { weekStartsOn: 1 }), week * 7);
   const days = Array.from({ length: 7 }, (_, i) => addDays(first, i));
@@ -38,7 +38,7 @@ export default function Dashboard() {
   const dayOf = (instant: string) => formatInTimeZone(new Date(instant), tz, "yyyy-MM-dd");
   const visible = items.filter(i =>
     (closed ? i.status !== "open" : i.status === "open") &&
-    (filter === "all" || i.kind === filter) &&
+    (filter === "all" || (filter === "scheduled" ? !!i.dueAt : !i.dueAt)) &&
     (!date || (i.dueAt && dayOf(i.dueAt) === date))
   ).sort(compareActionItems);
   const reset = () => { setDate(null); setWeek(0); setClosed(false); };
@@ -55,11 +55,11 @@ export default function Dashboard() {
         </div>
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
           <button type="button" onClick={() => openInbox()} className="hover:text-foreground"><span className="font-mono text-foreground" data-testid="stat-messages">{q.data?.messageCount ?? 0}</span> messages</button>
-          <Link href="/tasks" className="hover:text-foreground"><span className="font-mono text-foreground">{open.filter(i => i.kind === "task").length}</span> open tasks</Link>
-          <Link href="/reminders" className="hover:text-foreground"><span className="font-mono text-foreground">{open.filter(i => i.kind === "reminder").length}</span> reminders</Link>
+          <Link href="/tasks" className="hover:text-foreground"><span className="font-mono text-foreground">{open.length}</span> open tasks</Link>
+          <Link href="/tasks?schedule=scheduled" className="hover:text-foreground"><span className="font-mono text-foreground">{open.filter(i => i.dueAt).length}</span> scheduled</Link>
         </div>
       </header>
-      <section aria-label="Tasks and reminders">
+      <section aria-label="Tasks">
         <div className="mb-4 flex items-baseline justify-between">
           <h2 className="font-display text-2xl">Your week</h2>
           <button onClick={reset} className={`${button} ${!date ? "text-foreground" : ""}`}>All upcoming</button>
@@ -73,7 +73,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-7 gap-1 p-2">
             {days.map(day => {
               const key = format(day, "yyyy-MM-dd");
-              const count = open.filter(i => i.dueAt && dayOf(i.dueAt) === key && (filter === "all" || i.kind === filter)).length;
+              const count = filter === "unscheduled" ? 0 : open.filter(i => i.dueAt && dayOf(i.dueAt) === key).length;
               return <button key={key} aria-label={`${format(day, "EEEE, MMMM d")}, ${count} open items`} aria-pressed={date === key} data-testid={`day-${key}`} onClick={() => { setDate(date === key ? null : key); setClosed(false); }} className={`flex min-w-0 flex-col items-center gap-1 rounded-md py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${date === key ? "bg-secondary text-foreground" : "hover:bg-secondary/60"}`}>
                 <span className="text-[11px] text-muted-foreground">{format(day, "EEE")}</span>
                 <span className={`text-sm ${key === todayKey ? "text-accent" : ""}`}>{format(day, "d")}</span>
@@ -84,11 +84,11 @@ export default function Dashboard() {
         </div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex gap-0.5" aria-label="Item type">
-            {(["all", "task", "reminder"] as const).map(kind => <button key={kind} onClick={() => setFilter(kind)} aria-pressed={filter === kind} data-testid={`filter-${kind}`} className={`${button} ${filter === kind ? "bg-secondary text-foreground" : ""}`}>{kind === "all" ? "All" : kind === "task" ? "Tasks" : "Reminders"}</button>)}
+            {(["all", "scheduled", "unscheduled"] as const).map(kind => <button key={kind} onClick={() => { setFilter(kind); if (kind === "unscheduled") setDate(null); }} aria-pressed={filter === kind} data-testid={`filter-${kind}`} className={`${button} ${filter === kind ? "bg-secondary text-foreground" : ""}`}>{kind === "all" ? "All" : kind === "scheduled" ? "Scheduled" : "Unscheduled"}</button>)}
           </div>
           <span className="text-[11px] text-muted-foreground">{date ? format(new Date(`${date}T12:00:00`), "EEE, MMM d") : "All dates"} · {visible.length}</span>
         </div>
-        {visible.length ? <ul className="divide-y divide-border rounded-lg border border-border bg-card">{visible.map(item => <ActionItemRow key={item.id} item={item} tz={tz} showKind />)}</ul> :
+        {visible.length ? <ul className="divide-y divide-border rounded-lg border border-border bg-card">{visible.map(item => <ActionItemRow key={item.id} item={item} tz={tz} />)}</ul> :
           <div className="rounded-lg border border-border p-10 text-center text-sm">{date ? "Nothing scheduled for this day." : closed ? "No completed or dismissed items." : "No open items."}</div>}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
           <span>{tz.replaceAll("_", " ")}</span>

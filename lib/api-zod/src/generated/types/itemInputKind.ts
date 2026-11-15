@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Accepted for older clients; all actionable messages are tasks
+ * @deprecated
+ */
 export type ItemInputKind = typeof ItemInputKind[keyof typeof ItemInputKind];
 
 

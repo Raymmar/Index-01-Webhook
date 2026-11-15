@@ -10,8 +10,8 @@ import type { ActionItemStatus } from './actionItemStatus';
 
 export interface ActionItem {
   id: string;
-  /** @nullable */
-  sourceEventId: string | null;
+  /** Same identifier as the original inbox item */
+  sourceEventId: string;
   kind: ActionItemKind;
   title: string;
   /** @nullable */

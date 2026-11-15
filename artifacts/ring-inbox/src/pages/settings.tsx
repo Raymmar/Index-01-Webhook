@@ -64,7 +64,7 @@ export default function SettingsPage() {
       {err && <p role="alert" className="text-sm text-destructive" data-testid="text-settings-error">{err}</p>}
 
       <Section title="Account">
-        <Row label="Timezone" hint="Dates on tasks and reminders use this zone.">
+        <Row label="Timezone" hint="Task dates use this zone.">
           <select value={tz} disabled={update.isPending} data-testid="select-timezone" className={`${field} w-full sm:w-64`}
             onChange={(e) => { setTz(e.target.value); save({ timezone: e.target.value }); }}>
             {zoneList.map((z) => <option key={z} value={z}>{z.replace(/_/g, " ")}</option>)}
