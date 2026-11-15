@@ -22,7 +22,7 @@ export const jobsTable = pgTable("understanding_jobs", {
   error: text("error"),
 }, (t) => [index("jobs_owner_idx").on(t.ownerId)]);
 // Legacy extraction archive, retained for lossless migration/history only.
-// Active items are inbox_events with is_actionable=true.
+// Never read these archival rows as active actions.
 export const itemsTable = pgTable("action_items", {
   id: text("id").primaryKey(),
   ownerId: text("owner_id").notNull(),
@@ -36,3 +36,19 @@ export const itemsTable = pgTable("action_items", {
   originalTimeText: text("original_time_text"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("items_owner_idx").on(t.ownerId)]);
+
+export const actionsTable = pgTable("active_actions", {
+  id: text("id").primaryKey(),
+  ownerId: text("owner_id").notNull(),
+  sourceEventId: text("source_event_id").notNull().references(() => eventsTable.id),
+  title: text("title").notNull(),
+  sourceAction: text("source_action"),
+  dueAt: timestamp("due_at", { withTimezone: true }),
+  timezone: text("timezone").notNull(),
+  status: text("status").notNull().default("open"),
+  needsReview: boolean("needs_review").notNull().default(false),
+  originalTimeText: text("original_time_text"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  editedAt: timestamp("edited_at", { withTimezone: true }),
+  removedAt: timestamp("removed_at", { withTimezone: true }),
+}, (t) => [index("actions_owner_source_idx").on(t.ownerId, t.sourceEventId)]);

@@ -7,7 +7,7 @@
  */
 
 /**
- * Accepted for older clients; all actionable messages are tasks
+ * Accepted for older clients; all actions are tasks with optional due dates
  * @deprecated
  */
 export type ItemInputKind = typeof ItemInputKind[keyof typeof ItemInputKind];

@@ -1,5 +1,5 @@
 // Isolated-schema integration regression: uses real PostgreSQL, real routes,
-// and one real managed-AI extraction. No existing user data is changed.
+// and deterministic mocked provider responses. No existing user data is changed.
 import { build } from "esbuild";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -13,7 +13,7 @@ const admin = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const temp = await mkdtemp(join(tmpdir(), "organizer-"));
 try {
   await admin.query(`CREATE SCHEMA ${schemaName}`);
-  for (const table of ["webhooks", "inbox_events", "app_settings", "user_preferences", "understanding_jobs", "action_items"]) {
+  for (const table of ["webhooks", "inbox_events", "app_settings", "user_preferences", "understanding_jobs", "action_items", "active_actions"]) {
     await admin.query(`CREATE TABLE ${schemaName}.${table} (LIKE public.${table} INCLUDING ALL)`);
   }
   const outfile = join(temp, "check.cjs");
@@ -22,7 +22,7 @@ try {
       contents: `
 import assert from "node:assert/strict";
 import express from "express";
-import { db, pool, appSettingsTable, eventsTable, jobsTable, itemsTable } from "@workspace/db";
+import { db, pool, appSettingsTable, eventsTable, jobsTable, itemsTable, actionsTable } from "@workspace/db";
 import organizer from "./src/routes/organizer";
 import inbox from "./src/routes/inbox";
 import receive from "./src/routes/receive";
@@ -31,7 +31,7 @@ import { processNextJob } from "./src/lib/understanding-worker";
 import { resolveDue, extractActions } from "./src/lib/understanding";
 import { migrateUnifiedItems } from "./src/lib/unified-items";
 import { processingFailure } from "./src/lib/ai-models";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 export async function check() {
   const app = express();
   app.use((req, _res, next) => { req.log = { warn() {} }; next(); });
@@ -87,30 +87,40 @@ export async function check() {
     const job = data.jobs.find(j => j.eventId === receipt.id);
     assert.equal(job.status, "completed", JSON.stringify(job));
     const items = data.items.filter(i => i.sourceEventId === receipt.id);
-    assert.equal(items.length, 1);
-    assert.equal(items[0].id, receipt.id);
+    assert.equal(items.length, 5);
+    assert.equal(new Set(items.map(i => i.id)).size, 5);
+    assert.ok(items.every(i => i.id !== receipt.id));
     assert.equal(items[0].kind, "task");
     assert.ok(items.some(i => i.dueAt === "2026-11-15T17:28:00.000Z"));
     assert.equal((await db.select().from(eventsTable)).length, 1);
     await api("/events/" + receipt.id + "/understand", "POST");
     await processNextJob();
     assert.equal((await db.select().from(itemsTable)).length, 0);
-    assert.equal((await (await api("/organizer")).json()).items.length, 1);
+    assert.equal((await (await api("/organizer")).json()).items.length, 5);
     const target = items[0];
     assert.equal((await api("/items/" + target.id, "PATCH", "other", { title: "Wrong owner" })).status, 404);
     assert.equal((await api("/items/" + target.id, "DELETE", "other")).status, 404);
     assert.equal((await (await api("/organizer", "GET", "other")).json()).items.length, 0);
     assert.equal((await (await api("/organizer", "GET", "other")).json()).messageCount, 0);
     assert.equal((await api("/items/" + target.id, "PATCH", "owner", { title: "Changed", status: "completed" })).status, 200);
+    assert.equal((await (await api("/events?view=notes")).json()).items.length,0);
     assert.equal((await api("/items/" + target.id, "PATCH", "owner", { status: "open" })).status, 200);
     assert.equal((await api("/items/" + target.id, "PATCH", "owner", { dueAt: null })).status, 200);
-    const unscheduled = (await (await api("/organizer")).json()).items[0];
+    const unscheduled = (await (await api("/organizer")).json()).items.find(i => i.id === target.id);
     assert.equal(unscheduled.dueAt, null);
     assert.equal(unscheduled.needsReview, false);
-    assert.equal(unscheduled.id, receipt.id);
+    assert.equal(unscheduled.id, target.id);
     assert.equal((await api("/items/" + target.id, "DELETE")).status, 204);
     assert.equal((await db.select().from(eventsTable)).length, 1);
+    assert.equal((await (await api("/events?view=notes")).json()).items.length, 0);
+    const siblings = (await (await api("/organizer")).json()).items;
+    assert.deepEqual(siblings, items.filter(i => i.id !== target.id));
+    for (const sibling of siblings) await api("/items/" + sibling.id, "DELETE");
     assert.equal((await (await api("/events?view=notes")).json()).items[0].id, receipt.id);
+    // Even a forced retry cannot resurrect removed children.
+    await db.update(jobsTable).set({status:"pending",attempts:0,availableAt:new Date()}).where(eq(jobsTable.eventId,receipt.id));
+    await processNextJob();
+    assert.equal((await (await api("/organizer")).json()).items.length, 0);
     assert.equal((await api("/items", "POST", "owner", { kind: "reminder", title: "Manual", dueAt: "2026-11-20T09:00:00Z" })).status, 201);
     assert.equal((await api("/items", "POST", "owner", { kind: "reminder", title: "Bad", dueAt: "2026-11-20T09:00" })).status, 400);
     const ambiguous = { kind: "reminder", title: "DST", localDueAt: "2027-03-14T02:30", minutesFromRecording: null, originalTimeText: "2:30", needsReview: false };
@@ -149,10 +159,67 @@ export async function check() {
     const noDate = await extractActions({ ...input, transcript: "I need to buy printer paper." });
     assert.equal(noDate.length, 1);
     assert.equal(noDate[0].dueAt, null);
+    const evidence = {title:"Buy paper",sourceAction:"Buy paper.",localDueAt:"2026-11-20T09:00",minutesFromRecording:null,originalTimeText:"tomorrow",needsReview:false};
+    globalThis.aiItems = [evidence,evidence,{...evidence,title:"Invented",sourceAction:"Not in transcript"}];
+    const validated = await extractActions({...input,transcript:"Buy paper."});
+    assert.equal(validated.length,1);
+    assert.equal(validated[0].dueAt,null);
+    globalThis.aiItems = null;
+    const fixture = async id => {
+      await db.insert(eventsTable).values({id,ownerId:"owner",kind:"json",payload:{},transcription:"I need to buy printer paper."});
+      await db.insert(jobsTable).values({eventId:id,ownerId:"owner",availableAt:new Date(0)});
+    };
+    await fixture("four-actions");
+    const fourQuotes = ["Buy paper.","Call Sam in 30 minutes.","Send Pat the report.","Water plants tomorrow."];
+    await db.update(eventsTable).set({transcription:fourQuotes.join(" ")}).where(eq(eventsTable.id,"four-actions"));
+    globalThis.aiItems = fourQuotes.map((quote,i)=>({
+      ...evidence,title:["Buy paper","Call Sam","Send report","Water plants"][i],sourceAction:quote,
+      minutesFromRecording:i===1?30:null,
+      localDueAt:i===3?"2026-11-16T09:00":null,originalTimeText:i===1?"in 30 minutes":i===3?"tomorrow":null,
+    }));
+    await processNextJob();
+    const four = await db.select().from(actionsTable).where(eq(actionsTable.sourceEventId,"four-actions"));
+    assert.equal(four.length,4);
+    assert.equal(new Set(four.map(i=>i.id)).size,4);
+    assert.equal(four.filter(i=>i.dueAt).length,2);
+    globalThis.aiItems = null;
+    for (const mode of ["expired","replaced","manual"]) {
+      const id = "race-" + mode;
+      await fixture(id);
+      let release, entered;
+      const started = new Promise(r=>entered=r);
+      globalThis.aiGate = () => { entered(); return new Promise(r=>release=r); };
+      const work = processNextJob();
+      await started;
+      if (mode === "expired") await db.update(jobsTable).set({availableAt:new Date(0)}).where(eq(jobsTable.eventId,id));
+      if (mode === "replaced") await db.update(jobsTable).set({leaseId:"replacement",status:"completed"}).where(eq(jobsTable.eventId,id));
+      if (mode === "manual") {
+        await db.update(eventsTable).set({actionsInitializedAt:new Date()}).where(eq(eventsTable.id,id));
+        await db.insert(actionsTable).values({id:"manual-race",ownerId:"owner",sourceEventId:id,title:"Keep manual title",timezone:"UTC",editedAt:new Date(),removedAt:new Date()});
+      }
+      release(); await work; globalThis.aiGate = null;
+      const children = await db.select().from(actionsTable).where(eq(actionsTable.sourceEventId,id));
+      assert.equal(children.length,mode === "manual" ? 1 : 0);
+      if (mode === "manual") { assert.equal(children[0].title,"Keep manual title"); assert.ok(children[0].removedAt); }
+      await db.update(jobsTable).set({status:"completed"}).where(eq(jobsTable.eventId,id));
+    }
+    await fixture("rollback");
+    await db.execute(sql\`CREATE FUNCTION reject_fixture() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN IF NEW.source_event_id='rollback' THEN RAISE EXCEPTION 'test failure'; END IF; RETURN NEW; END $$\`);
+    await db.execute(sql\`CREATE TRIGGER reject_fixture BEFORE INSERT ON active_actions FOR EACH ROW EXECUTE FUNCTION reject_fixture()\`);
+    await processNextJob();
+    assert.equal((await db.select().from(actionsTable).where(eq(actionsTable.sourceEventId,"rollback"))).length,0);
+    assert.equal((await db.select().from(eventsTable).where(eq(eventsTable.id,"rollback")))[0].actionsInitializedAt,null);
+    assert.notEqual((await db.select().from(jobsTable).where(eq(jobsTable.eventId,"rollback")))[0].status,"completed");
+    await db.execute(sql\`DROP TRIGGER reject_fixture ON active_actions\`);
+    await db.update(jobsTable).set({status:"pending",availableAt:new Date(0)}).where(eq(jobsTable.eventId,"rollback"));
+    await processNextJob();
+    assert.equal((await db.select().from(actionsTable).where(eq(actionsTable.sourceEventId,"rollback"))).length,1);
+    console.log("PASS: evidence, duplicates, expired/replaced leases, manual tombstones and transactional rollback");
 
     // Migration preserves originals and dates, archives old rows, and is idempotent.
-    await db.insert(eventsTable).values({ ...original, id: "legacy-message", unifiedAt: null });
-    await db.insert(eventsTable).values({ ...original, id: "legacy-test", transcription: "Index webhook test event", unifiedAt: null });
+    await db.insert(eventsTable).values({ ...original, id: "legacy-message", audioPath:"fixture-original-audio",audioSize:123, actionsInitializedAt: null, isActionable:true, actionTitle:"Current edited combined summary", dueAt:new Date("2026-11-20T18:00:00Z"),status:"completed",editedAt:new Date() });
+    await db.insert(eventsTable).values({ ...original, id: "legacy-test", transcription: "Index webhook test event", actionsInitializedAt:null, unifiedAt: null });
     await db.insert(itemsTable).values([
       {id:"legacy-a",ownerId:"owner",sourceEventId:"legacy-message",kind:"task",title:"First action",timezone:"America/Los_Angeles",status:"completed"},
       {id:"legacy-b",ownerId:"owner",sourceEventId:"legacy-message",kind:"reminder",title:"Second action",timezone:"America/Los_Angeles",dueAt:new Date("2026-11-20T18:00:00Z")},
@@ -162,20 +229,28 @@ export async function check() {
     await migrateUnifiedItems();
     const once = await db.select().from(eventsTable).where(eq(eventsTable.id,"legacy-message"));
     assert.equal(once[0].isActionable,true);
-    assert.ok(once[0].actionTitle.includes("First action"));
-    assert.ok(once[0].actionTitle.includes("Second action"));
+    assert.equal(once[0].actionTitle,"Current edited combined summary");
     assert.equal(once[0].dueAt.toISOString(),"2026-11-20T18:00:00.000Z");
-    assert.equal(once[0].status,"open");
+    assert.equal(once[0].status,"completed");
+    assert.equal(once[0].audioPath,"fixture-original-audio");
+    assert.equal(once[0].audioSize,123);
+    assert.equal(once[0].transcription,original.transcription);
     assert.equal((await db.select().from(eventsTable).where(eq(eventsTable.id,"legacy-test")))[0].isActionable,false);
-    assert.equal((await db.select().from(eventsTable).where(eq(eventsTable.id,"legacy-manual")))[0].webhookId,null);
+    assert.equal((await db.select().from(eventsTable).where(eq(eventsTable.id,"legacy-manual"))).length,0);
+    const migrated = (await db.select().from(actionsTable).where(eq(actionsTable.sourceEventId,"legacy-message")));
+    assert.equal(migrated.length,1);
+    assert.equal(migrated[0].title,"Current edited combined summary");
+    assert.equal(migrated[0].status,"completed");
+    await api("/items/" + migrated[0].id,"DELETE");
     await migrateUnifiedItems();
     assert.deepEqual(await db.select().from(eventsTable).where(eq(eventsTable.id,"legacy-message")),once);
     assert.equal((await db.select().from(itemsTable)).length,4);
-    console.log("PASS: one message/one item, conservative AI classification, safe idempotent legacy migration");
+    assert.equal((await (await api("/organizer")).json()).items.filter(i=>i.sourceEventId==="legacy-message").length,0);
+    console.log("PASS: multiple independent children, safe idempotent migration without archive resurrection");
     await api("/settings", "PATCH", "owner", { allowSignups: false });
     assert.equal((await api("/organizer", "GET", "other")).status, 403);
     console.log("PASS: atomic first owner, access toggle, per-user timezone and owner-only settings");
-    console.log("PASS: real AI annotates the original item with optional due date");
+    console.log("PASS: mocked AI extracts independent tasks with optional due dates");
     console.log("PASS: concurrent workers and repeated processing do not duplicate items or notes");
     console.log("PASS: cross-account isolation, CRUD/undo, original note retention, DST validation");
   } finally {
@@ -192,6 +267,27 @@ export async function check() {
       setup(builder) {
         builder.onResolve({ filter: /^@workspace\/db$/ }, () => ({ path: "db", namespace: "fixture" }));
         builder.onResolve({ filter: /^@clerk\/express$/ }, () => ({ path: "auth", namespace: "fixture" }));
+        builder.onResolve({ filter: /^@workspace\/integrations-openai-ai-server$/ }, () => ({ path: "ai", namespace: "fixture" }));
+        builder.onLoad({ filter: /^ai$/, namespace: "fixture" }, () => ({
+          contents: `
+          const create = async request => {
+            if (globalThis.aiGate) await globalThis.aiGate();
+            if (globalThis.aiError) throw globalThis.aiError;
+            const text = request.messages[1].content;
+            const item = (title,sourceAction,minutes=null,local=null,time=null) => ({title,sourceAction,minutesFromRecording:minutes,localDueAt:local,originalTimeText:time,needsReview:false});
+            const items = globalThis.aiItems ?? (text.startsWith("Add update") ? [
+              item("Update landing page","Add update the landing page to my task list."),
+              item("Buy paper","Also add buy printer paper to my task list."),
+              item("Call Sam","Remind me in 30 minutes to call Sam.",30,null,"in 30 minutes"),
+              item("Send report","Remind me tomorrow at 9 AM to send the report.",null,"2026-11-16T09:00","tomorrow at 9 AM"),
+              item("Check plants","Remind me tomorrow to check the plants.",null,"2026-11-16T08:58","tomorrow"),
+            ] : text === "Remind me tomorrow to call Sam." ? [item("Call Sam",text,null,"2026-11-16T08:58","tomorrow")]
+              : text === "I need to buy printer paper." ? [item("Buy paper",text)] : []);
+            return {choices:[{finish_reason:"stop",message:{content:JSON.stringify({items})}}]};
+          };
+          export const openai = {withOptions:()=>({chat:{completions:{create}}})};
+          `,
+        }));
         builder.onLoad({ filter: /auth/, namespace: "fixture" }, () => ({ contents: 'export const getAuth = req => ({ userId: req.headers["x-test-owner"] || null });' }));
         builder.onLoad({ filter: /db/, namespace: "fixture" }, () => ({
           resolveDir: resolve("lib/db"),

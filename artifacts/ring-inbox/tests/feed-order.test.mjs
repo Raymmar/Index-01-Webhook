@@ -25,3 +25,7 @@ test("refresh preserves notes displaced from the head without duplicates", () =>
   assert.equal(merged[1].updated, true);
   assert.equal(merged.at(-1).id, "old-processing");
 });
+test("a source with several children still occupies only one feed position", () => {
+  const source = {id:"one-original",receivedAt:"2026-11-16T12:00:00Z"};
+  assert.equal(mergeEvents([source],Array.from({length:4},()=>source)).length,1);
+});

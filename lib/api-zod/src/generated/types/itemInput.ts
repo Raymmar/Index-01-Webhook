@@ -9,7 +9,7 @@ import type { ItemInputKind } from './itemInputKind';
 
 export interface ItemInput {
   /**
-     * Accepted for older clients; all actionable messages are tasks
+     * Accepted for older clients; all actions are tasks with optional due dates
      * @deprecated
      */
   kind?: ItemInputKind;

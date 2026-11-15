@@ -38,7 +38,7 @@ paths:
       operationId: getOrganizer
       responses:
         "200":
-          description: Actionable inbox items and processing states
+          description: Independent child actions and source-message processing states
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Organizer" }
@@ -234,7 +234,7 @@ components:
       required: [id, sourceEventId, kind, title, dueAt, timezone, status, needsReview, originalTimeText, createdAt]
       properties:
         id: { type: string }
-        sourceEventId: { type: string, description: Same identifier as the original inbox item }
+        sourceEventId: { type: string, description: Original inbox message shared by independently identified child actions }
         kind: { type: string, enum: [task] }
         title: { type: string }
         dueAt: { type: [string, "null"] }
@@ -247,7 +247,7 @@ components:
       type: object
       required: [title]
       properties:
-        kind: { type: string, enum: [task, reminder], deprecated: true, description: Accepted for older clients; all actionable messages are tasks }
+        kind: { type: string, enum: [task, reminder], deprecated: true, description: Accepted for older clients; all actions are tasks with optional due dates }
         title: { type: string, minLength: 1, maxLength: 500 }
         dueAt: { type: [string, "null"] }
     ItemUpdate:

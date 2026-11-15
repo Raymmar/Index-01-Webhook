@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { db, jobsTable, eventsTable, appSettingsTable, preferencesTable } from "@workspace/db";
+import { db, jobsTable, eventsTable, actionsTable, appSettingsTable, preferencesTable } from "@workspace/db";
 import { and, eq, lte, lt, or, sql } from "drizzle-orm";
 import { batchProcess } from "@workspace/integrations-openai-ai-server/batch";
 import { extractActions } from "./understanding";
@@ -34,7 +34,7 @@ export async function processNextJob() {
   });
   if (!job) return false;
   try {
-    const [note] = await db.select().from(eventsTable).where(eq(eventsTable.id, job.eventId));
+    const [note] = await db.select().from(eventsTable).where(and(eq(eventsTable.id, job.eventId), eq(eventsTable.ownerId, job.ownerId)));
     if (!note?.transcription) throw new Error("No transcript");
     const actions = await extractActions({
       transcript: note.transcription, recordedAt: note.recordedAt ?? note.receivedAt, receivedAt: note.receivedAt,
@@ -42,17 +42,22 @@ export async function processNextJob() {
     });
     await db.transaction(async tx => {
       const [locked] = await tx.select().from(jobsTable).where(and(eq(jobsTable.eventId, job.eventId), eq(jobsTable.leaseId, leaseId))).for("update");
-      if (!locked || locked.status !== "processing") return;
-      const action = actions[0];
-      // Classification enriches this message in-place. User edits/removal made
-      // during processing win over an older model response.
-      await tx.update(eventsTable).set({
-        isActionable: !!action, actionTitle: action?.title ?? null,
-        dueAt: action?.dueAt ?? null, timezone: job.timezone,
-        needsReview: action?.needsReview ?? false,
-        originalTimeText: action?.originalTimeText ?? null,
-        unifiedAt: new Date(),
-      }).where(and(eq(eventsTable.id, job.eventId), eq(eventsTable.ownerId, job.ownerId), sql`${eventsTable.editedAt} IS NULL`));
+      if (!locked || locked.status !== "processing" || locked.availableAt <= new Date()) return;
+      // A permanent, source-locked initialization barrier makes extraction
+      // insert-only. Retries cannot rewrite edits or resurrect tombstoned children.
+      const [source] = await tx.select().from(eventsTable).where(and(
+        eq(eventsTable.id, job.eventId), eq(eventsTable.ownerId, job.ownerId),
+      )).for("update");
+      if (source && !source.actionsInitializedAt && !source.editedAt) {
+        if (actions.length) await tx.insert(actionsTable).values(actions.map(action => ({
+          id: randomUUID(), ownerId: job.ownerId, sourceEventId: job.eventId,
+          title: action.title, sourceAction: action.sourceAction, dueAt: action.dueAt,
+          timezone: job.timezone, needsReview: action.needsReview,
+          originalTimeText: action.originalTimeText,
+        })));
+        await tx.update(eventsTable).set({ actionsInitializedAt: new Date() })
+          .where(eq(eventsTable.id, source.id));
+      }
       await tx.update(jobsTable).set({ status: "completed", leaseId: null, error: null }).where(eq(jobsTable.eventId, job.eventId));
       await tx.execute(sql`SELECT pg_notify('ring_inbox_changed', ${job.ownerId})`);
     });

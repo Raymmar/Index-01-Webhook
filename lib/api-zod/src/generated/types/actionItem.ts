@@ -10,7 +10,7 @@ import type { ActionItemStatus } from './actionItemStatus';
 
 export interface ActionItem {
   id: string;
-  /** Same identifier as the original inbox item */
+  /** Original inbox message shared by independently identified child actions */
   sourceEventId: string;
   kind: ActionItemKind;
   title: string;

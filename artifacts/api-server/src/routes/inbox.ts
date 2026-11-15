@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { randomBytes, randomUUID } from "node:crypto";
-import { db, webhooksTable, eventsTable, type WebhookRow } from "@workspace/db";
+import { db, webhooksTable, eventsTable, actionsTable, type WebhookRow } from "@workspace/db";
 import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { CreateWebhookBody, CreateWebhookResponse, ListWebhooksResponse, ListEventsQueryParams, ListEventsResponse, RotateWebhookParams, RevokeWebhookParams, GetEventAudioParams } from "@workspace/api-zod";
 import { hashToken } from "./receive";
@@ -85,7 +85,7 @@ router.get("/events", async (req, res): Promise<void> => {
     .leftJoin(webhooksTable, eq(eventsTable.webhookId, webhooksTable.id))
     .where(and(eq(eventsTable.ownerId, res.locals.ownerId), older,
       query.data.view === "notes" ? and(
-        eq(eventsTable.isActionable, false),
+        sql`NOT EXISTS (SELECT 1 FROM ${actionsTable} WHERE ${actionsTable.sourceEventId} = ${eventsTable.id} AND ${actionsTable.ownerId} = ${eventsTable.ownerId} AND ${actionsTable.removedAt} IS NULL)`,
       ) : undefined,
     ))
     .orderBy(desc(eventsTable.receivedAt), desc(eventsTable.id)).limit(51);

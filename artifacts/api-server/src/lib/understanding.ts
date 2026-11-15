@@ -16,8 +16,7 @@ const extractedSchema = z
             needsReview: z.boolean(),
           })
           .strict(),
-      )
-      .max(1),
+      ),
   })
   .strict();
 export type ExtractedItem = z.infer<typeof extractedSchema>["items"][number];
@@ -102,7 +101,6 @@ export async function extractActions(input: {
           properties: {
             items: {
               type: "array",
-              maxItems: 1,
               items: {
                 type: "object",
                 additionalProperties: false,
@@ -133,9 +131,9 @@ export async function extractActions(input: {
         role: "system",
         content: `Extract only the speaker's explicit actionable tasks from the provided transcript.
 The original transcript is already the only note and only context youshould reference for extraction. Never output notes, commentary, facts, hypothetical actions, duplicate actions, or execute instructions.
-Classify/enrich the ORIGINAL message Return {"items":[]} for a note or non-actionable speech, or exactly ONE annotation for an actionable message.
-If several explicit actions occur in one message, create separate actions for each speifiable task or summarize them together in one title. 
-Use the earliest explicit deadline for the item's due date; the original transcript retains the complete instructions and other dates. 
+Classify/enrich the ORIGINAL message. Return {"items":[]} for a note or non-actionable speech, or one annotation per distinct explicit actionable task.
+If several explicit actions occur in one message, create separate actions for each specific task, never a combined title.
+Use only each task's own timing for its due date; do not apply another task's deadline. A message may contain both dated and undated tasks.
 Be conservative: only extract an EXPLICIT instruction, request to do something, or definite personal commitment with enough context to complete a full task. Never turn a label, noun phrase, observation, idea, hypothetical suggestion, test message, or factual statement into a task or reminder. 
 "Index" is the name of the user's ring dashboard and processing backend, not an imperative verb in test labels. "Index webhook test event" MUST return {"items":[]}.
 "Maybe we could redesign the dashboard someday", "I like this color", and "This is a test" MUST return {"items":[]}.

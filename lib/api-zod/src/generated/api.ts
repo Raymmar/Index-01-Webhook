@@ -55,7 +55,7 @@ export const GetOrganizerResponse = zod.object({
   "messageCount": zod.number().int().min(getOrganizerResponseMessageCountMin),
   "items": zod.array(zod.object({
   "id": zod.string(),
-  "sourceEventId": zod.string().describe('Same identifier as the original inbox item'),
+  "sourceEventId": zod.string().describe('Original inbox message shared by independently identified child actions'),
   "kind": zod.enum(['task']),
   "title": zod.string(),
   "dueAt": zod.string().nullable(),
@@ -85,14 +85,14 @@ export const createItemBodyTitleMax = 500;
 
 
 export const CreateItemBody = zod.object({
-  "kind": zod.enum(['task', 'reminder']).optional().describe('Accepted for older clients; all actionable messages are tasks'),
+  "kind": zod.enum(['task', 'reminder']).optional().describe('Accepted for older clients; all actions are tasks with optional due dates'),
   "title": zod.string().min(1).max(createItemBodyTitleMax),
   "dueAt": zod.string().nullish()
 })
 
 export const CreateItemResponse = zod.object({
   "id": zod.string(),
-  "sourceEventId": zod.string().describe('Same identifier as the original inbox item'),
+  "sourceEventId": zod.string().describe('Original inbox message shared by independently identified child actions'),
   "kind": zod.enum(['task']),
   "title": zod.string(),
   "dueAt": zod.string().nullable(),
@@ -121,7 +121,7 @@ export const UpdateItemBody = zod.object({
 
 export const UpdateItemResponse = zod.object({
   "id": zod.string(),
-  "sourceEventId": zod.string().describe('Same identifier as the original inbox item'),
+  "sourceEventId": zod.string().describe('Original inbox message shared by independently identified child actions'),
   "kind": zod.enum(['task']),
   "title": zod.string(),
   "dueAt": zod.string().nullable(),

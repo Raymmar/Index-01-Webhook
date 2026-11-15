@@ -32,6 +32,7 @@ export const eventsTable = pgTable("inbox_events", {
   originalTimeText: text("original_time_text"),
   unifiedAt: timestamp("unified_at", { withTimezone: true }),
   editedAt: timestamp("edited_at", { withTimezone: true }),
+  actionsInitializedAt: timestamp("actions_initialized_at", { withTimezone: true }),
 }, (t) => [index("events_owner_received_idx").on(t.ownerId, t.receivedAt, t.id)]);
 
 export const insertWebhookSchema = createInsertSchema(webhooksTable);

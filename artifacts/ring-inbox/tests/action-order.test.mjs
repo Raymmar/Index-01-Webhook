@@ -15,3 +15,9 @@ test("equal dates and undated items have stable newest-first tie ordering", () =
   assert.ok(compareActionItems(item("old", null), item("new", null, "2026-11-16T12:00:00Z")) > 0);
   assert.ok(compareActionItems(item("a", null), item("b", null)) < 0);
 });
+test("siblings retain independent urgency and identity", () => {
+  const siblings = [item("a",null), item("b","2026-11-16T12:00:00Z"), item("c",null), item("d","2026-11-15T12:00:00Z")]
+    .map(row => ({...row,sourceEventId:"one-original"}));
+  assert.deepEqual(siblings.sort(compareActionItems).map(row=>row.id),["d","b","a","c"]);
+  assert.equal(new Set(siblings.map(row=>row.sourceEventId)).size,1);
+});

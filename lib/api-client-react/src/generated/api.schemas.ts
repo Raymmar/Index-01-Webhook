@@ -67,7 +67,7 @@ export const ActionItemStatus = {
 
 export interface ActionItem {
   id: string;
-  /** Same identifier as the original inbox item */
+  /** Original inbox message shared by independently identified child actions */
   sourceEventId: string;
   kind: ActionItemKind;
   title: string;
@@ -82,7 +82,7 @@ export interface ActionItem {
 }
 
 /**
- * Accepted for older clients; all actionable messages are tasks
+ * Accepted for older clients; all actions are tasks with optional due dates
  * @deprecated
  */
 export type ItemInputKind = typeof ItemInputKind[keyof typeof ItemInputKind];
@@ -95,7 +95,7 @@ export const ItemInputKind = {
 
 export interface ItemInput {
   /**
-     * Accepted for older clients; all actionable messages are tasks
+     * Accepted for older clients; all actions are tasks with optional due dates
      * @deprecated
      */
   kind?: ItemInputKind;

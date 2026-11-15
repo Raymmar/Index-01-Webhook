@@ -6,6 +6,7 @@ import { Code2 } from "lucide-react";
 import { useListEvents, getListEventsQueryKey, listEvents, useGetOrganizer, getGetOrganizerQueryKey, useUnderstandEvent, type InboxEvent, type ActionItem, type ProcessingJob } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { mergeEvents, prioritizeEvents } from "@/lib/feed-order";
+import { ActionItemRow } from "./items";
 
 function ts(s: string) { return format(new Date(s), "MMM d, h:mm a"); }
 function size(n: number) { return n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${(n / 1024).toFixed(1)} KB`; }
@@ -20,10 +21,7 @@ function Organize({ e, items, job, pending, error, onOrganize }: { e: InboxEvent
   if (!e.transcription) return null;
   if (items.length) {
     return (
-      <span className="flex items-center gap-2" data-testid={`text-extracted-${e.id}`}>
-        <Link href={items[0]?.dueAt ? "/dashboard?schedule=scheduled" : "/dashboard?schedule=unscheduled"} className="hover:text-foreground">{items[0]?.dueAt ? "Scheduled task" : "Task"}</Link>
-        {items[0]?.status !== "open" && <span>{items[0]?.status === "completed" ? "Completed" : "Dismissed"}</span>}
-      </span>
+      <span data-testid={`text-extracted-${e.id}`}>{items.length} {items.length === 1 ? "task" : "tasks"}</span>
     );
   }
   if (job?.status === "completed") return <span data-testid={`text-extracted-${e.id}`}>Note</span>;
@@ -46,6 +44,9 @@ export function EventCard({ e, items, job, highlight, embedded, localPending }: 
           <audio controls preload="none" src={e.audioUrl} className="h-8 w-full" data-testid={`audio-${e.id}`} />
         </div>
       )}
+      {items.length > 0 && <ul className="mt-2 divide-y divide-border border-t border-border" aria-label="Linked tasks">
+        {items.map(item => <ActionItemRow key={item.id} item={item} tz={item.timezone} />)}
+      </ul>}
       <footer className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-1 text-[11px] text-muted-foreground">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
           <span className="max-w-40 truncate" title={e.webhookName}>{e.webhookName}</span>

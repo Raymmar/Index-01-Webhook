@@ -14,7 +14,7 @@ const pg = createRequire(resolve("lib/db/package.json"))("pg");
 const admin = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 try {
   await admin.query(`CREATE SCHEMA ${schemaName}`);
-  for (const table of ["webhooks", "inbox_events", "app_settings", "user_preferences", "understanding_jobs", "action_items"]) {
+  for (const table of ["webhooks", "inbox_events", "app_settings", "user_preferences", "understanding_jobs", "action_items", "active_actions"]) {
     await admin.query(`CREATE TABLE ${schemaName}.${table} (LIKE public.${table} INCLUDING ALL)`);
   }
   const outfile = join(temp, "check.cjs");

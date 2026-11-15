@@ -3,7 +3,7 @@ import { useInboxDrawer } from "@/hooks/use-inbox-drawer";
 import { useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, CornerUpLeft, MoreVertical, Trash2, X } from "lucide-react";
-import { useGetOrganizer, getGetOrganizerQueryKey, useGetSettings, getGetSettingsQueryKey, useCreateItem, useUpdateItem, useDeleteItem, type ActionItem, type ItemUpdate } from "@workspace/api-client-react";
+import { useGetOrganizer, getGetOrganizerQueryKey, getListEventsQueryKey, useGetSettings, getGetSettingsQueryKey, useCreateItem, useUpdateItem, useDeleteItem, type ActionItem, type ItemUpdate } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
@@ -16,7 +16,10 @@ const field = "rounded-md border border-input bg-card px-2.5 py-1.5 text-sm outl
 
 function useInvalidate() {
   const qc = useQueryClient();
-  return () => qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() });
+  return () => Promise.all([
+    qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() }),
+    qc.invalidateQueries({ queryKey: getListEventsQueryKey() }),
+  ]);
 }
 
 export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
@@ -105,14 +108,14 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
             ? <DropdownMenuItem onSelect={() => patch({ status: "open" })} data-testid={`menu-restore-${item.id}`}><CornerUpLeft className="mr-2 h-4 w-4" />Restore</DropdownMenuItem>
             : <DropdownMenuItem onSelect={() => setConfirm("dismiss")} data-testid={`menu-dismiss-${item.id}`}><X className="mr-2 h-4 w-4" />Dismiss</DropdownMenuItem>}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => setConfirm("delete")} data-testid={`menu-delete-${item.id}`}><Trash2 className="mr-2 h-4 w-4" />Make a note</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setConfirm("delete")} data-testid={`menu-delete-${item.id}`}><Trash2 className="mr-2 h-4 w-4" />Remove task</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <AlertDialog open={!!confirm} onOpenChange={(o) => { if (!o) setConfirm(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-display text-2xl font-normal">{confirm === "delete" ? "Make this a note?" : "Dismiss this task?"}</AlertDialogTitle>
-            <AlertDialogDescription>{confirm === "delete" ? "Remove its action and due date. The original message and audio stay in your inbox." : "It moves out of your open list. You can restore it later."}</AlertDialogDescription>
+            <AlertDialogTitle className="font-display text-2xl font-normal">{confirm === "delete" ? "Remove this task?" : "Dismiss this task?"}</AlertDialogTitle>
+            <AlertDialogDescription>{confirm === "delete" ? "Only this task is removed. Other tasks, the original message, and its audio stay unchanged." : "It moves out of your open list. You can restore it later."}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancel-confirm">Cancel</AlertDialogCancel>
@@ -121,7 +124,7 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
                 if (confirm === "delete") del.mutate({ id: item.id }, { onError: () => toast({ variant: "destructive", description: "Could not delete. Try again." }) });
                 else patch({ status: "dismissed" }, { label: "Dismissed.", data: { status: "open" } });
                 setConfirm(null);
-              }}>{confirm === "delete" ? "Make a note" : "Dismiss"}</AlertDialogAction>
+              }}>{confirm === "delete" ? "Remove task" : "Dismiss"}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

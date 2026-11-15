@@ -75,7 +75,7 @@ export function WeekAhead() {
         {notice && <div role="status" className="mb-4 flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-xs text-muted-foreground"><span>{notice}</span><button type="button" className={button} onClick={() => setNotice(null)}>Dismiss</button></div>}
         {section !== "inbox" && <header className="mb-7">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h1 className="font-display text-3xl">{section === "dashboard" ? "Dashboard" : section === "inbox" ? "Inbox" : section === "tasks" ? "Tasks" : "Reminders"}</h1>
+            <h1 className="font-display text-3xl">{section === "dashboard" ? "Dashboard" : section === "tasks" ? "Tasks" : "Reminders"}</h1>
             <span className="text-xs text-muted-foreground">{format(today, "EEEE, MMMM d")}</span>
           </div>
           {section === "dashboard" && <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">

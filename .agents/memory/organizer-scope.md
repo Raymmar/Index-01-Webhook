@@ -15,13 +15,15 @@ has Dashboard, Inbox, Webhooks, and Settings bottom tabs with native glass contr
 **How to apply:** Preserve the website's dashboard/inbox-drawer layout while
 using a separate Inbox tab on mobile.
 
-Use ONE inbox-item primitive. A message is a note by default; an explicit action
-makes that same item a task; a due date makes it scheduled. These are attributes
-and filtered views of the same item, never separate extracted records.
-Dashboard has All, Scheduled, and Unscheduled filters. The inbox covers notes;
-there is no separate Notes tab or page. Keep transcript, audio, status, and date together.
-**Why:** The user explicitly replaced the earlier multi-extraction model:
-"these are just distinctions on the same item. They're not a bunch of different items."
+Keep one unchanged source inbox message with zero, one, or many independently
+managed child tasks. A reminder is a task with a due date, not a separate
+primitive. Notes means sources with no remaining children, including closed ones.
+Do not restore archived extractions or speculatively split historical summaries.
+**Why:** The user explicitly superseded the one-message/one-action scope with
+independent multi-action extraction, while preserving original transcript/audio.
+**How to apply:** Extract only explicit instructions or definite commitments with
+transcript-local action and object context. Preserve the user's substantive prompt
+and examples; do not infer unspecified referents such as “Send this to production”.
 
 Use UTC for reminder instants and localized display. Detect the owner's timezone,
 save it, and provide a settings override.
