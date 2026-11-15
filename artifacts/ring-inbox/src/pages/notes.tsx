@@ -5,7 +5,7 @@ import { EventCard } from "./inbox";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Notes() {
-  useEffect(() => { document.title = "Notes · Ring Inbox"; }, []);
+  useEffect(() => { document.title = "Index 0.1 - Pebble Ring Webhook"; }, []);
   const organizer = useGetOrganizer();
   const q = useInfiniteQuery({
     queryKey: [...getListEventsQueryKey({ view: "notes" }), "infinite"],

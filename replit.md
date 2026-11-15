@@ -1,4 +1,4 @@
-# Ring Inbox
+# Index 0.1 - Pebble Ring Webhook
 
 A personal inbox for Pebble Index ring webhook deliveries, with Clerk login and private audio playback.
 

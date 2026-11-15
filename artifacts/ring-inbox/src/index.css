@@ -68,7 +68,7 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* Ring Inbox has one light palette, including native audio/form controls.
+/* Index 0.1 has one light palette, including native audio/form controls.
  * Keep all surfaces on these tokens; see STYLE_GUIDE.md. */
 :root,
 .dark {

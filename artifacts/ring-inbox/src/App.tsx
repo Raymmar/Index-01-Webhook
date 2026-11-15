@@ -192,8 +192,8 @@ function ClerkProviderWithRoutes() {
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
       localization={{
-        signIn: { start: { title: "Ring Inbox", subtitle: "Sign in to read what your ring heard" } },
-        signUp: { start: { title: "Ring Inbox", subtitle: "Create a private inbox for your ring" } },
+        signIn: { start: { title: "Index 0.1", subtitle: "Sign in to read what your ring heard" } },
+        signUp: { start: { title: "Index 0.1", subtitle: "Create a private inbox for your ring" } },
       }}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}

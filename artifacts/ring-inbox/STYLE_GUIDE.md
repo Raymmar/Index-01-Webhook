@@ -1,4 +1,4 @@
-# Ring Inbox styles
+# Index 0.1 styles
 
 ## Source of truth
 

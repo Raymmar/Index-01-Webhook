@@ -3,6 +3,11 @@ name: Organizer product scope
 description: User-approved direction for future AI organization and remix ownership.
 ---
 
+The user intends to open-source this version.
+**Why:** The user stated this while naming the release.
+**How to apply:** Keep the existing remix-friendly scope; do not assume a license
+or publish source without a separate instruction.
+
 Use ONE inbox-item primitive. A message is a note by default; an explicit action
 makes that same item a task; a due date makes it scheduled. These are attributes
 and filtered views of the same item, never separate extracted records.

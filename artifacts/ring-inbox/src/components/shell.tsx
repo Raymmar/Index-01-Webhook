@@ -119,7 +119,7 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="flex h-full flex-col">
       <Link href="/dashboard" onClick={close} className="flex items-center gap-2 px-4 pb-4 pt-5" data-testid="link-home">
         <Logo className="h-6 w-6" />
-        <span className="font-display text-xl">Ring Inbox</span>
+        <span className="font-display text-xl">Index 0.1</span>
       </Link>
       <nav className="flex flex-col gap-0.5 px-2" aria-label="Workspace">
         {NAV.map((n) => <NavLink key={n.href} {...n} active={n.href === "/inbox" ? inboxOpen : loc === n.href} count={counts[n.href]} onNav={close}
@@ -146,7 +146,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <aside className="sticky top-0 hidden h-[100dvh] w-60 shrink-0 border-r border-border bg-sidebar md:block">{sidebar}</aside>
       <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-border bg-background/90 px-4 py-2.5 backdrop-blur md:hidden">
         <button ref={menuButton} type="button" aria-label="Open navigation" data-testid="button-menu" onClick={() => setOpen(true)} className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Menu className="h-4 w-4" /></button>
-        <Logo className="h-5 w-5" /><span className="font-display text-lg">Ring Inbox</span>
+        <Logo className="h-5 w-5" /><span className="font-display text-lg">Index 0.1</span>
       </header>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" onCloseAutoFocus={(event) => { event.preventDefault(); menuButton.current?.focus(); }} className="w-64 border-r border-border bg-sidebar p-0 md:hidden" aria-describedby={undefined} data-testid="sheet-nav">

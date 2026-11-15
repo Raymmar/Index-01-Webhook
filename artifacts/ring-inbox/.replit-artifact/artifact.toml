@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Ring Inbox"
+title = "Index 0.1 - Pebble Ring Webhook"
 description = "A private inbox for Pebble Index webhooks, with Clerk login, personal endpoints, JSON payload inspection, audio and transcripts."
 version = "1.0.0"
 id = "artifacts/ring-inbox"

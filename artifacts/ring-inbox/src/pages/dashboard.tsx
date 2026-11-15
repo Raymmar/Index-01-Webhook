@@ -20,7 +20,7 @@ export default function Dashboard() {
   const [now, setNow] = useState(() => new Date());
   // Update calendar date at midnight without polling any API.
   useEffect(() => {
-    document.title = "Dashboard · Ring Inbox";
+    document.title = "Index 0.1 - Pebble Ring Webhook";
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
