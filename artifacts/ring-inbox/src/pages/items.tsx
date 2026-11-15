@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "wouter";
+import { useInboxDrawer } from "@/hooks/use-inbox-drawer";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, CornerUpLeft, MoreVertical, Trash2, X } from "lucide-react";
 import { useGetOrganizer, getGetOrganizerQueryKey, useGetSettings, getGetSettingsQueryKey, useCreateItem, useUpdateItem, useDeleteItem, type ActionItem, type ItemUpdate } from "@workspace/api-client-react";
@@ -9,6 +9,7 @@ import { ToastAction } from "@/components/ui/toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { browserZone, formatDue, toLocalInput, tryLocalInput } from "@/lib/tz";
+import { compareActionItems } from "@/lib/action-order";
 
 type Kind = "task" | "reminder";
 const field = "rounded-md border border-input bg-card px-2.5 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -19,6 +20,7 @@ function useInvalidate() {
 }
 
 export function ActionItemRow({ item, tz, showKind = false }: { item: ActionItem; tz: string; showKind?: boolean }) {
+  const { openInbox } = useInboxDrawer();
   const invalidate = useInvalidate();
   const { toast } = useToast();
   const update = useUpdateItem({ mutation: { onSettled: invalidate } });
@@ -72,7 +74,7 @@ export function ActionItemRow({ item, tz, showKind = false }: { item: ActionItem
         <input value={title} onChange={(e) => setTitle(e.target.value)} onFocus={() => setEditingTitle(true)} onBlur={saveTitle} maxLength={500}
           onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { skipSave.current = true; e.currentTarget.blur(); } }}
           aria-label="Title" data-testid={`input-title-${item.id}`}
-          className={`w-full rounded bg-transparent px-1 -mx-1 text-[15px] outline-none hover:bg-secondary/50 focus:bg-card focus-visible:ring-2 focus-visible:ring-ring ${done ? "text-muted-foreground line-through" : ""}`} />
+          className={`app-content-text w-full rounded bg-transparent px-1 -mx-1 outline-none hover:bg-secondary/50 focus:bg-card focus-visible:ring-2 focus-visible:ring-ring ${done ? "text-muted-foreground line-through" : ""}`} />
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
           {showKind && <span>{item.kind === "task" ? "Task" : "Reminder"}</span>}
           {editingDate ? (
@@ -92,7 +94,7 @@ export function ActionItemRow({ item, tz, showKind = false }: { item: ActionItem
           )}
           {item.needsReview && <span className="rounded border border-accent/50 px-1.5 text-accent" title={item.originalTimeText ?? undefined} data-testid={`status-review-${item.id}`}>Check time{item.originalTimeText ? `: “${item.originalTimeText}”` : ""}</span>}
           {item.status === "dismissed" && <span>Dismissed</span>}
-          {item.sourceEventId && <Link href={`/inbox?event=${encodeURIComponent(item.sourceEventId)}`} data-testid={`link-source-${item.id}`} className="hover:text-foreground">Original note</Link>}
+          {item.sourceEventId && <button type="button" onClick={() => openInbox(item.sourceEventId!)} data-testid={`link-source-${item.id}`} className="hover:text-foreground">Original note</button>}
         </div>
       </div>
       <DropdownMenu>
@@ -158,13 +160,7 @@ export default function Items({ kind }: { kind: Kind }) {
   const tz = settings.data?.timezone ?? browserZone();
   const [show, setShow] = useState<"open" | "done">("open");
   const mine = (q.data?.items ?? []).filter((i) => i.kind === kind);
-  const sort = (a: ActionItem, b: ActionItem) => {
-    if (a.needsReview !== b.needsReview) return a.needsReview ? -1 : 1;
-    if (a.dueAt && b.dueAt) return a.dueAt.localeCompare(b.dueAt);
-    if (a.dueAt || b.dueAt) return a.dueAt ? -1 : 1;
-    return b.createdAt.localeCompare(a.createdAt);
-  };
-  const open = mine.filter((i) => i.status === "open").sort(sort);
+  const open = mine.filter((i) => i.status === "open").sort(compareActionItems);
   const closed = mine.filter((i) => i.status !== "open").sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const list = show === "open" ? open : closed;
   const label = kind === "task" ? "Tasks" : "Reminders";

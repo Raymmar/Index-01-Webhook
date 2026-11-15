@@ -223,5 +223,14 @@ export interface HealthStatus {
 
 export type ListEventsParams = {
 before?: string;
+view?: ListEventsView;
 };
+
+export type ListEventsView = typeof ListEventsView[keyof typeof ListEventsView];
+
+
+export const ListEventsView = {
+  all: 'all',
+  notes: 'notes',
+} as const;
 

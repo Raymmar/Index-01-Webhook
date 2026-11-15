@@ -214,7 +214,8 @@ export const RevokeWebhookResponse = zod.void()
 
 
 export const ListEventsQueryParams = zod.object({
-  "before": zod.coerce.string().optional()
+  "before": zod.coerce.string().optional(),
+  "view": zod.enum(['all', 'notes']).optional()
 })
 
 export const ListEventsResponse = zod.object({

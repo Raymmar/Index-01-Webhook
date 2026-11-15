@@ -108,6 +108,30 @@ export async function check() {
     assert.equal((await api("/items", "POST", "owner", { kind: "reminder", title: "Bad", dueAt: "2026-11-20T09:00" })).status, 400);
     const ambiguous = { kind: "reminder", title: "DST", localDueAt: "2027-03-14T02:30", minutesFromRecording: null, originalTimeText: "2:30", needsReview: false };
     assert.equal(resolveDue(ambiguous, new Date(), "America/Los_Angeles").needsReview, true);
+    // Notes are original events, filtered before pagination; unfinished jobs
+    // and messages with linked actions must not be classified as plain notes.
+    const [original] = await db.select().from(eventsTable).where(eq(eventsTable.id, receipt.id));
+    const noteFixtures = Array.from({length: 54}, (_, index) => ({
+      ...original, id: "plain-note-" + index,
+      transcription: index === 53 ? "   " : "A thought to keep.",
+      receivedAt: new Date(Date.parse("2026-11-01T12:00:00Z") + index * 1000),
+    }));
+    await db.insert(eventsTable).values(noteFixtures);
+    await db.insert(jobsTable).values(noteFixtures.map((event, index) => ({
+      eventId: event.id, ownerId: "owner",
+      status: index === 0 ? "pending" : index === 1 ? "failed" : "completed",
+    })));
+    const notesPage = await (await api("/events?view=notes")).json();
+    assert.equal(notesPage.items.length, 50);
+    assert.ok(notesPage.nextCursor);
+    assert.ok(notesPage.items.every(event => event.id.startsWith("plain-note-") && !["plain-note-0", "plain-note-1", "plain-note-53"].includes(event.id)));
+    const olderNotes = await (await api("/events?view=notes&before=" + encodeURIComponent(notesPage.nextCursor))).json();
+    assert.equal(olderNotes.items.length, 1);
+    assert.equal(olderNotes.nextCursor, null);
+    assert.equal(new Set([...notesPage.items, ...olderNotes.items].map(e => e.id)).size, 51);
+    assert.equal((await (await api("/events?view=notes", "GET", "other")).json()).items.length, 0);
+    assert.equal((await api("/events?view=invalid")).status, 400);
+    console.log("PASS: notes classification, original-event retention, pagination and account isolation");
     ambiguous.localDueAt = "2026-11-01T01:30";
     assert.equal(resolveDue(ambiguous, new Date(), "America/Los_Angeles").needsReview, true);
     await api("/settings", "PATCH", "owner", { allowSignups: false });

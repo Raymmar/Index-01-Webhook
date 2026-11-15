@@ -2,18 +2,18 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
-import { Switch, Route, Redirect, useLocation, Router as WouterRouter } from "wouter";
+import { Switch, Route, Redirect, useLocation, useSearch, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
-import Inbox from "@/pages/inbox";
 import Webhooks from "@/pages/webhooks";
 import Items from "@/pages/items";
 import SettingsPage from "@/pages/settings";
 import Dashboard from "@/pages/dashboard";
+import Notes from "@/pages/notes";
 import { Shell } from "@/components/shell";
 
 const queryClient = new QueryClient();
@@ -137,13 +137,19 @@ function HomeRedirect() {
   );
 }
 
-const PRIVATE = ["/dashboard", "/inbox", "/tasks", "/reminders", "/webhooks", "/settings"];
+const PRIVATE = ["/dashboard", "/inbox", "/notes", "/tasks", "/reminders", "/webhooks", "/settings"];
+
+function LegacyInboxRedirect() {
+  const id = new URLSearchParams(useSearch()).get("event");
+  return <Redirect to={id ? `/dashboard?note=${encodeURIComponent(id)}` : "/dashboard?inbox=1"} />;
+}
 
 function PrivateRoutes() {
   return (
     <Switch>
       <Route path="/dashboard" component={Dashboard} />
-      <Route path="/inbox" component={Inbox} />
+      <Route path="/notes" component={Notes} />
+      <Route path="/inbox" component={LegacyInboxRedirect} />
       <Route path="/tasks">{() => <Items kind="task" />}</Route>
       <Route path="/reminders">{() => <Items kind="reminder" />}</Route>
       <Route path="/webhooks" component={Webhooks} />

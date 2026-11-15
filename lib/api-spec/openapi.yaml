@@ -153,6 +153,7 @@ paths:
       operationId: listEvents
       parameters:
         - { name: before, in: query, schema: { type: string } }
+        - { name: view, in: query, schema: { type: string, enum: [all, notes] } }
       responses:
         "200":
           description: Latest received events

@@ -6,6 +6,10 @@ description: User-approved direction for future AI organization and remix owners
 The original webhook is the note. AI must never create additional notes from it;
 one webhook may produce multiple tasks and reminders.
 
+Provide a Notes view for original messages that produce no task or reminder.
+Do not create a second note record for that view.
+**Why:** The user needs to find non-actionable voice notes separately.
+
 Use UTC for reminder instants and localized display. Detect the owner's timezone,
 save it, and provide a settings override.
 Resolve reminder dates from message receipt time. Date-only phrases such as
@@ -23,10 +27,17 @@ Replit for AI or connected services.
 The current scope is ingestion and understanding only. Connectors stay separate;
 external actions will be connected through a workflow layer later.
 
-Dashboard is the primary signed-in view, based on the Week Ahead design. Keep
-Inbox on its own unchanged page, without an inbox feed in Dashboard. Tasks and
-Reminders retain their own pages and share the same item UI with Dashboard.
-**Why:** The user refined the dashboard direction before authorizing integration.
+Dashboard is the primary signed-in view, based on the Week Ahead design.
+Inbox is a toggleable drawer available in every signed-in view, not a standalone
+page. On wide screens it opens between main navigation and page content; on
+small screens it overlays the page. The Inbox nav control toggles it and its
+header offers Close inbox. Original-note links open the message in the drawer.
+Pin the note being processed at the top and highlight it; restore chronological
+placement when processing finishes. Tasks and Reminders
+retain their own pages and share the same item UI with Dashboard. Sort open
+actions by due-date urgency, not arrival time.
+**Why:** The user refined "always available" to a sliding drawer rather than an
+always-open panel or separate Inbox page.
 
 Do not add UI that is unnecessary for implemented functionality. In particular,
 do not add explanatory limitation text about reminder delivery while discussing

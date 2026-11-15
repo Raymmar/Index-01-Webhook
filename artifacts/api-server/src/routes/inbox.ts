@@ -1,8 +1,8 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { randomBytes, randomUUID } from "node:crypto";
-import { db, webhooksTable, eventsTable, type WebhookRow } from "@workspace/db";
-import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
+import { db, webhooksTable, eventsTable, jobsTable, itemsTable, type WebhookRow } from "@workspace/db";
+import { and, desc, eq, exists, notExists, isNull, lt, or, sql } from "drizzle-orm";
 import { CreateWebhookBody, CreateWebhookResponse, ListWebhooksResponse, ListEventsQueryParams, ListEventsResponse, RotateWebhookParams, RevokeWebhookParams, GetEventAudioParams } from "@workspace/api-zod";
 import { hashToken } from "./receive";
 import { audioFile } from "../lib/recording-storage";
@@ -83,7 +83,17 @@ router.get("/events", async (req, res): Promise<void> => {
   }
   const rows = await db.select({ event: eventsTable, webhookName: webhooksTable.name }).from(eventsTable)
     .innerJoin(webhooksTable, eq(eventsTable.webhookId, webhooksTable.id))
-    .where(and(eq(eventsTable.ownerId, res.locals.ownerId), older))
+    .where(and(eq(eventsTable.ownerId, res.locals.ownerId), older,
+      query.data.view === "notes" ? and(
+        sql`length(trim(coalesce(${eventsTable.transcription}, ''))) > 0`,
+        exists(db.select({ id: jobsTable.eventId }).from(jobsTable).where(and(
+          eq(jobsTable.eventId, eventsTable.id), eq(jobsTable.ownerId, res.locals.ownerId), eq(jobsTable.status, "completed"),
+        ))),
+        notExists(db.select({ id: itemsTable.id }).from(itemsTable).where(and(
+          eq(itemsTable.sourceEventId, eventsTable.id), eq(itemsTable.ownerId, res.locals.ownerId),
+        ))),
+      ) : undefined,
+    ))
     .orderBy(desc(eventsTable.receivedAt), desc(eventsTable.id)).limit(51);
   const items = rows.slice(0, 50).map(({ event, webhookName }) => ({
     id: event.id, webhookId: event.webhookId, webhookName, receivedAt: event.receivedAt.toISOString(),

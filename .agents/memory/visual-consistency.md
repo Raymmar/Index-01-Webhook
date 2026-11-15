@@ -15,3 +15,8 @@ in shared styling decisions. The user reiterated that notifications must use
 the same light edges and palette, not independent component defaults.
 Do not treat a request to compact a card or fix its edges as permission to resize
 or restyle the transcript.
+
+Normalize message transcript and action-title text using one shared content
+font size and regular weight, while keeping metadata smaller.
+**Why:** The user explicitly requested consistent inbox/dashboard font sizes
+after noticing the larger inbox text.

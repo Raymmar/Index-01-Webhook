@@ -7,10 +7,13 @@ import { useGetOrganizer, getGetOrganizerQueryKey, useGetSettings, getGetSetting
 import { ActionItemRow } from "./items";
 import { Skeleton } from "@/components/ui/skeleton";
 import { browserZone } from "@/lib/tz";
+import { compareActionItems } from "@/lib/action-order";
+import { useInboxDrawer } from "@/hooks/use-inbox-drawer";
 
 const button = "rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 export default function Dashboard() {
+  const { openInbox } = useInboxDrawer();
   const q = useGetOrganizer({ query: { queryKey: getGetOrganizerQueryKey() } });
   const settings = useGetSettings({ query: { queryKey: getGetSettingsQueryKey() } });
   const tz = settings.data?.timezone ?? browserZone();
@@ -37,7 +40,7 @@ export default function Dashboard() {
     (closed ? i.status !== "open" : i.status === "open") &&
     (filter === "all" || i.kind === filter) &&
     (!date || (i.dueAt && dayOf(i.dueAt) === date))
-  ).sort((a, b) => (a.dueAt ?? "9999").localeCompare(b.dueAt ?? "9999"));
+  ).sort(compareActionItems);
   const reset = () => { setDate(null); setWeek(0); setClosed(false); };
 
   if (q.isLoading || settings.isLoading) return <div className="space-y-5" aria-label="Loading dashboard"><Skeleton className="h-10 w-48" /><Skeleton className="h-36 w-full" /><Skeleton className="h-64 w-full" /></div>;
@@ -51,7 +54,7 @@ export default function Dashboard() {
           <span className="text-xs text-muted-foreground">{format(today, "EEEE, MMMM d")}</span>
         </div>
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
-          <Link href="/inbox" className="hover:text-foreground"><span className="font-mono text-foreground" data-testid="stat-messages">{q.data?.messageCount ?? 0}</span> messages</Link>
+          <button type="button" onClick={() => openInbox()} className="hover:text-foreground"><span className="font-mono text-foreground" data-testid="stat-messages">{q.data?.messageCount ?? 0}</span> messages</button>
           <Link href="/tasks" className="hover:text-foreground"><span className="font-mono text-foreground">{open.filter(i => i.kind === "task").length}</span> open tasks</Link>
           <Link href="/reminders" className="hover:text-foreground"><span className="font-mono text-foreground">{open.filter(i => i.kind === "reminder").length}</span> reminders</Link>
         </div>

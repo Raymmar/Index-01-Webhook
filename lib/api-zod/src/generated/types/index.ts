@@ -20,6 +20,7 @@ export * from './itemInputKind';
 export * from './itemUpdate';
 export * from './itemUpdateStatus';
 export * from './listEventsParams';
+export * from './listEventsView';
 export * from './organizer';
 export * from './processingJob';
 export * from './processingJobStatus';

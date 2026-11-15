@@ -1,13 +1,15 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useClerk, useUser } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { BellRing, Inbox as InboxIcon, LayoutDashboard, ListChecks, Menu, Settings as SettingsIcon, Webhook } from "lucide-react";
+import { BellRing, FileText, Inbox as InboxIcon, LayoutDashboard, ListChecks, Menu, Settings as SettingsIcon, Webhook } from "lucide-react";
 import { useGetSettings, getGetSettingsQueryKey, useGetOrganizer, getGetOrganizerQueryKey, useUpdateSettings } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useInboxStream } from "@/hooks/use-inbox-stream";
 import { browserZone } from "@/lib/tz";
+import { InboxDrawerContext } from "@/hooks/use-inbox-drawer";
+import { InboxFeed } from "@/pages/inbox";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -18,6 +20,7 @@ export function Logo({ className = "h-7 w-7" }: { className?: string }) {
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/inbox", label: "Inbox", icon: InboxIcon },
+  { href: "/notes", label: "Notes", icon: FileText },
   { href: "/tasks", label: "Tasks", icon: ListChecks },
   { href: "/reminders", label: "Reminders", icon: BellRing },
 ];
@@ -26,15 +29,16 @@ const ADMIN = [
   { href: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
-function NavLink({ href, label, icon: Icon, active, count, onNav }: { href: string; label: string; icon: typeof InboxIcon; active: boolean; count?: number; onNav: () => void }) {
-  return (
-    <Link href={href} onClick={onNav} data-testid={`link-${label.toLowerCase()}`} aria-current={active ? "page" : undefined}
-      className={`flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"}`}>
+function NavLink({ href, label, icon: Icon, active, count, onNav, onToggle, expanded }: { href: string; label: string; icon: typeof InboxIcon; active: boolean; count?: number; onNav: () => void; onToggle?: () => void; expanded?: boolean }) {
+  const className = `flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"}`;
+  const content = <>
       <Icon className="h-4 w-4" aria-hidden="true" />
       <span className="flex-1">{label}</span>
       {count ? <span className="font-mono text-[11px] text-muted-foreground" data-testid={`count-${label.toLowerCase()}`}>{count}</span> : null}
-    </Link>
-  );
+    </>;
+  return onToggle
+    ? <button type="button" className={className} data-testid={`link-${label.toLowerCase()}`} aria-expanded={expanded} aria-controls="incoming-sidebar" onClick={onToggle}>{content}</button>
+    : <Link href={href} onClick={onNav} data-testid={`link-${label.toLowerCase()}`} aria-current={active ? "page" : undefined} className={className}>{content}</Link>;
 }
 
 function SignOutButton() {
@@ -58,8 +62,25 @@ function Denied() {
 
 export function Shell({ children }: { children: ReactNode }) {
   const [loc] = useLocation();
+  const search = useSearch();
   const { user } = useUser();
   const [open, setOpen] = useState(false);
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<string | null>(null);
+  const openInbox = (noteId?: string) => { setSelectedNote(noteId ?? null); setInboxOpen(true); setOpen(false); };
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const note = params.get("note");
+    if (note) { setSelectedNote(note); setInboxOpen(true); }
+    else if (params.get("inbox") === "1") { setSelectedNote(null); setInboxOpen(true); }
+  }, [search]);
+  const [wide, setWide] = useState(() => window.matchMedia("(min-width: 1024px)").matches);
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const change = () => setWide(media.matches);
+    media.addEventListener("change", change);
+    return () => media.removeEventListener("change", change);
+  }, []);
   const menuButton = useRef<HTMLButtonElement>(null);
   const qc = useQueryClient();
   const settings = useGetSettings({ query: { queryKey: getGetSettingsQueryKey() } });
@@ -105,7 +126,9 @@ export function Shell({ children }: { children: ReactNode }) {
         <span className="font-display text-xl">Ring Inbox</span>
       </Link>
       <nav className="flex flex-col gap-0.5 px-2" aria-label="Workspace">
-        {NAV.map((n) => <NavLink key={n.href} {...n} active={loc === n.href} count={counts[n.href]} onNav={close} />)}
+        {NAV.map((n) => <NavLink key={n.href} {...n} active={n.href === "/inbox" ? inboxOpen : loc === n.href} count={counts[n.href]} onNav={close}
+          onToggle={n.href === "/inbox" ? () => { setSelectedNote(null); setInboxOpen(value => !value); close(); } : undefined}
+          expanded={n.href === "/inbox" ? inboxOpen : undefined} />)}
       </nav>
       <div className="mt-6 px-4 pb-1 text-[11px] uppercase tracking-wider text-muted-foreground">Admin</div>
       <nav className="flex flex-col gap-0.5 px-2" aria-label="Settings">
@@ -122,6 +145,7 @@ export function Shell({ children }: { children: ReactNode }) {
   );
 
   return (
+    <InboxDrawerContext.Provider value={{ openInbox }}>
     <div className="min-h-[100dvh] bg-background md:flex">
       <aside className="sticky top-0 hidden h-[100dvh] w-60 shrink-0 border-r border-border bg-sidebar md:block">{sidebar}</aside>
       <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-border bg-background/90 px-4 py-2.5 backdrop-blur md:hidden">
@@ -134,7 +158,35 @@ export function Shell({ children }: { children: ReactNode }) {
           {sidebar}
         </SheetContent>
       </Sheet>
-      <main className="min-w-0 flex-1"><div className={`mx-auto ${loc === "/dashboard" ? "max-w-5xl" : "max-w-3xl"} px-5 py-8`}>
+      <div className="min-w-0 flex-1 lg:flex">
+      {wide && inboxOpen && <section id="incoming-sidebar" aria-label="Incoming messages" className="animate-in slide-in-from-left-4 motion-reduce:animate-none min-w-0 border-b border-border px-4 py-6 lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:w-80 lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r xl:w-96">
+        <header className="mb-4 flex shrink-0 flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-display text-2xl">Incoming messages</h2>
+          <button type="button" data-testid="button-close-inbox" className="rounded text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => {
+            setInboxOpen(false);
+            document.querySelector<HTMLButtonElement>('button[data-testid="link-inbox"]')?.focus();
+          }}>Close inbox</button>
+        </header>
+        <div tabIndex={0} aria-label="Incoming message feed" className="max-h-[50dvh] min-h-0 overflow-y-auto overscroll-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:max-h-none lg:flex-1">
+          <InboxFeed embedded selectedNote={selectedNote} />
+        </div>
+      </section>}
+      {!wide && <Sheet open={inboxOpen} onOpenChange={setInboxOpen}>
+        <SheetContent id="incoming-sidebar" side="left" aria-describedby={undefined} className="flex w-full max-w-full flex-col border-border bg-background p-4 sm:max-w-md" onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          const inboxButton = document.querySelector<HTMLButtonElement>('button[data-testid="link-inbox"]');
+          if (inboxButton?.getClientRects().length) inboxButton.focus(); else menuButton.current?.focus();
+        }}>
+          <header className="flex items-center justify-between gap-2 pr-7">
+            <SheetTitle className="font-display text-2xl font-normal">Incoming messages</SheetTitle>
+            <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setInboxOpen(false)}>Close inbox</button>
+          </header>
+          <div tabIndex={0} aria-label="Incoming message feed" className="min-h-0 flex-1 overflow-y-auto overscroll-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <InboxFeed embedded selectedNote={selectedNote} />
+          </div>
+        </SheetContent>
+      </Sheet>}
+      <main className="min-w-0 flex-1"><div className="mx-auto max-w-3xl px-5 py-8">
         {update.isError && settings.data.timezone === null && (
           <div role="alert" className="mb-4 rounded-lg border border-destructive/40 bg-card px-3 py-2 text-sm" data-testid="banner-timezone-error">
             Could not save your timezone. <button type="button" className="underline disabled:opacity-50" disabled={update.isPending} data-testid="button-retry-timezone" onClick={() => sendTz.current()}>Retry</button>
@@ -142,7 +194,9 @@ export function Shell({ children }: { children: ReactNode }) {
         )}
         {children}
       </div></main>
+      </div>
     </div>
+    </InboxDrawerContext.Provider>
   );
 }
 

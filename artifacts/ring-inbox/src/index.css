@@ -353,3 +353,11 @@
 @keyframes ri-pulse{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
 .ri-pulse{animation:ri-pulse 2.4s ease-in-out infinite}
 .font-display{font-family:'Instrument Serif',serif;font-weight:400;letter-spacing:-.01em}
+
+/* Shared readable copy for note transcripts and organizer item titles. */
+.app-content-text {
+  font-family: var(--app-font-sans);
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.625;
+}
