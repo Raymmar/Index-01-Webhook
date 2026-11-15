@@ -1,34 +1,35 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { format, formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
+import { Code2 } from "lucide-react";
 import { useListEvents, getListEventsQueryKey, listEvents, type InboxEvent } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-function ts(s: string) { const d = new Date(s); return `${format(d, "MMM d, HH:mm:ss")} · ${formatDistanceToNow(d, { addSuffix: true })}`; }
+function ts(s: string) { return format(new Date(s), "MMM d, h:mm a"); }
 function size(n: number) { return n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${(n / 1024).toFixed(1)} KB`; }
 
 function EventCard({ e }: { e: InboxEvent }) {
   const [open, setOpen] = useState(false);
   return (
-    <article className="ri-in rounded-lg border bg-card p-4" data-testid={`card-event-${e.id}`}>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-        <span className={`rounded px-1.5 py-0.5 font-mono uppercase tracking-wider ${e.kind === "recording" ? "bg-accent/15 text-accent" : "bg-secondary text-muted-foreground"}`} data-testid={`status-kind-${e.id}`}>{e.kind}</span>
-        <span className="text-muted-foreground">{e.webhookName}</span>
-        <span className="ml-auto font-mono text-muted-foreground" data-testid={`text-received-${e.id}`}>{ts(e.receivedAt)}</span>
-      </div>
-      {e.transcription && <p className="mt-3 font-display text-2xl leading-snug" data-testid={`text-transcription-${e.id}`}>{e.transcription}</p>}
-      {e.kind === "recording" && !e.transcription && <p className="mt-3 text-sm text-muted-foreground">Transcript unavailable</p>}
+    <article className="ri-in rounded-lg border bg-card p-3" data-testid={`card-event-${e.id}`}>
+      {e.transcription ? <p className="whitespace-pre-wrap break-words font-display text-2xl leading-snug" data-testid={`text-transcription-${e.id}`}>{e.transcription}</p> : <p className="text-sm text-muted-foreground">{e.kind === "recording" ? "Transcript unavailable" : "Webhook event received"}</p>}
       {e.audioUrl && (
-        <div className="mt-3">
-          <audio controls preload="none" src={e.audioUrl} className="w-full" data-testid={`audio-${e.id}`} />
-          {e.audioSize != null && <div className="mt-1 font-mono text-[11px] text-muted-foreground">{size(e.audioSize)}</div>}
+        <div className="mt-2">
+          <audio controls preload="none" src={e.audioUrl} className="h-8 w-full" data-testid={`audio-${e.id}`} />
         </div>
       )}
-      {e.recordedAt && <div className="mt-2 font-mono text-[11px] text-muted-foreground">recorded {format(new Date(e.recordedAt), "MMM d, HH:mm:ss")}</div>}
-      <button type="button" onClick={() => setOpen(!open)} data-testid={`button-payload-${e.id}`} className="mt-3 text-xs text-muted-foreground hover:text-foreground">
-        {open ? "Hide payload" : "Inspect payload"}
-      </button>
-      {open && <pre className="mt-2 max-h-80 overflow-auto rounded-md bg-primary p-3 font-mono text-[12px] leading-relaxed text-primary-foreground">{JSON.stringify(e.payload, null, 2)}</pre>}
+      <footer className="mt-2 flex items-center justify-between gap-2 border-t pt-1 text-[11px] text-muted-foreground">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+          <span className="max-w-40 truncate" title={e.webhookName}>{e.webhookName}</span>
+          <span aria-hidden="true">·</span>
+          <time dateTime={e.recordedAt || e.receivedAt} title={`${e.recordedAt ? "Recorded" : "Received"} ${format(new Date(e.recordedAt || e.receivedAt), "PPpp")}`} data-testid={`text-received-${e.id}`}>{ts(e.recordedAt || e.receivedAt)}</time>
+          {e.audioSize != null && <><span aria-hidden="true">·</span><span>{size(e.audioSize)}</span></>}
+        </div>
+        <button type="button" onClick={() => setOpen((value) => !value)} aria-label={open ? "Hide payload" : "Show payload"} title={open ? "Hide payload" : "Show payload"} aria-expanded={open} aria-controls={`payload-${e.id}`} data-testid={`button-payload-${e.id}`} className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${open ? "bg-secondary text-foreground" : ""}`}>
+          <Code2 className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </footer>
+      <pre id={`payload-${e.id}`} hidden={!open} aria-label="Event payload" className="mt-2 max-h-80 overflow-auto rounded-md bg-primary p-3 font-mono text-[12px] leading-relaxed text-primary-foreground">{JSON.stringify(e.payload, null, 2)}</pre>
     </article>
   );
 }
