@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useClerk, useUser } from "@clerk/react";
 
@@ -41,25 +41,53 @@ export function Shell({ children }: { children: ReactNode }) {
 }
 
 export function CopyField({ label, value, testId, secret }: { label: string; value: string; testId: string; secret?: boolean }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [status, setStatus] = useState<"idle" | "copied" | "manual">("idle");
+  useEffect(() => { setStatus("idle"); }, [value]);
+  useEffect(() => {
+    if (status !== "copied") return;
+    const timer = setTimeout(() => setStatus("idle"), 1800);
+    return () => clearTimeout(timer);
+  }, [status]);
+
+  async function copy() {
+    const field = input.current;
+    if (!field) return;
+    field.focus();
+    field.select();
+    field.setSelectionRange(0, value.length);
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(value);
+      setStatus("copied");
+    } catch {
+      // Embedded previews may deny the asynchronous clipboard API.
+      field.focus();
+      field.select();
+      field.setSelectionRange(0, value.length);
+      let copied = false;
+      try { copied = document.execCommand("copy"); } catch { /* Manual selection remains available. */ }
+      setStatus(copied ? "copied" : "manual");
+    }
+  }
   return (
     <div>
       <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className={`flex items-stretch overflow-hidden rounded-md border ${secret ? "border-accent/60 bg-accent/5" : "bg-card"}`}>
-        <code className="flex-1 overflow-x-auto whitespace-nowrap px-3 py-2 font-mono text-[13px]" data-testid={`text-${testId}`}>{value}</code>
-        <CopyButton value={value} testId={testId} />
+        <input ref={input} readOnly value={value} aria-label={label} spellCheck={false}
+          onFocus={(event) => event.currentTarget.select()}
+          className="min-w-0 flex-1 bg-transparent px-3 py-2 font-mono text-[13px] outline-none focus:ring-2 focus:ring-inset focus:ring-accent"
+          data-testid={`text-${testId}`} />
+        <button type="button" data-testid={`button-copy-${testId}`}
+          aria-label={`Copy ${label}`}
+          className="border-l px-3 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          onClick={copy}>
+          {status === "copied" ? "Copied" : "Copy"}
+        </button>
       </div>
+      <p role="status" aria-live="polite" className="mt-1 text-xs text-muted-foreground">
+        {status === "manual" ? "Automatic copying is blocked. The value is selected—press Ctrl+C or ⌘C, or touch and hold to copy." : status === "copied" ? "Copied to clipboard." : ""}
+      </p>
     </div>
-  );
-}
-
-import { useState } from "react";
-function CopyButton({ value, testId }: { value: string; testId: string }) {
-  const [done, setDone] = useState(false);
-  return (
-    <button type="button" data-testid={`button-copy-${testId}`}
-      className="border-l px-3 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-      onClick={async () => { await navigator.clipboard.writeText(value); setDone(true); setTimeout(() => setDone(false), 1400); }}>
-      {done ? "Copied" : "Copy"}
-    </button>
   );
 }
