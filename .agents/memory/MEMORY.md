@@ -1,2 +1,3 @@
 - [Storage runtime compatibility](storage-runtime.md) — storage upgrades must pass development audio upload/readback, not only text webhook tests.
 - [Live inbox updates](live-inbox.md) — use webhook-driven SSE rather than periodic inbox polling.
+- [Visual consistency](visual-consistency.md) — user requires one shared style guide and palette across the app, including login.

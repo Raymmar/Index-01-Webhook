@@ -34,7 +34,7 @@ if (!clerkPubKey) {
   throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY in .env file");
 }
 
-const ink = "hsl(200 22% 15%)";
+const ink = "hsl(var(--foreground))";
 const clerkAppearance = {
   theme: shadcn,
   cssLayerName: "clerk",
@@ -46,14 +46,17 @@ const clerkAppearance = {
   variables: {
     colorPrimary: ink,
     colorForeground: ink,
-    colorMutedForeground: "hsl(200 8% 42%)",
-    colorDanger: "hsl(2 62% 46%)",
-    colorBackground: "hsl(40 30% 97%)",
-    colorInput: "hsl(40 30% 98%)",
+    colorMutedForeground: "hsl(var(--muted-foreground))",
+    colorDanger: "hsl(var(--destructive))",
+    colorBackground: "hsl(var(--card))",
+    colorInput: "hsl(var(--card))",
     colorInputForeground: ink,
     colorNeutral: ink,
-    fontFamily: "'Geist', sans-serif",
-    borderRadius: "0.5rem",
+    colorMuted: "hsl(var(--muted))",
+    colorPrimaryForeground: "hsl(var(--primary-foreground))",
+    colorRing: "hsl(var(--ring))",
+    fontFamily: "var(--app-font-sans)",
+    borderRadius: "var(--radius)",
   },
   elements: {
     rootBox: "w-full flex justify-center",

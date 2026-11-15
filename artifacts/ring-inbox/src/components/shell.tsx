@@ -15,7 +15,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const nav = [{ href: "/inbox", label: "Inbox" }, { href: "/webhooks", label: "Webhooks" }];
   return (
     <div className="min-h-[100dvh] bg-background">
-      <header className="sticky top-0 z-10 border-b bg-background/90 backdrop-blur">
+      <header className="sticky top-0 z-10 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-5 px-5 py-3">
           <Link href="/inbox" className="flex items-center gap-2" data-testid="link-home">
             <Logo className="h-6 w-6" />
@@ -73,14 +73,14 @@ export function CopyField({ label, value, testId, secret }: { label: string; val
   return (
     <div>
       <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={`flex items-stretch overflow-hidden rounded-md border ${secret ? "border-accent/60 bg-accent/5" : "bg-card"}`}>
+      <div className={`flex items-stretch overflow-hidden rounded-md border ${secret ? "border-accent/60 bg-accent/5" : "border-border bg-card"}`}>
         <input ref={input} readOnly value={value} aria-label={label} spellCheck={false}
           onFocus={(event) => event.currentTarget.select()}
           className="min-w-0 flex-1 bg-transparent px-3 py-2 font-mono text-[13px] outline-none focus:ring-2 focus:ring-inset focus:ring-accent"
           data-testid={`text-${testId}`} />
         <button type="button" data-testid={`button-copy-${testId}`}
           aria-label={`Copy ${label}`}
-          className="border-l px-3 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          className="border-l border-border px-3 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           onClick={copy}>
           {status === "copied" ? "Copied" : "Copy"}
         </button>

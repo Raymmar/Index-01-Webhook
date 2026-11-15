@@ -12,14 +12,14 @@ function size(n: number) { return n > 1048576 ? `${(n / 1048576).toFixed(1)} MB`
 function EventCard({ e }: { e: InboxEvent }) {
   const [open, setOpen] = useState(false);
   return (
-    <article className="ri-in rounded-lg border bg-card p-3" data-testid={`card-event-${e.id}`}>
+    <article className="ri-in rounded-lg border border-border bg-card p-3" data-testid={`card-event-${e.id}`}>
       {e.transcription ? <p className="whitespace-pre-wrap break-words font-sans text-lg font-normal leading-relaxed" data-testid={`text-transcription-${e.id}`}>{e.transcription}</p> : <p className="text-sm text-muted-foreground">{e.kind === "recording" ? "Transcript unavailable" : "Webhook event received"}</p>}
       {e.audioUrl && (
         <div className="mt-2">
           <audio controls preload="none" src={e.audioUrl} className="h-8 w-full" data-testid={`audio-${e.id}`} />
         </div>
       )}
-      <footer className="mt-2 flex items-center justify-between gap-2 border-t pt-1 text-[11px] text-muted-foreground">
+      <footer className="mt-2 flex items-center justify-between gap-2 border-t border-border pt-1 text-[11px] text-muted-foreground">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
           <span className="max-w-40 truncate" title={e.webhookName}>{e.webhookName}</span>
           <span aria-hidden="true">·</span>
@@ -67,7 +67,7 @@ export default function Inbox() {
           Could not load events. <button className="underline" data-testid="button-retry" onClick={() => q.refetch()}>Retry</button>
         </div>
       ) : all.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-10 text-center">
+        <div className="rounded-lg border border-dashed border-border p-10 text-center">
           <div className="mx-auto h-10 w-10 rounded-full border-4 border-muted-foreground/30" />
           <p className="mt-4 font-display text-2xl">Nothing has arrived yet.</p>
           <p className="mt-1 text-sm text-muted-foreground">Create a webhook, paste it into the ring app, then press Send test event.</p>
@@ -77,7 +77,7 @@ export default function Inbox() {
         <div className="space-y-3">
           {all.map((e) => <EventCard key={e.id} e={e} />)}
           {nextCursor && (
-            <button type="button" onClick={loadMore} disabled={loadingMore} data-testid="button-load-more" className="w-full rounded-md border py-2 text-sm text-muted-foreground hover:bg-secondary disabled:opacity-50">
+            <button type="button" onClick={loadMore} disabled={loadingMore} data-testid="button-load-more" className="w-full rounded-md border border-border py-2 text-sm text-muted-foreground hover:bg-secondary disabled:opacity-50">
               {loadingMore ? "Loading..." : moreErr ? "Failed, try again" : "Load older events"}
             </button>
           )}

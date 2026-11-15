@@ -22,7 +22,7 @@ function Instructions({ creds }: { creds: WebhookCredentials }) {
         <li className="text-muted-foreground">4. Sign requests: leave off.</li>
         <li className="text-muted-foreground">5. Press Send test event, then check the Inbox.</li>
       </ol>
-      <p className="mt-5 border-t pt-4 text-xs leading-relaxed text-muted-foreground">
+      <p className="mt-5 border-t border-border pt-4 text-xs leading-relaxed text-muted-foreground">
         The setup screen sends click JSON. Voice recordings need a recording webhook set to send both audio and transcription; a click test does not guarantee recordings arrive. {import.meta.env.DEV && "This preview URL only works while the dev environment runs; for always-on delivery, create a webhook from the published app."}
       </p>
     </div>
@@ -45,7 +45,7 @@ export default function Webhooks() {
       <h1 className="font-display text-4xl">Webhooks</h1>
       <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) create.mutate({ data: { name: name.trim() } }, done); }}>
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Webhook name" data-testid="input-name"
-          className="flex-1 rounded-md border bg-card px-3 py-2 text-sm outline-none focus:border-accent" />
+          className="flex-1 rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
         <button disabled={create.isPending || !name.trim()} data-testid="button-create" className="rounded-md bg-primary px-4 text-sm text-primary-foreground disabled:opacity-50">
           {create.isPending ? "Creating..." : "Create webhook"}
         </button>
@@ -57,9 +57,9 @@ export default function Webhooks() {
         {list.isLoading ? <Skeleton className="h-20 w-full" /> : list.isError ? (
           <div className="text-sm">Could not load webhooks. <button className="underline" data-testid="button-retry" onClick={() => list.refetch()}>Retry</button></div>
         ) : !list.data?.length ? (
-          <p className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">None yet. Create one above to get a URL and header for the ring app.</p>
+          <p className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">None yet. Create one above to get a URL and header for the ring app.</p>
         ) : (
-          <ul className="divide-y rounded-lg border bg-card">
+          <ul className="divide-y divide-border rounded-lg border border-border bg-card">
             {list.data.map((w) => (
               <li key={w.id} className="p-4" data-testid={`row-webhook-${w.id}`}>
                 <div className="flex items-center gap-3">
