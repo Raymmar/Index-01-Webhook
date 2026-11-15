@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ElementRef } from 'react';
 import { Modal, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { addDays, format, startOfWeek } from 'date-fns';
@@ -15,7 +15,7 @@ type TaskStatus = 'open' | 'completed' | 'dismissed';
 const statusLabels: Record<TaskStatus, string> = { open: 'Open', completed: 'Completed', dismissed: 'Dismissed' };
 
 function StatusDropdown({ value, onChange }: { value: TaskStatus; onChange: (value: TaskStatus) => void }) {
-  const trigger = useRef<View>(null);
+  const trigger = useRef<ElementRef<typeof View>>(null);
   const [anchor, setAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const menuWidth = 164;

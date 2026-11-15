@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { forwardRef, useEffect, useRef, type ElementRef, type ReactNode } from 'react';
 import { Animated, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View, type GestureResponderHandlers, type TextInputProps, type TextProps, type ViewProps } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,7 +23,7 @@ export const s = StyleSheet.create({
   chip: { paddingVertical: 9, paddingHorizontal: 12, minHeight: 38, borderRadius: 8 },
 });
 export function Copy({ children, style, ...rest }: TextProps) { return <Text {...rest} style={[s.text, style]}>{children}</Text>; }
-export function Field(props: TextInputProps) { return <TextInput placeholderTextColor={c.mutedForeground} selectionColor={c.accent} {...props} testID={props.testID ?? `input-${(props.accessibilityLabel ?? props.placeholder ?? 'field').replaceAll(' ', '-').toLowerCase()}`} style={[s.input, props.style]} />; }
+export const Field = forwardRef<ElementRef<typeof TextInput>, TextInputProps>(function Field(props, ref) { return <TextInput ref={ref} placeholderTextColor={c.mutedForeground} selectionColor={c.accent} {...props} testID={props.testID ?? `input-${(props.accessibilityLabel ?? props.placeholder ?? 'field').replaceAll(' ', '-').toLowerCase()}`} style={[s.input, props.style]} />; });
 export function Button({ label, onPress, disabled, quiet, danger, testID }: { label: string; onPress: () => void; disabled?: boolean; quiet?: boolean; danger?: boolean; testID?: string }) {
   return <Pressable accessibilityRole="button" testID={testID ?? `button-${label.replaceAll(' ', '-').toLowerCase()}`} disabled={disabled} onPress={onPress} style={({ pressed }) => ({ minHeight: 46, paddingHorizontal: 16, paddingVertical: 11, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: quiet ? c.secondary : danger ? c.destructive : c.primary, opacity: disabled ? 0.4 : pressed ? 0.65 : 1 })}><Copy style={{ fontFamily: 'Geist_500Medium', fontSize: 14, color: quiet ? c.foreground : c.primaryForeground }}>{label}</Copy></Pressable>;
 }

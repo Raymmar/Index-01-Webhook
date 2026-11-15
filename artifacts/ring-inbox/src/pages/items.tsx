@@ -11,6 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { browserZone, formatDue, toLocalInput, tryLocalInput } from "@/lib/tz";
 import { compareActionItems } from "@/lib/action-order";
+import { TaskTitleField } from "@/components/task-title-field";
 
 const field = "rounded-md border border-input bg-card px-2.5 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
@@ -74,8 +75,8 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
         {item.status === "completed" && <Check className="h-3 w-3" />}
       </button>
       <div className="min-w-0 flex-1">
-        <input value={title} onChange={(e) => setTitle(e.target.value)} onFocus={() => setEditingTitle(true)} onBlur={saveTitle} maxLength={500}
-          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { skipSave.current = true; e.currentTarget.blur(); } }}
+        <TaskTitleField value={title} onChange={(e) => setTitle(e.target.value)} onFocus={() => setEditingTitle(true)} onBlur={saveTitle} maxLength={500}
+          onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); skipSave.current = true; e.currentTarget.blur(); } }}
           aria-label="Title" data-testid={`input-title-${item.id}`}
           className={`app-content-text w-full rounded bg-transparent px-1 -mx-1 outline-none hover:bg-secondary/50 focus:bg-card focus-visible:ring-2 focus-visible:ring-ring ${done ? "text-muted-foreground line-through" : ""}`} />
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
@@ -147,9 +148,9 @@ export function Composer({ tz }: { tz: string }) {
       if (error) { setDateErr(error); return; }
       create.mutate({ data: { title: t, dueAt: iso } }, { onSuccess: () => { setTitle(""); setDate(""); } });
     }}>
-      <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={500} placeholder="New task" data-testid="input-new-title" className={`${field} min-w-0 flex-1 py-2`} />
-      <input type="datetime-local" value={date} onChange={(e) => { setDate(e.target.value); setDateErr(""); }} aria-invalid={!!dateErr} aria-label="Due (optional)" data-testid="input-new-due" className={`${field} min-w-0 py-2`} />
-      <button disabled={create.isPending || !title.trim()} data-testid="button-add" className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50">{create.isPending ? "Adding..." : "Add"}</button>
+      <TaskTitleField value={title} onChange={(e) => setTitle(e.target.value)} maxLength={500} placeholder="New task" aria-label="New task" data-testid="input-new-title" className={`${field} min-w-0 py-2 sm:flex-1 sm:self-start`} />
+      <input type="datetime-local" value={date} onChange={(e) => { setDate(e.target.value); setDateErr(""); }} aria-invalid={!!dateErr} aria-label="Due (optional)" data-testid="input-new-due" className={`${field} min-w-0 py-2 sm:self-start`} />
+      <button disabled={create.isPending || !title.trim()} data-testid="button-add" className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50 sm:self-start">{create.isPending ? "Adding..." : "Add"}</button>
       {dateErr && <p role="alert" className="text-sm text-destructive sm:self-center" data-testid="text-new-due-error">{dateErr}</p>}
       {create.isError && <p className="text-sm text-destructive sm:self-center">Could not add.</p>}
     </form>

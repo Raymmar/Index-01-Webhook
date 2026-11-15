@@ -7,6 +7,7 @@ import { useCreateItem, useUpdateItem, useGetEvent, getGetOrganizerQueryKey, get
 import { Sheet, Button, Field, IconButton, Copy, Failure, s, c, errorMessage } from './ui';
 import { Recording } from './recording';
 import { useHorizontalSwipe } from '@/hooks/use-horizontal-swipe';
+import { TaskTitleField } from './task-title-field';
 
 function TaskRecording({ eventId }: { eventId: string }) {
   const source = useGetEvent(eventId);
@@ -97,7 +98,7 @@ export function ItemEditor({ item: initialItem, tasks = [], tz, onClose }: { ite
       <Button label="Discard changes" quiet disabled={busy} onPress={() => navigate(pendingNavigation)} />
       <Button label="Keep editing" quiet disabled={busy} onPress={() => setPendingNavigation(null)} />
     </View>}
-    <Text style={s.label}>Task</Text><View onTouchStart={() => { if (titleFocused.current) swipe.blockSwipe(); }}><Field accessibilityLabel="Task title" placeholder="What needs doing?" value={title} onChangeText={setTitle} onFocus={() => { titleFocused.current = true; swipe.blockSwipe(); }} onBlur={() => { titleFocused.current = false; }} editable={!busy && !pendingNavigation} multiline maxLength={500} style={{ minHeight: 105, textAlignVertical: 'top', lineHeight: 26 }} /></View>
+    <Text style={s.label}>Task</Text><View onTouchStart={() => { if (titleFocused.current) swipe.blockSwipe(); }}><TaskTitleField accessibilityLabel="Task title" placeholder="What needs doing?" value={title} onChangeText={setTitle} onFocus={() => { titleFocused.current = true; swipe.blockSwipe(); }} onBlur={() => { titleFocused.current = false; }} editable={!busy && !pendingNavigation} maxLength={500} /></View>
     <Text style={s.label}>Due date</Text>
     <View pointerEvents={busy || pendingNavigation ? 'none' : 'auto'} style={{ gap: 12 }}>
     {Platform.OS === 'web' ? <><View onTouchStart={swipe.blockSwipe}><Field accessibilityLabel="Due date in saved timezone" placeholder="YYYY-MM-DDTHH:mm" autoCapitalize="none" value={webDate} onChangeText={setWebDate} /></View><Text style={s.muted}>Browser preview uses typed dates. The iOS app uses the native date and time picker.</Text></> : <View style={s.card}>

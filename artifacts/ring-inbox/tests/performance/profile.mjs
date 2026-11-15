@@ -105,10 +105,10 @@ try {
         await new Promise(resolve => setTimeout(resolve, 300));
         const payload = card.querySelector('[aria-controls]');
         payload.click();
-        const input = card.querySelector('input');
+        const input = card.querySelector('textarea[data-testid^="input-title-"]');
         input.focus();
         // Native input edit, without saving or touching a backend.
-        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Unsaved edit');
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, 'Unsaved edit');
         input.dispatchEvent(new Event('input', {bubbles:true}));
         await new Promise(requestAnimationFrame);
         const before = card.getBoundingClientRect().top;
