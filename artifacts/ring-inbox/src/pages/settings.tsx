@@ -39,14 +39,19 @@ export default function SettingsPage() {
   const [tz, setTz] = useState("");
   const [model, setModel] = useState("");
   const [err, setErr] = useState("");
+  const [providerErr, setProviderErr] = useState("");
 
   useEffect(() => { if (s) { setTz(s.timezone ?? browserZone()); setModel(s.aiModel || "gpt-5-mini"); } }, [s]);
 
   function save(data: SettingsUpdate) {
     setErr("");
+    if (data.aiProvider !== undefined) setProviderErr("");
     update.mutate({ data }, {
       onSuccess: (next) => { qc.setQueryData(getGetSettingsQueryKey(), next); },
-      onError: (e) => setErr(errMsg(e)),
+      onError: (e) => {
+        if (data.aiProvider !== undefined) setProviderErr(errMsg(e));
+        else setErr(errMsg(e));
+      },
     });
   }
 
@@ -82,19 +87,17 @@ export default function SettingsPage() {
 
           <Section title="Understanding">
             <Row label="Provider" hint={s.aiProvider === "replit" ? (s.managedConfigured ? "Replit AI Integrations is configured." : "Replit AI Integrations is not configured.") : s.directKeyConfigured ? "OPENAI_API_KEY is configured." : undefined}>
-              <div className="flex rounded-md border border-border p-0.5 text-sm" role="radiogroup">
+              <div className="space-y-2">
+              <div className="flex rounded-md border border-border p-0.5 text-sm" role="radiogroup" aria-label="AI provider" aria-describedby={providerErr || directMissing ? "provider-warning" : undefined}>
                 {([["replit", "Replit managed"], ["openai", "OpenAI direct"]] as const).map(([v, l]) => (
                   <button key={v} type="button" role="radio" aria-checked={s.aiProvider === v} disabled={update.isPending} data-testid={`radio-provider-${v}`}
-                    onClick={() => { if (v !== s.aiProvider) save({ aiProvider: v, aiModel: "gpt-5-mini" }); }}
+                    onClick={() => { setProviderErr(""); if (v !== s.aiProvider) save({ aiProvider: v, aiModel: "gpt-5-mini" }); }}
                     className={`rounded px-3 py-1 disabled:opacity-60 ${s.aiProvider === v ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}>{l}</button>
                 ))}
               </div>
-            </Row>
-            {directMissing && (
-              <div className="px-4 py-3 text-xs text-muted-foreground" data-testid="text-key-missing">
-                Set <code className="font-mono text-foreground">OPENAI_API_KEY</code> in project Secrets.
+              {(providerErr || directMissing) && <p id="provider-warning" role="alert" className="max-w-xs text-xs text-destructive" data-testid="text-provider-error">{providerErr || "Set OPENAI_API_KEY in server secrets first"}</p>}
               </div>
-            )}
+            </Row>
             <Row label="Model">
               <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); const m = model.trim(); if (m && m !== s.aiModel) save({ aiModel: m }); }}>
                 <div className="space-y-2">
