@@ -6,6 +6,7 @@ import { and, desc, eq, lt, or } from "drizzle-orm";
 import { CreateWebhookBody, CreateWebhookResponse, ListWebhooksResponse, ListEventsQueryParams, ListEventsResponse, RotateWebhookParams, GetEventAudioParams } from "@workspace/api-zod";
 import { hashToken } from "./receive";
 import { audioFile } from "../lib/recording-storage";
+import { openInboxStream } from "../lib/inbox-stream";
 
 const router: IRouter = Router();
 const publicHook = (hook: WebhookRow) => ({
@@ -46,6 +47,10 @@ router.post("/webhooks/:id/rotate", async (req, res): Promise<void> => {
   )).returning();
   if (!hook) { res.status(404).json({ error: "Webhook not found" }); return; }
   res.json(CreateWebhookResponse.parse({ webhook: publicHook(hook), headerName: "Authorization", headerValue: `Bearer ${token}` }));
+});
+
+router.get("/events/stream", async (_req, res): Promise<void> => {
+  await openInboxStream(res, res.locals.ownerId);
 });
 
 router.get("/events", async (req, res): Promise<void> => {

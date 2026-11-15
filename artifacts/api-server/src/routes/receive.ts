@@ -76,6 +76,9 @@ router.post("/receive/:id", limiter, async (req, res, next): Promise<void> => {
         payload: redact(body) as Record<string, unknown>,
       });
       await tx.update(webhooksTable).set({ lastReceivedAt: receivedAt, eventCount: sql`${webhooksTable.eventCount} + 1` }).where(eq(webhooksTable.id, hook.id));
+      // Delivered only after commit, so SSE readers can immediately fetch it.
+      // Contains only the account identifier, never transcript or credentials.
+      await tx.execute(sql`SELECT pg_notify('ring_inbox_changed', ${hook.ownerId})`);
     });
   } catch (error) {
     if (audioPath) await audioFile(audioPath).delete().catch(() => req.log.warn("Could not remove an uncommitted audio upload"));

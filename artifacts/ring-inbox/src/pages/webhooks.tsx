@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useListWebhooks, getListWebhooksQueryKey, useCreateWebhook, useRotateWebhook, type WebhookCredentials, type Webhook } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CopyField } from "@/components/shell";
+import { useInboxStream } from "@/hooks/use-inbox-stream";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const url = (w: Webhook) => window.location.origin + w.path;
@@ -30,7 +31,8 @@ function Instructions({ creds }: { creds: WebhookCredentials }) {
 
 export default function Webhooks() {
   const qc = useQueryClient();
-  const list = useListWebhooks({ query: { queryKey: getListWebhooksQueryKey(), refetchInterval: 5000 } });
+  const list = useListWebhooks({ query: { queryKey: getListWebhooksQueryKey() } });
+  useInboxStream();
   const create = useCreateWebhook();
   const rotate = useRotateWebhook();
   const [name, setName] = useState("Pebble Index");

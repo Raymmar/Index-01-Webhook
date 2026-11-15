@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { Code2 } from "lucide-react";
 import { useListEvents, getListEventsQueryKey, listEvents, type InboxEvent } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useInboxStream } from "@/hooks/use-inbox-stream";
 
 function ts(s: string) { return format(new Date(s), "MMM d, h:mm a"); }
 function size(n: number) { return n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${(n / 1024).toFixed(1)} KB`; }
@@ -35,7 +36,8 @@ function EventCard({ e }: { e: InboxEvent }) {
 }
 
 export default function Inbox() {
-  const q = useListEvents(undefined, { query: { queryKey: getListEventsQueryKey(), refetchInterval: 5000 } });
+  const q = useListEvents(undefined, { query: { queryKey: getListEventsQueryKey() } });
+  const streamStatus = useInboxStream();
   const [older, setOlder] = useState<InboxEvent[]>([]);
   const [cursor, setCursor] = useState<string | null | undefined>(undefined);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -56,7 +58,7 @@ export default function Inbox() {
     <div>
       <div className="mb-6 flex items-end justify-between">
         <h1 className="font-display text-4xl">Inbox</h1>
-        <span className="flex items-center gap-2 text-xs text-muted-foreground"><span className="ri-pulse h-1.5 w-1.5 rounded-full bg-accent" />{q.isError ? "Refresh failed" : "Checking every 5s"}</span>
+        <span role="status" className="flex items-center gap-2 text-xs text-muted-foreground"><span className={`h-1.5 w-1.5 rounded-full ${streamStatus === "live" ? "bg-accent" : "bg-muted-foreground"}`} />{q.isError ? "Refresh failed" : streamStatus === "live" ? "Live" : streamStatus === "connecting" ? "Connecting…" : "Reconnecting…"}</span>
       </div>
       {q.isLoading ? (
         <div className="space-y-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-28 w-full" />)}</div>

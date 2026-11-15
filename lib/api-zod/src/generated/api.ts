@@ -89,6 +89,13 @@ export const ListEventsResponse = zod.object({
 })
 
 
+/**
+ * Cookie-authenticated SSE. Ready requests an initial catch-up; inbox-changed invalidates the inbox after a committed delivery. Native EventSource handles reconnects.
+ * @summary Account-scoped live inbox notifications
+ */
+export const StreamEventsResponse = zod.unknown()
+
+
 export const GetEventAudioParams = zod.object({
   "id": zod.coerce.string()
 })

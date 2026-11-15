@@ -70,6 +70,19 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/EventPage" }
+  /events/stream:
+    get:
+      operationId: streamEvents
+      summary: Account-scoped live inbox notifications
+      description: Cookie-authenticated SSE. Ready requests an initial catch-up; inbox-changed invalidates the inbox after a committed delivery. Native EventSource handles reconnects.
+      responses:
+        "200":
+          description: Server-sent events named ready and inbox-changed, plus keepalive comments.
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "401":
+          description: Sign in required
   /events/{id}/audio:
     get:
       operationId: getEventAudio
