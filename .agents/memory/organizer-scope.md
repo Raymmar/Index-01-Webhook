@@ -15,6 +15,12 @@ has Dashboard, Inbox, Webhooks, and Settings bottom tabs with native glass contr
 **How to apply:** Preserve the website's dashboard/inbox-drawer layout while
 using a separate Inbox tab on mobile.
 
+Keep mobile development and production data separate; do not add an environment
+selector. Expo development uses development data, and the published mobile app
+is expected to use production data.
+**Why:** The user chose to keep the environments separate after discussing a selector.
+**How to apply:** Preserve that separation and ensure publishing targets the production backend.
+
 Keep one unchanged source inbox message with zero, one, or many independently
 managed child tasks. A reminder is a task with a due date, not a separate
 primitive. Notes means sources with no remaining children, including closed ones.
