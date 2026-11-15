@@ -13,7 +13,6 @@ import Webhooks from "@/pages/webhooks";
 import Items from "@/pages/items";
 import SettingsPage from "@/pages/settings";
 import Dashboard from "@/pages/dashboard";
-import Notes from "@/pages/notes";
 import { Shell } from "@/components/shell";
 
 const queryClient = new QueryClient();
@@ -148,7 +147,7 @@ function PrivateRoutes() {
   return (
     <Switch>
       <Route path="/dashboard" component={Dashboard} />
-      <Route path="/notes" component={Notes} />
+      <Route path="/notes" component={LegacyInboxRedirect} />
       <Route path="/inbox" component={LegacyInboxRedirect} />
       <Route path="/tasks" component={Items} />
       <Route path="/reminders">{() => <Redirect to="/tasks?schedule=scheduled" />}</Route>

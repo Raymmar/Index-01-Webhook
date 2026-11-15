@@ -6,8 +6,8 @@ description: User-approved direction for future AI organization and remix owners
 Use ONE inbox-item primitive. A message is a note by default; an explicit action
 makes that same item a task; a due date makes it scheduled. These are attributes
 and filtered views of the same item, never separate extracted records.
-Tasks has All, Scheduled, and Unscheduled filters; Notes filters non-actionable
-inbox items. Keep transcript, audio, status, and date together.
+Tasks has All, Scheduled, and Unscheduled filters. The inbox covers notes;
+there is no separate Notes tab or page. Keep transcript, audio, status, and date together.
 **Why:** The user explicitly replaced the earlier multi-extraction model:
 "these are just distinctions on the same item. They're not a bunch of different items."
 
