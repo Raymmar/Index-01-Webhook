@@ -40,10 +40,17 @@ export function Shell({ children }: { children: ReactNode }) {
   );
 }
 
-export function CopyField({ label, value, testId, secret }: { label: string; value: string; testId: string; secret?: boolean }) {
+export function CopyField({ label, value, testId, secret, masked = false }: { label: string; value: string; testId: string; secret?: boolean; masked?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
   const [status, setStatus] = useState<"idle" | "copied" | "manual">("idle");
   useEffect(() => { setStatus("idle"); }, [value]);
+  useEffect(() => {
+    if (status === "manual") {
+      input.current?.focus();
+      input.current?.select();
+    }
+  }, [status]);
   useEffect(() => {
     if (status !== "copied") return;
     const timer = setTimeout(() => setStatus("idle"), 1800);
@@ -53,9 +60,6 @@ export function CopyField({ label, value, testId, secret }: { label: string; val
   async function copy() {
     const field = input.current;
     if (!field) return;
-    field.focus();
-    field.select();
-    field.setSelectionRange(0, value.length);
     try {
       if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
       await navigator.clipboard.writeText(value);
@@ -68,25 +72,30 @@ export function CopyField({ label, value, testId, secret }: { label: string; val
       let copied = false;
       try { copied = document.execCommand("copy"); } catch { /* Manual selection remains available. */ }
       setStatus(copied ? "copied" : "manual");
+      if (copied) button.current?.focus();
     }
   }
   return (
     <div>
       <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={`flex items-stretch overflow-hidden rounded-md border ${secret ? "border-accent/60 bg-accent/5" : "border-border bg-card"}`}>
-        <input ref={input} readOnly value={value} aria-label={label} spellCheck={false}
-          onFocus={(event) => event.currentTarget.select()}
-          className="min-w-0 flex-1 bg-transparent px-3 py-2 font-mono text-[13px] outline-none focus:ring-2 focus:ring-inset focus:ring-accent"
-          data-testid={`text-${testId}`} />
-        <button type="button" data-testid={`button-copy-${testId}`}
+      <button ref={button} type="button" data-testid={`button-copy-${testId}`}
           aria-label={`Copy ${label}`}
-          className="border-l border-border px-3 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          className={`flex w-full items-stretch overflow-hidden rounded-md border text-left transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${secret ? "border-accent/60 bg-accent/5" : "border-border bg-card"}`}
           onClick={copy}>
+        <span aria-hidden="true" className="min-w-0 flex-1 truncate px-3 py-2 font-mono text-[13px]" data-testid={`text-${testId}`}>
+          {masked || secret ? "••••••••••••••••" : value}
+        </span>
+        <span className="flex items-center border-l border-border px-3 text-xs text-muted-foreground">
           {status === "copied" ? "Copied" : "Copy"}
-        </button>
-      </div>
+        </span>
+      </button>
+      <input ref={input} readOnly value={value} aria-label={`Manually copy ${label}`} spellCheck={false}
+        aria-hidden={status !== "manual"} tabIndex={status === "manual" ? 0 : -1}
+        onFocus={(event) => event.currentTarget.select()}
+        onBlur={() => { if (status === "manual") setStatus("idle"); }}
+        className={status === "manual" ? "mt-2 w-full rounded-md border border-border bg-card px-3 py-2 font-mono text-[13px] outline-none focus:ring-2 focus:ring-ring" : "sr-only"} />
       <p role="status" aria-live="polite" className="mt-1 text-xs text-muted-foreground">
-        {status === "manual" ? "Automatic copying is blocked. The value is selected—press Ctrl+C or ⌘C, or touch and hold to copy." : status === "copied" ? "Copied to clipboard." : ""}
+        {status === "manual" ? "Automatic copying is blocked. The value is temporarily shown and selected—press Ctrl+C or ⌘C, or touch and hold to copy. It hides when you leave the field." : status === "copied" ? "Copied to clipboard." : ""}
       </p>
     </div>
   );

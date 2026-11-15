@@ -17,7 +17,7 @@ function Instructions({ creds }: { creds: WebhookCredentials }) {
     <div className="ri-in rounded-lg border border-accent/50 bg-card p-5" data-testid="panel-credentials">
       <p className="text-sm"><span className="font-medium text-accent">Shown once.</span> This header value lives only in this tab. Copy it now; if lost, rotate to get a new one.</p>
       <ol className="mt-5 space-y-4 text-sm">
-        <li><div className="mb-2 text-muted-foreground">1. Webhook URL</div><CopyField label={urlLabel} value={url(creds.webhook)} testId="url" /></li>
+        <li><div className="mb-2 text-muted-foreground">1. Webhook URL</div><CopyField label={urlLabel} value={url(creds.webhook)} testId="url" masked /></li>
         <li className="text-muted-foreground">2. Payload (optional) can stay empty.</li>
         <li><div className="mb-2 text-muted-foreground">3. Headers</div>
           <div className="grid gap-3"><CopyField label="Name" value={creds.headerName} testId="header-name" /><CopyField label="Value" value={creds.headerValue} testId="header-value" secret /></div></li>
@@ -88,7 +88,7 @@ export default function Webhooks() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                <div className="mt-3"><CopyField label={urlLabel} value={url(w)} testId={`url-${w.id}`} /></div>
+                <div className="mt-3"><CopyField label={urlLabel} value={url(w)} testId={`url-${w.id}`} masked /></div>
               </li>
             ))}
           </ul>
