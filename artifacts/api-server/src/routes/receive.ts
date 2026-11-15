@@ -3,7 +3,7 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import multer from "multer";
 import { rateLimit } from "express-rate-limit";
 import { db, eventsTable, webhooksTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { ReceiveWebhookParams, ReceiveWebhookBody } from "@workspace/api-zod";
 import { audioFile, saveAudio } from "../lib/recording-storage";
 
@@ -32,7 +32,7 @@ router.post("/receive/:id", limiter, async (req, res, next): Promise<void> => {
   const token = req.get("authorization")?.match(/^Bearer ([A-Za-z0-9_-]{43})$/)?.[1];
   if (!params.success || !token) { res.status(401).json({ error: "Invalid webhook credentials" }); return; }
   const [hook] = await db.select().from(webhooksTable).where(eq(webhooksTable.id, params.data.id));
-  if (!hook || !timingSafeEqual(Buffer.from(hashToken(token), "hex"), Buffer.from(hook.tokenHash, "hex"))) {
+  if (!hook || hook.revokedAt || !timingSafeEqual(Buffer.from(hashToken(token), "hex"), Buffer.from(hook.tokenHash, "hex"))) {
     res.status(401).json({ error: "Invalid webhook credentials" }); return;
   }
   res.locals.webhook = hook;
@@ -67,7 +67,15 @@ router.post("/receive/:id", limiter, async (req, res, next): Promise<void> => {
   const receivedAt = new Date();
   const audioPath = file ? await saveAudio(file.buffer) : null;
   try {
-    await db.transaction(async (tx) => {
+    const accepted = await db.transaction(async (tx) => {
+      // Recheck credentials while holding the row lock. A request uploading audio
+      // when its webhook is revoked must not insert an event after revocation.
+      const [active] = await tx.update(webhooksTable).set({
+        lastReceivedAt: receivedAt, eventCount: sql`${webhooksTable.eventCount} + 1`,
+      }).where(and(
+        eq(webhooksTable.id, hook.id), isNull(webhooksTable.revokedAt), eq(webhooksTable.tokenHash, hook.tokenHash),
+      )).returning({ id: webhooksTable.id });
+      if (!active) return false;
       await tx.insert(eventsTable).values({
         id, ownerId: hook.ownerId, webhookId: hook.id, receivedAt, recordedAt,
         kind: multipart ? "recording" : "json",
@@ -75,11 +83,16 @@ router.post("/receive/:id", limiter, async (req, res, next): Promise<void> => {
         audioPath, audioSize: file?.size ?? null,
         payload: redact(body) as Record<string, unknown>,
       });
-      await tx.update(webhooksTable).set({ lastReceivedAt: receivedAt, eventCount: sql`${webhooksTable.eventCount} + 1` }).where(eq(webhooksTable.id, hook.id));
       // Delivered only after commit, so SSE readers can immediately fetch it.
       // Contains only the account identifier, never transcript or credentials.
       await tx.execute(sql`SELECT pg_notify('ring_inbox_changed', ${hook.ownerId})`);
+      return true;
     });
+    if (!accepted) {
+      if (audioPath) await audioFile(audioPath).delete().catch(() => req.log.warn("Could not remove a revoked webhook audio upload"));
+      res.status(401).json({ error: "Invalid webhook credentials" });
+      return;
+    }
   } catch (error) {
     if (audioPath) await audioFile(audioPath).delete().catch(() => req.log.warn("Could not remove an uncommitted audio upload"));
     throw error;

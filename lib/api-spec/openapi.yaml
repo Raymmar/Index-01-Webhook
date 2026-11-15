@@ -59,6 +59,19 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/WebhookCredentials" }
+  /webhooks/{id}:
+    delete:
+      operationId: revokeWebhook
+      summary: Permanently revoke a webhook without deleting received events
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "204":
+          description: Revoked; future deliveries and token rotation are rejected
+        "401":
+          description: Sign in required
+        "404":
+          description: Webhook not found in your account
   /events:
     get:
       operationId: listEvents

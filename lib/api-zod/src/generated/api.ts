@@ -68,6 +68,19 @@ export const RotateWebhookResponse = zod.object({
 })
 
 
+/**
+ * @summary Permanently revoke a webhook without deleting received events
+ */
+
+
+
+export const RevokeWebhookParams = zod.object({
+  "id": zod.coerce.string().min(1)
+})
+
+export const RevokeWebhookResponse = zod.void()
+
+
 export const ListEventsQueryParams = zod.object({
   "before": zod.coerce.string().optional()
 })

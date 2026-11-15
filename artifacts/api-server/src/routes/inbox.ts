@@ -2,8 +2,8 @@ import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { randomBytes, randomUUID } from "node:crypto";
 import { db, webhooksTable, eventsTable, type WebhookRow } from "@workspace/db";
-import { and, desc, eq, lt, or } from "drizzle-orm";
-import { CreateWebhookBody, CreateWebhookResponse, ListWebhooksResponse, ListEventsQueryParams, ListEventsResponse, RotateWebhookParams, GetEventAudioParams } from "@workspace/api-zod";
+import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
+import { CreateWebhookBody, CreateWebhookResponse, ListWebhooksResponse, ListEventsQueryParams, ListEventsResponse, RotateWebhookParams, RevokeWebhookParams, GetEventAudioParams } from "@workspace/api-zod";
 import { hashToken } from "./receive";
 import { audioFile } from "../lib/recording-storage";
 import { openInboxStream } from "../lib/inbox-stream";
@@ -24,7 +24,7 @@ router.use((req, res, next) => {
 });
 
 router.get("/webhooks", async (_req, res): Promise<void> => {
-  const rows = await db.select().from(webhooksTable).where(eq(webhooksTable.ownerId, res.locals.ownerId)).orderBy(desc(webhooksTable.createdAt));
+  const rows = await db.select().from(webhooksTable).where(and(eq(webhooksTable.ownerId, res.locals.ownerId), isNull(webhooksTable.revokedAt))).orderBy(desc(webhooksTable.createdAt));
   res.json(ListWebhooksResponse.parse(rows.map(publicHook)));
 });
 
@@ -43,10 +43,28 @@ router.post("/webhooks/:id/rotate", async (req, res): Promise<void> => {
   if (!params.success) { res.status(400).json({ error: "Invalid endpoint" }); return; }
   const token = randomBytes(32).toString("base64url");
   const [hook] = await db.update(webhooksTable).set({ tokenHash: hashToken(token) }).where(and(
-    eq(webhooksTable.id, params.data.id), eq(webhooksTable.ownerId, res.locals.ownerId),
+    eq(webhooksTable.id, params.data.id), eq(webhooksTable.ownerId, res.locals.ownerId), isNull(webhooksTable.revokedAt),
   )).returning();
   if (!hook) { res.status(404).json({ error: "Webhook not found" }); return; }
   res.json(CreateWebhookResponse.parse({ webhook: publicHook(hook), headerName: "Authorization", headerValue: `Bearer ${token}` }));
+});
+
+router.delete("/webhooks/:id", async (req, res): Promise<void> => {
+  const params = RevokeWebhookParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Invalid endpoint" }); return; }
+  const revoked = await db.transaction(async (tx) => {
+    // Retain the row: inbox events reference it and must remain readable.
+    const [hook] = await tx.update(webhooksTable).set({
+      revokedAt: sql`coalesce(${webhooksTable.revokedAt}, now())`,
+    }).where(and(
+      eq(webhooksTable.id, params.data.id), eq(webhooksTable.ownerId, res.locals.ownerId),
+    )).returning({ id: webhooksTable.id });
+    if (!hook) return false;
+    await tx.execute(sql`SELECT pg_notify('ring_inbox_changed', ${res.locals.ownerId})`);
+    return true;
+  });
+  if (!revoked) { res.status(404).json({ error: "Webhook not found" }); return; }
+  res.status(204).end();
 });
 
 router.get("/events/stream", async (_req, res): Promise<void> => {

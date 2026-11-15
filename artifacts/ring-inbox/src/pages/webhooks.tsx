@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { useListWebhooks, getListWebhooksQueryKey, useCreateWebhook, useRotateWebhook, type WebhookCredentials, type Webhook } from "@workspace/api-client-react";
+import { MoreVertical, RotateCw, Trash2 } from "lucide-react";
+import { useListWebhooks, getListWebhooksQueryKey, useCreateWebhook, useRotateWebhook, useRevokeWebhook, type WebhookCredentials, type Webhook } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CopyField } from "@/components/shell";
 import { useInboxStream } from "@/hooks/use-inbox-stream";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
 const url = (w: Webhook) => window.location.origin + w.path;
 const urlLabel = import.meta.env.DEV ? "Preview URL (dev)" : "Webhook URL";
@@ -35,9 +37,12 @@ export default function Webhooks() {
   useInboxStream();
   const create = useCreateWebhook();
   const rotate = useRotateWebhook();
+  const revoke = useRevokeWebhook();
   const [name, setName] = useState("Pebble Index");
   const [creds, setCreds] = useState<WebhookCredentials | null>(null);
-  const [confirm, setConfirm] = useState<Webhook | null>(null);
+  const [confirm, setConfirm] = useState<{ kind: "rotate" | "revoke"; webhook: Webhook } | null>(null);
+  const [notice, setNotice] = useState("");
+  const pending = rotate.isPending || revoke.isPending;
   const done = { onSuccess: (c: WebhookCredentials) => { setCreds(c); qc.invalidateQueries({ queryKey: getListWebhooksQueryKey() }); } };
 
   return (
@@ -51,6 +56,7 @@ export default function Webhooks() {
         </button>
       </form>
       {(create.isError || rotate.isError) && <p className="text-sm text-destructive">Request failed. Try again.</p>}
+      {notice && <p role="status" className="text-sm text-muted-foreground">{notice}</p>}
       {creds && <Instructions creds={creds} />}
       <section>
         <h2 className="mb-3 text-xs uppercase tracking-wider text-muted-foreground">Your webhooks</h2>
@@ -65,7 +71,22 @@ export default function Webhooks() {
                 <div className="flex items-center gap-3">
                   <span className="font-medium">{w.name}</span>
                   <span className="text-xs text-muted-foreground">{w.eventCount} events · {w.lastReceivedAt ? `last ${formatDistanceToNow(new Date(w.lastReceivedAt), { addSuffix: true })}` : "nothing received"}</span>
-                  <button type="button" onClick={() => setConfirm(w)} data-testid={`button-rotate-${w.id}`} className="ml-auto text-xs text-muted-foreground hover:text-accent">Rotate token</button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" disabled={pending} aria-label={`Actions for ${w.name}`} data-testid={`button-actions-${w.id}`} className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+                        <MoreVertical className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="border-border">
+                      <DropdownMenuItem data-testid={`button-delete-${w.id}`} className="text-destructive focus:bg-destructive/10 focus:text-destructive" onSelect={() => { rotate.reset(); revoke.reset(); setNotice(""); setConfirm({ kind: "revoke", webhook: w }); }}>
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />Delete
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem data-testid={`button-rotate-${w.id}`} className="focus:bg-secondary focus:text-foreground" onSelect={() => { rotate.reset(); revoke.reset(); setNotice(""); setConfirm({ kind: "rotate", webhook: w }); }}>
+                        <RotateCw className="h-4 w-4" aria-hidden="true" />Rotate
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 <div className="mt-3"><CopyField label={urlLabel} value={url(w)} testId={`url-${w.id}`} /></div>
               </li>
@@ -73,15 +94,34 @@ export default function Webhooks() {
           </ul>
         )}
       </section>
-      <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
+      <AlertDialog open={!!confirm} onOpenChange={(o) => !o && !pending && setConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Rotate token for {confirm?.name}?</AlertDialogTitle>
-            <AlertDialogDescription>The previous Authorization value stops working immediately. You will need to paste the new value into the ring app.</AlertDialogDescription>
+            <AlertDialogTitle>{confirm?.kind === "revoke" ? "Delete webhook" : "Rotate token"} for {confirm?.webhook.name}?</AlertDialogTitle>
+            <AlertDialogDescription>{confirm?.kind === "revoke"
+              ? "This removes the webhook from this list and permanently revokes its URL and token. Future ring deliveries to it will be rejected. Existing recordings and transcripts stay in your inbox. To receive new events afterward, create a new webhook and update the ring app."
+              : "The previous Authorization value stops working immediately. You will need to paste the new value into the ring app."}</AlertDialogDescription>
           </AlertDialogHeader>
+          {(revoke.isError || rotate.isError) && <p role="alert" className="text-sm text-destructive">Could not {confirm?.kind === "revoke" ? "revoke the webhook" : "rotate the token"}. Nothing was removed from your inbox. Please try again.</p>}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction data-testid="button-confirm-rotate" onClick={() => { if (confirm) rotate.mutate({ id: confirm.id }, done); setConfirm(null); }}>Rotate</AlertDialogAction>
+            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={pending} data-testid={confirm?.kind === "revoke" ? "button-confirm-revoke" : "button-confirm-rotate"}
+              className={confirm?.kind === "revoke" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+              onClick={(event) => {
+                event.preventDefault();
+                if (!confirm || pending) return;
+                const { webhook, kind } = confirm;
+                if (kind === "revoke") {
+                  revoke.mutate({ id: webhook.id }, { onSuccess: () => {
+                    setCreds((current) => current?.webhook.id === webhook.id ? null : current);
+                    setConfirm(null);
+                    setNotice("Webhook revoked. Existing recordings and transcripts are still in your inbox.");
+                    qc.invalidateQueries({ queryKey: getListWebhooksQueryKey() });
+                  } });
+                } else {
+                  rotate.mutate({ id: webhook.id }, { onSuccess: (credentials) => { done.onSuccess(credentials); setConfirm(null); } });
+                }
+              }}>{pending ? (confirm?.kind === "revoke" ? "Deleting…" : "Rotating…") : confirm?.kind === "revoke" ? "Delete webhook" : "Rotate"}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

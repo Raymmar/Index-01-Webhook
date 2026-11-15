@@ -8,6 +8,7 @@ export const webhooksTable = pgTable("webhooks", {
   tokenHash: text("token_hash").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   lastReceivedAt: timestamp("last_received_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
   eventCount: integer("event_count").default(0).notNull(),
 }, (t) => [index("webhooks_owner_idx").on(t.ownerId)]);
 

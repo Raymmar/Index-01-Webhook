@@ -410,6 +410,80 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getRotateWebhookMutationOptions(options), queryClient);
     }
 
+export const getRevokeWebhookUrl = (id: string,) => {
+
+
+
+
+  return `/api/webhooks/${id}`
+}
+
+/**
+ * @summary Permanently revoke a webhook without deleting received events
+ */
+export const revokeWebhook = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRevokeWebhookUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRevokeWebhookMutationKey = () => ['revokeWebhook'] as const;
+
+export const getRevokeWebhookMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeWebhook>>, TError,RevokeWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeWebhook>>, TError,RevokeWebhookMutationVariables, TContext> => {
+
+const mutationKey = getRevokeWebhookMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeWebhook>>, RevokeWebhookMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  revokeWebhook(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeWebhookMutationResult = NonNullable<Awaited<ReturnType<typeof revokeWebhook>>>
+
+    export type RevokeWebhookMutationError = ErrorType<void>
+    export type RevokeWebhookMutationVariables = {id: string}
+
+    /**
+ * @summary Permanently revoke a webhook without deleting received events
+ */
+export const useRevokeWebhook = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeWebhook>>, TError,RevokeWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof revokeWebhook>>,
+        TError,
+        RevokeWebhookMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRevokeWebhookMutationOptions(options), queryClient);
+    }
+
 export const getListEventsUrl = (params?: ListEventsParams,) => {
   const normalizedParams = new URLSearchParams();
 
