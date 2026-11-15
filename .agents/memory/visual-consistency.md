@@ -10,6 +10,8 @@ page-level fixes.
 edges and explicitly asked for consistent edges throughout the app.
 
 **How to apply:** Preserve the existing visual design when fixing inconsistencies.
-Include login, forms, separators, and inbox cards in shared styling decisions.
+Include login, forms, separators, inbox cards, toasts, and toast action buttons
+in shared styling decisions. The user reiterated that notifications must use
+the same light edges and palette, not independent component defaults.
 Do not treat a request to compact a card or fix its edges as permission to resize
 or restyle the transcript.
