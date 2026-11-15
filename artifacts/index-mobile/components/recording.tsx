@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import { useAuth } from '@clerk/expo';
-import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { IconButton, s, c, errorMessage } from './ui';
 import { origin } from '@/lib/session';
 
@@ -21,6 +21,16 @@ export function Recording({ url }: { url: string }) {
     if (status.playing) { player.pause(); return; }
     setBusy(true); setError('');
     try {
+      if (Platform.OS !== 'web') {
+        // Expo Go shares the device audio session. Configure media playback
+        // explicitly so the iPhone silent switch does not mute voice notes.
+        await setAudioModeAsync({
+          playsInSilentMode: true,
+          allowsRecording: false,
+          shouldRouteThroughEarpiece: false,
+          interruptionMode: 'doNotMix',
+        });
+      }
       const uri = new URL(url, origin).href;
       if (new URL(uri).origin !== origin) throw new Error('This recording is not hosted by your Index server.');
       const token = await getToken({ skipCache: true });
