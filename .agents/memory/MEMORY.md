@@ -1,0 +1,1 @@
+- [Storage runtime compatibility](storage-runtime.md) — storage upgrades must pass development audio upload/readback, not only text webhook tests.
