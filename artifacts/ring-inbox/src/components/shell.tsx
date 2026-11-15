@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useClerk, useUser } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Inbox as InboxIcon, LayoutDashboard, Menu, PanelLeftOpen, PanelLeftClose, Settings as SettingsIcon, Webhook } from "lucide-react";
+import { Inbox as InboxIcon, LayoutDashboard, Menu, PanelLeftClose, Settings as SettingsIcon, Webhook } from "lucide-react";
 import { useGetSettings, getGetSettingsQueryKey, useGetOrganizer, getGetOrganizerQueryKey, useUpdateSettings } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -28,14 +28,13 @@ const ADMIN = [
 ];
 
 function NavLink({ href, label, icon: Icon, active, count, onNav, onToggle, expanded }: { href: string; label: string; icon: typeof InboxIcon; active: boolean; count?: number; onNav: () => void; onToggle?: () => void; expanded?: boolean }) {
-  const PanelIcon = expanded ? PanelLeftClose : PanelLeftOpen;
   const toggleHint = `${expanded ? "Close" : "Open"} inbox`;
   const className = `flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"}`;
   const content = <>
       <Icon className="h-4 w-4" aria-hidden="true" />
       <span className="flex-1">{label}</span>
       {count ? <span className="font-mono text-[11px] text-muted-foreground" data-testid={`count-${label.toLowerCase()}`}>{count}</span> : null}
-      {onToggle && <PanelIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />}
+      {onToggle && expanded && <PanelLeftClose className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />}
     </>;
   return onToggle
     ? <Tooltip><TooltipTrigger asChild><button type="button" className={className} data-testid={`link-${label.toLowerCase()}`} aria-label={toggleHint} aria-expanded={expanded} aria-controls="incoming-sidebar" onClick={onToggle}>{content}</button></TooltipTrigger><TooltipContent side="right">{toggleHint}</TooltipContent></Tooltip>
