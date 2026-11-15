@@ -16,6 +16,7 @@ export function useInboxStream(enabled = true) {
       void queryClient.invalidateQueries({ queryKey: getListWebhooksQueryKey() });
       void queryClient.invalidateQueries({ queryKey: getGetOrganizerQueryKey() });
       void queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() });
+      void queryClient.invalidateQueries({ predicate: query => typeof query.queryKey[0] === "string" && query.queryKey[0].startsWith("/api/events/") });
     };
     stream.addEventListener("ready", () => { setStatus("live"); refresh(); });
     stream.addEventListener("inbox-changed", refresh);

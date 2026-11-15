@@ -4,6 +4,12 @@ description: Why the ring inbox uses SSE and cross-instance notifications.
 ---
 Use webhook-driven SSE for live inbox updates, not periodic list polling.
 
+This applies to all shared state across web and mobile: incoming messages, task edits, completion, deletion, and pin state must follow server events, not data-polling intervals.
+
+**Why:** The user explicitly reiterated that both clients should see the same server activity in real time without manual refresh.
+
+**How to apply:** Refresh affected caches on server events and catch up on connection/resume. Heartbeats and dead-connection recovery are connection maintenance, not permission to poll for data.
+
 **Why:** The user explicitly requested automatic SSE updates when a webhook arrives instead of checking every five seconds.
 
 **How to apply:** Notify only after the delivery transaction commits, scope streams to the authenticated account, and refetch on connection/reconnection to catch missed deliveries. Keep notifications cross-instance because a production webhook and browser stream can land on different API instances. Keep heartbeat traffic distinct from polling for records.

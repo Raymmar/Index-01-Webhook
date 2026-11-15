@@ -47,6 +47,23 @@ export async function check() {
     method, headers: { "x-test-owner": identity, "content-type": "application/json" },
     ...(data === undefined ? {} : { body: JSON.stringify(data) }),
   });
+  // A separate DB connection models the listener used by another API instance.
+  const listener = await pool.connect();
+  await listener.query("LISTEN ring_inbox_changed");
+  const notifications = [];
+  listener.on("notification", message => {
+    if (message.channel === "ring_inbox_changed") notifications.push(message.payload);
+  });
+  async function notifiedMutation(path, method, data) {
+    notifications.length = 0;
+    const response = await api(path, method, "owner", data);
+    for (let attempt = 0; attempt < 50 && !notifications.includes("owner"); attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    assert.ok(notifications.includes("owner"), method + " must notify the owning account");
+    assert.ok(!notifications.includes("other"), "Mutation must not notify a different account");
+    return response;
+  }
   try {
     assert.equal((await api("/settings", "GET", "")).status, 401);
     const [a,b] = await Promise.all([accountFor("owner"), accountFor("other")]);
@@ -69,6 +86,17 @@ export async function check() {
     assert.equal((await (await api("/settings", "GET", "other")).json()).allowed, true);
     assert.equal((await api("/settings", "PATCH", "other", { allowSignups: false })).status, 403);
     assert.equal((await api("/settings", "PATCH", "other", { timezone: "Europe/London" })).status, 200);
+    if (process.argv.includes("--sync-only")) {
+      const created = await api("/items", "POST", "owner", { title: "Cross-client sync fixture" });
+      assert.equal(created.status, 201);
+      const task = await created.json();
+      assert.equal((await notifiedMutation("/items/" + task.id, "PATCH", { status: "completed" })).status, 200);
+      assert.equal((await (await api("/organizer")).json()).items.find(i => i.id === task.id).status, "completed");
+      assert.equal((await notifiedMutation("/items/" + task.id, "DELETE")).status, 204);
+      assert.equal((await (await api("/organizer")).json()).items.some(i => i.id === task.id), false);
+      console.log("PASS: completion/deletion notify a separate connection, target the owner, and update subsequent dashboard reads");
+      return;
+    }
     const created = await api("/webhooks", "POST", "owner", { name: "AI fixture" });
     assert.equal(created.status, 201);
     const hook = await created.json();
@@ -102,7 +130,8 @@ export async function check() {
     assert.equal((await api("/items/" + target.id, "DELETE", "other")).status, 404);
     assert.equal((await (await api("/organizer", "GET", "other")).json()).items.length, 0);
     assert.equal((await (await api("/organizer", "GET", "other")).json()).messageCount, 0);
-    assert.equal((await api("/items/" + target.id, "PATCH", "owner", { title: "Changed", status: "completed" })).status, 200);
+    assert.equal((await notifiedMutation("/items/" + target.id, "PATCH", { title: "Changed", status: "completed" })).status, 200);
+    assert.equal((await (await api("/organizer")).json()).items.find(i => i.id === target.id).status, "completed");
     assert.equal((await (await api("/events?view=notes")).json()).items.length,0);
     assert.equal((await api("/items/" + target.id, "PATCH", "owner", { status: "open" })).status, 200);
     assert.equal((await api("/items/" + target.id, "PATCH", "owner", { dueAt: null })).status, 200);
@@ -110,7 +139,9 @@ export async function check() {
     assert.equal(unscheduled.dueAt, null);
     assert.equal(unscheduled.needsReview, false);
     assert.equal(unscheduled.id, target.id);
-    assert.equal((await api("/items/" + target.id, "DELETE")).status, 204);
+    assert.equal((await notifiedMutation("/items/" + target.id, "DELETE")).status, 204);
+    assert.equal((await (await api("/organizer")).json()).items.some(i => i.id === target.id), false);
+    console.log("PASS: completion and deletion notify a separate connection; subsequent dashboard reads reflect both");
     assert.equal((await db.select().from(eventsTable)).length, 1);
     assert.equal((await (await api("/events?view=notes")).json()).items.length, 0);
     const siblings = (await (await api("/organizer")).json()).items;
@@ -254,6 +285,8 @@ export async function check() {
     console.log("PASS: concurrent workers and repeated processing do not duplicate items or notes");
     console.log("PASS: cross-account isolation, CRUD/undo, original note retention, DST validation");
   } finally {
+    await listener.query("UNLISTEN ring_inbox_changed");
+    listener.release();
     await new Promise(resolve => server.close(resolve));
     await pool.end();
   }
