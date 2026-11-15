@@ -186,7 +186,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         </SheetContent>
       </Sheet>}
-      <main className="min-w-0 flex-1"><div className="mx-auto max-w-3xl px-5 py-8">
+      <main className="min-w-0 flex-1"><div className="app-page">
         {update.isError && settings.data.timezone === null && (
           <div role="alert" className="mb-4 rounded-lg border border-destructive/40 bg-card px-3 py-2 text-sm" data-testid="banner-timezone-error">
             Could not save your timezone. <button type="button" className="underline disabled:opacity-50" disabled={update.isPending} data-testid="button-retry-timezone" onClick={() => sendTz.current()}>Retry</button>

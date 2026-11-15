@@ -36,8 +36,10 @@ There is no separate dark palette.
 
 ## Typography and shape
 
-- Body/transcripts: Geist. Transcripts remain `text-lg font-normal leading-relaxed`
-  (18px regular at the default root size).
+- Transcripts and action titles share `app-content-text`: Geist, 16px regular.
+- Main views share `app-page`. Width and responsive padding come from
+  `--app-page-max-width` (64rem), `--app-page-padding-inline`, and
+  `--app-page-padding-block`. Adjust these centrally, not with page-specific overrides.
 - Display headings: Instrument Serif; code and copied values: Geist Mono.
 - Keep the current compact card spacing, 8px card radius and 6px control radius.
 - A color-system change is not permission to resize text, increase weight, or

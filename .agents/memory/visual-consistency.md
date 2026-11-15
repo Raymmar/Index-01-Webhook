@@ -20,3 +20,7 @@ Normalize message transcript and action-title text using one shared content
 font size and regular weight, while keeping metadata smaller.
 **Why:** The user explicitly requested consistent inbox/dashboard font sizes
 after noticing the larger inbox text.
+
+Adjust shared page sizing and spacing centrally rather than manually overriding
+one page.
+**Why:** The user clarified this when asking for larger Dashboard content.
