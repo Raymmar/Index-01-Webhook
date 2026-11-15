@@ -6,7 +6,7 @@ description: User-approved direction for future AI organization and remix owners
 Use ONE inbox-item primitive. A message is a note by default; an explicit action
 makes that same item a task; a due date makes it scheduled. These are attributes
 and filtered views of the same item, never separate extracted records.
-Tasks has All, Scheduled, and Unscheduled filters. The inbox covers notes;
+Dashboard has All, Scheduled, and Unscheduled filters. The inbox covers notes;
 there is no separate Notes tab or page. Keep transcript, audio, status, and date together.
 **Why:** The user explicitly replaced the earlier multi-extraction model:
 "these are just distinctions on the same item. They're not a bunch of different items."
@@ -34,8 +34,9 @@ page. On wide screens it opens between main navigation and page content; on
 small screens it overlays the page. The Inbox nav control toggles it and its
 header offers Close inbox. Original-note links open the message in the drawer.
 Pin the note being processed at the top and highlight it; restore chronological
-placement when processing finishes. Tasks shares its item UI with Dashboard.
-There is no separate Reminders page. Sort open
+placement when processing finishes. Dashboard is the main action workspace;
+there are no separate Tasks or Reminders pages. Default to all open items,
+including overdue and undated items; calendar selection narrows the list. Sort open
 actions by due-date urgency, not arrival time.
 **Why:** The user refined "always available" to a sliding drawer rather than an
 always-open panel or separate Inbox page.

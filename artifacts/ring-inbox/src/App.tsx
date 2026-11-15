@@ -10,7 +10,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Webhooks from "@/pages/webhooks";
-import Items from "@/pages/items";
 import SettingsPage from "@/pages/settings";
 import Dashboard from "@/pages/dashboard";
 import { Shell } from "@/components/shell";
@@ -143,14 +142,19 @@ function LegacyInboxRedirect() {
   return <Redirect to={id ? `/dashboard?note=${encodeURIComponent(id)}` : "/dashboard?inbox=1"} />;
 }
 
+function LegacyTasksRedirect() {
+  const schedule = new URLSearchParams(useSearch()).get("schedule");
+  return <Redirect to={schedule === "scheduled" || schedule === "unscheduled" ? `/dashboard?schedule=${schedule}` : "/dashboard"} />;
+}
+
 function PrivateRoutes() {
   return (
     <Switch>
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/notes" component={LegacyInboxRedirect} />
       <Route path="/inbox" component={LegacyInboxRedirect} />
-      <Route path="/tasks" component={Items} />
-      <Route path="/reminders">{() => <Redirect to="/tasks?schedule=scheduled" />}</Route>
+      <Route path="/tasks" component={LegacyTasksRedirect} />
+      <Route path="/reminders">{() => <Redirect to="/dashboard?schedule=scheduled" />}</Route>
       <Route path="/webhooks" component={Webhooks} />
       <Route path="/settings" component={SettingsPage} />
     </Switch>

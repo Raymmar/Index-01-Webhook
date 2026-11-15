@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link } from "wouter";
+import { useSearch } from "wouter";
 import { addDays, format, startOfWeek } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useGetOrganizer, getGetOrganizerQueryKey, useGetSettings, getGetSettingsQueryKey } from "@workspace/api-client-react";
-import { ActionItemRow } from "./items";
+import { ActionItemRow, Composer } from "./items";
 import { Skeleton } from "@/components/ui/skeleton";
 import { browserZone } from "@/lib/tz";
 import { compareActionItems } from "@/lib/action-order";
@@ -31,6 +31,13 @@ export default function Dashboard() {
   const [date, setDate] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "scheduled" | "unscheduled">("all");
   const [closed, setClosed] = useState(false);
+  const search = useSearch();
+  useEffect(() => {
+    const schedule = new URLSearchParams(search).get("schedule");
+    setFilter(schedule === "scheduled" || schedule === "unscheduled" ? schedule : "all");
+    setDate(null);
+    setClosed(false);
+  }, [search]);
   const first = addDays(startOfWeek(today, { weekStartsOn: 1 }), week * 7);
   const days = Array.from({ length: 7 }, (_, i) => addDays(first, i));
   const items = q.data?.items ?? [];
@@ -41,7 +48,7 @@ export default function Dashboard() {
     (filter === "all" || (filter === "scheduled" ? !!i.dueAt : !i.dueAt)) &&
     (!date || (i.dueAt && dayOf(i.dueAt) === date))
   ).sort(compareActionItems);
-  const reset = () => { setDate(null); setWeek(0); setClosed(false); };
+  const reset = () => { setDate(null); setWeek(0); setClosed(false); setFilter("all"); };
 
   if (q.isLoading || settings.isLoading) return <div className="space-y-5" aria-label="Loading dashboard"><Skeleton className="h-10 w-48" /><Skeleton className="h-36 w-full" /><Skeleton className="h-64 w-full" /></div>;
   if (q.isError || settings.isError) return <div role="alert" className="rounded-lg border border-border bg-card p-5 text-sm">Could not load dashboard. <button className="underline" onClick={() => { void q.refetch(); void settings.refetch(); }}>Retry</button></div>;
@@ -55,14 +62,14 @@ export default function Dashboard() {
         </div>
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
           <button type="button" onClick={() => openInbox()} className="hover:text-foreground"><span className="font-mono text-foreground" data-testid="stat-messages">{q.data?.messageCount ?? 0}</span> messages</button>
-          <Link href="/tasks" className="hover:text-foreground"><span className="font-mono text-foreground">{open.length}</span> open tasks</Link>
-          <Link href="/tasks?schedule=scheduled" className="hover:text-foreground"><span className="font-mono text-foreground">{open.filter(i => i.dueAt).length}</span> scheduled</Link>
+          <button type="button" onClick={reset} className="hover:text-foreground"><span className="font-mono text-foreground">{open.length}</span> open tasks</button>
+          <button type="button" onClick={() => { setDate(null); setClosed(false); setFilter("scheduled"); }} className="hover:text-foreground"><span className="font-mono text-foreground">{open.filter(i => i.dueAt).length}</span> scheduled</button>
         </div>
       </header>
       <section aria-label="Tasks">
         <div className="mb-4 flex items-baseline justify-between">
           <h2 className="font-display text-2xl">Your week</h2>
-          <button onClick={reset} className={`${button} ${!date ? "text-foreground" : ""}`}>All upcoming</button>
+          <button onClick={reset} className={`${button} ${!date ? "text-foreground" : ""}`}>All open items</button>
         </div>
         <div className="mb-5 rounded-lg border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-2 py-1.5">
@@ -74,7 +81,7 @@ export default function Dashboard() {
             {days.map(day => {
               const key = format(day, "yyyy-MM-dd");
               const count = filter === "unscheduled" ? 0 : open.filter(i => i.dueAt && dayOf(i.dueAt) === key).length;
-              return <button key={key} aria-label={`${format(day, "EEEE, MMMM d")}, ${count} open items`} aria-pressed={date === key} data-testid={`day-${key}`} onClick={() => { setDate(date === key ? null : key); setClosed(false); }} className={`flex min-w-0 flex-col items-center gap-1 rounded-md py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${date === key ? "bg-secondary text-foreground" : "hover:bg-secondary/60"}`}>
+              return <button key={key} aria-label={`${format(day, "EEEE, MMMM d")}, ${count} open items`} aria-pressed={date === key} data-testid={`day-${key}`} onClick={() => { setDate(date === key ? null : key); setClosed(false); if (filter === "unscheduled") setFilter("all"); }} className={`flex min-w-0 flex-col items-center gap-1 rounded-md py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${date === key ? "bg-secondary text-foreground" : "hover:bg-secondary/60"}`}>
                 <span className="text-[11px] text-muted-foreground">{format(day, "EEE")}</span>
                 <span className={`text-sm ${key === todayKey ? "text-accent" : ""}`}>{format(day, "d")}</span>
                 <span className="h-3 text-[10px] text-muted-foreground">{count || "–"}</span>
@@ -82,6 +89,7 @@ export default function Dashboard() {
             })}
           </div>
         </div>
+        <div className="mb-4"><Composer tz={tz} /></div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex gap-0.5" aria-label="Item type">
             {(["all", "scheduled", "unscheduled"] as const).map(kind => <button key={kind} onClick={() => { setFilter(kind); if (kind === "unscheduled") setDate(null); }} aria-pressed={filter === kind} data-testid={`filter-${kind}`} className={`${button} ${filter === kind ? "bg-secondary text-foreground" : ""}`}>{kind === "all" ? "All" : kind === "scheduled" ? "Scheduled" : "Unscheduled"}</button>)}

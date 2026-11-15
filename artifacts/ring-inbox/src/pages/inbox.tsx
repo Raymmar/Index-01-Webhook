@@ -21,7 +21,7 @@ function Organize({ e, items, job, pending, error, onOrganize }: { e: InboxEvent
   if (items.length) {
     return (
       <span className="flex items-center gap-2" data-testid={`text-extracted-${e.id}`}>
-        <Link href={items[0]?.dueAt ? "/tasks?schedule=scheduled" : "/tasks"} className="hover:text-foreground">{items[0]?.dueAt ? "Scheduled task" : "Task"}</Link>
+        <Link href={items[0]?.dueAt ? "/dashboard?schedule=scheduled" : "/dashboard?schedule=unscheduled"} className="hover:text-foreground">{items[0]?.dueAt ? "Scheduled task" : "Task"}</Link>
         {items[0]?.status !== "open" && <span>{items[0]?.status === "completed" ? "Completed" : "Dismissed"}</span>}
       </span>
     );

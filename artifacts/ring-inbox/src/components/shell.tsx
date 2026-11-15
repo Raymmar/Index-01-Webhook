@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useClerk, useUser } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Inbox as InboxIcon, LayoutDashboard, ListChecks, Menu, Settings as SettingsIcon, Webhook } from "lucide-react";
+import { Inbox as InboxIcon, LayoutDashboard, Menu, Settings as SettingsIcon, Webhook } from "lucide-react";
 import { useGetSettings, getGetSettingsQueryKey, useGetOrganizer, getGetOrganizerQueryKey, useUpdateSettings } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -20,7 +20,6 @@ export function Logo({ className = "h-7 w-7" }: { className?: string }) {
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/inbox", label: "Inbox", icon: InboxIcon },
-  { href: "/tasks", label: "Tasks", icon: ListChecks },
 ];
 const ADMIN = [
   { href: "/webhooks", label: "Webhooks", icon: Webhook },

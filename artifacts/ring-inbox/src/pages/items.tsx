@@ -129,7 +129,7 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
   );
 }
 
-function Composer({ tz }: { tz: string }) {
+export function Composer({ tz }: { tz: string }) {
   const invalidate = useInvalidate();
   const create = useCreateItem({ mutation: { onSettled: invalidate } });
   const [title, setTitle] = useState("");
