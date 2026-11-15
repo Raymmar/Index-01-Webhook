@@ -2,10 +2,11 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useClerk, useUser } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Inbox as InboxIcon, LayoutDashboard, Menu, Settings as SettingsIcon, Webhook } from "lucide-react";
+import { Inbox as InboxIcon, LayoutDashboard, Menu, PanelLeftOpen, PanelLeftClose, Settings as SettingsIcon, Webhook } from "lucide-react";
 import { useGetSettings, getGetSettingsQueryKey, useGetOrganizer, getGetOrganizerQueryKey, useUpdateSettings } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useInboxStream } from "@/hooks/use-inbox-stream";
 import { browserZone } from "@/lib/tz";
 import { InboxDrawerContext } from "@/hooks/use-inbox-drawer";
@@ -27,15 +28,29 @@ const ADMIN = [
 ];
 
 function NavLink({ href, label, icon: Icon, active, count, onNav, onToggle, expanded }: { href: string; label: string; icon: typeof InboxIcon; active: boolean; count?: number; onNav: () => void; onToggle?: () => void; expanded?: boolean }) {
+  const PanelIcon = expanded ? PanelLeftClose : PanelLeftOpen;
+  const toggleHint = `${expanded ? "Close" : "Open"} inbox`;
   const className = `flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"}`;
   const content = <>
       <Icon className="h-4 w-4" aria-hidden="true" />
       <span className="flex-1">{label}</span>
       {count ? <span className="font-mono text-[11px] text-muted-foreground" data-testid={`count-${label.toLowerCase()}`}>{count}</span> : null}
+      {onToggle && <PanelIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />}
     </>;
   return onToggle
-    ? <button type="button" className={className} data-testid={`link-${label.toLowerCase()}`} aria-expanded={expanded} aria-controls="incoming-sidebar" onClick={onToggle}>{content}</button>
+    ? <Tooltip><TooltipTrigger asChild><button type="button" className={className} data-testid={`link-${label.toLowerCase()}`} aria-label={toggleHint} aria-expanded={expanded} aria-controls="incoming-sidebar" onClick={onToggle}>{content}</button></TooltipTrigger><TooltipContent side="right">{toggleHint}</TooltipContent></Tooltip>
     : <Link href={href} onClick={onNav} data-testid={`link-${label.toLowerCase()}`} aria-current={active ? "page" : undefined} className={className}>{content}</Link>;
+}
+
+function CloseInboxButton({ onClick }: { onClick: () => void }) {
+  return <Tooltip>
+    <TooltipTrigger asChild>
+      <button type="button" data-testid="button-close-inbox" aria-label="Close inbox" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={onClick}>
+        <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
+      </button>
+    </TooltipTrigger>
+    <TooltipContent>Close inbox</TooltipContent>
+  </Tooltip>;
 }
 
 function SignOutButton() {
@@ -158,24 +173,24 @@ export function Shell({ children }: { children: ReactNode }) {
       {wide && inboxOpen && <section id="incoming-sidebar" aria-label="Incoming messages" className="animate-in slide-in-from-left-4 motion-reduce:animate-none min-w-0 border-b border-border px-4 py-6 lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:w-80 lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r xl:w-96">
         <header className="mb-4 flex shrink-0 flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-display text-3xl">Incoming messages</h2>
-          <button type="button" data-testid="button-close-inbox" className="rounded text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => {
+          <CloseInboxButton onClick={() => {
             setInboxOpen(false);
             document.querySelector<HTMLButtonElement>('button[data-testid="link-inbox"]')?.focus();
-          }}>Close inbox</button>
+          }} />
         </header>
         <div tabIndex={0} aria-label="Incoming message feed" className="max-h-[50dvh] min-h-0 overflow-y-auto overscroll-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:max-h-none lg:flex-1">
           <InboxFeed embedded selectedNote={selectedNote} />
         </div>
       </section>}
       {!wide && <Sheet open={inboxOpen} onOpenChange={setInboxOpen}>
-        <SheetContent id="incoming-sidebar" side="left" aria-describedby={undefined} className="flex w-full max-w-full flex-col border-border bg-background p-4 sm:max-w-md" onCloseAutoFocus={(event) => {
+        <SheetContent id="incoming-sidebar" side="left" showCloseButton={false} aria-describedby={undefined} className="flex w-full max-w-full flex-col border-border bg-background p-4 sm:max-w-md" onCloseAutoFocus={(event) => {
           event.preventDefault();
           const inboxButton = document.querySelector<HTMLButtonElement>('button[data-testid="link-inbox"]');
           if (inboxButton?.getClientRects().length) inboxButton.focus(); else menuButton.current?.focus();
         }}>
-          <header className="flex shrink-0 flex-wrap items-baseline justify-between gap-2 pr-7">
+          <header className="flex shrink-0 flex-wrap items-baseline justify-between gap-2">
             <SheetTitle className="font-display text-3xl font-normal">Incoming messages</SheetTitle>
-            <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setInboxOpen(false)}>Close inbox</button>
+            <CloseInboxButton onClick={() => setInboxOpen(false)} />
           </header>
           <div tabIndex={0} aria-label="Incoming message feed" className="min-h-0 flex-1 overflow-y-auto overscroll-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <InboxFeed embedded selectedNote={selectedNote} />
