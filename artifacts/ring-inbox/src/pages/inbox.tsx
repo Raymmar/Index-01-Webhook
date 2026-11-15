@@ -39,7 +39,7 @@ export function EventCard({ e, items, job, highlight, embedded, localPending }: 
   const ref = useRef<HTMLElement>(null);
   useEffect(() => { if (highlight) ref.current?.scrollIntoView({ block: "center", behavior: "smooth" }); }, [highlight]);
   return (
-    <article ref={ref} id={`${embedded ? "incoming" : "event"}-${e.id}`} className={`ri-in min-w-0 rounded-lg border p-3 ${busy ? "bg-accent/5" : "bg-card"} ${highlight ? "border-accent" : "border-border"}`} data-testid={`card-event-${e.id}`}>
+    <article ref={ref} tabIndex={-1} data-event-id={e.id} id={`${embedded ? "incoming" : "event"}-${e.id}`} className={`ri-in min-w-0 rounded-lg border p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${busy ? "bg-accent/5" : "bg-card"} ${highlight ? "border-accent" : "border-border"}`} data-testid={`card-event-${e.id}`}>
       {e.transcription ? <p className="app-content-text whitespace-pre-wrap break-words" data-testid={`text-transcription-${e.id}`}>{e.transcription}</p> : <p className="text-sm text-muted-foreground">{e.kind === "recording" ? "Transcript unavailable" : "Webhook event received"}</p>}
       {e.audioUrl && (
         <div className="mt-2">
@@ -130,7 +130,7 @@ export function InboxFeed({ embedded = false, selectedNote = null }: { embedded?
           <Link href="/webhooks" data-testid="link-setup" className="mt-5 inline-block rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground">Set up a webhook</Link>
         </div>
       ) : (
-        <FeedScrollAnchor embedded={embedded} target={target}>
+        <FeedScrollAnchor embedded={embedded} target={target} events={all}>
         <div className="space-y-3" aria-busy={loadingMore}>
           {displayed.map((e) => <EventCard key={e.id} e={e} items={byEvent.get(e.id) ?? []} job={jobs.get(e.id)} highlight={e.id === target} embedded={embedded} localPending={localPending.has(e.id)} />)}
           <div ref={sentinel} aria-hidden="true" className="h-px" data-testid="inbox-bottom-sentinel" />

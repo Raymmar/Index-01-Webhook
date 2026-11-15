@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="data:,"><title>Arrival notice layout fixture</title></head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      // Isolated synthetic content: no application auth, APIs, or user data.
+      import React from "react";
+      import { createRoot } from "react-dom/client";
+      import { flushSync } from "react-dom";
+      import { FeedScrollAnchor } from "../../src/components/feed-scroll-anchor.tsx";
+      import "../../src/index.css";
+
+      const root = createRoot(document.getElementById("root"));
+      const initial = Array.from({ length: 20 }, (_, i) => ({ id: `note-${i}` }));
+      function render(events) {
+        flushSync(() => root.render(React.createElement(React.Fragment, null,
+          // Match the signed-in shell's mobile header height and stacking.
+          React.createElement("header", { id: "mobile-header", className: "sticky top-0 z-20 flex items-center gap-2 border-b border-border bg-background/90 px-4 py-2.5 backdrop-blur md:hidden" },
+            React.createElement("span", { className: "h-8" }, "Index 0.1")),
+          React.createElement("main", { className: "app-page" },
+            React.createElement(FeedScrollAnchor, { embedded: false, target: null, events },
+              events.map(event => React.createElement("article", {
+                key: event.id, "data-event-id": event.id, tabIndex: -1,
+                className: "mb-3 h-40 rounded-lg border border-border bg-card p-3",
+              }, `Synthetic message ${event.id}`)))))));
+      }
+      render(initial);
+      window.scrollTo(0, 600);
+      render([{ id: "newest" }, { id: "new" }, ...initial]);
+      const jump = document.querySelector('[data-testid="button-jump-to-latest"]');
+      const dismiss = document.querySelector('[data-testid="button-dismiss-new-messages"]');
+      jump.focus({ preventScroll: true });
+      const header = document.getElementById("mobile-header").getBoundingClientRect();
+      for (const button of [jump, dismiss]) {
+        const rect = button.getBoundingClientRect();
+        const uncovered = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) === button;
+        if (!uncovered || rect.top < header.bottom || button.tabIndex !== 0) {
+          throw new Error("New-message control is obscured or outside the keyboard tab order");
+        }
+      }
+      console.info("Arrival fixture: both controls are visible below the mobile header and in keyboard tab order; jump has focus.");
+    </script>
+  </body>
+</html>
