@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/index-mobile/"
+title = "Index 0.1 — iOS"
+description = "Native iOS companion to Index 0.1 with Dashboard, Inbox, Webhooks and Settings tabs, Clerk login, shared live inbox data, and native glass navigation."
+version = "1.0.0"
+id = "artifacts/index-mobile"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/index-mobile/" ]
+localPort = 24496
+
+[services.development]
+run = "pnpm --filter @workspace/index-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/index-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/index-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "24496"
+BASE_PATH = "/index-mobile/"

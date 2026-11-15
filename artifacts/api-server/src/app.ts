@@ -8,6 +8,7 @@ import organizerRouter from "./routes/organizer";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { mobileCors } from "./middlewares/mobileCors";
 
 const app: Express = express();
 
@@ -31,6 +32,7 @@ app.use(
   }),
 );
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+app.use("/api", mobileCors);
 // Ring traffic has its own bearer authentication, not a browser Clerk session.
 app.use("/api", receiveRouter);
 app.use(express.json({ limit: "512kb" }));

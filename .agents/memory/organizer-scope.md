@@ -8,6 +8,13 @@ The user intends to open-source this version.
 **How to apply:** Keep the existing remix-friendly scope; do not assume a license
 or publish source without a separate instruction.
 
+The iOS companion must be a separate native mobile app, not a reskin or WebView
+of the website. It shares the backend and accounts, defaults to Dashboard, and
+has Dashboard, Inbox, Webhooks, and Settings bottom tabs with native glass controls.
+**Why:** The user explicitly confirmed a new mobile artifact and native iOS UI.
+**How to apply:** Preserve the website's dashboard/inbox-drawer layout while
+using a separate Inbox tab on mobile.
+
 Use ONE inbox-item primitive. A message is a note by default; an explicit action
 makes that same item a task; a due date makes it scheduled. These are attributes
 and filtered views of the same item, never separate extracted records.
