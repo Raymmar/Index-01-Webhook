@@ -1,14 +1,38 @@
-import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Modal, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { addDays, format, startOfWeek } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Feather } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGetOrganizer, useGetSettings, useUpdateItem, useDeleteItem, getGetOrganizerQueryKey, getListEventsQueryKey, type ActionItem, type ItemUpdate } from '@workspace/api-client-react';
-import { Page, Copy, Skeleton, Failure, Empty, IconButton, Button, Chips, Confirm, Sheet, s, c, errorMessage } from '@/components/ui';
+import { Page, Copy, Skeleton, Failure, Empty, IconButton, Button, Confirm, Sheet, s, c, errorMessage } from '@/components/ui';
 import { ItemEditor } from '@/components/item-editor';
 import { deviceZone, useLive } from '@/lib/session';
+
+type TaskStatus = 'open' | 'completed' | 'dismissed';
+const statusLabels: Record<TaskStatus, string> = { open: 'Open', completed: 'Completed', dismissed: 'Dismissed' };
+
+function StatusDropdown({ value, onChange }: { value: TaskStatus; onChange: (value: TaskStatus) => void }) {
+  const trigger = useRef<View>(null);
+  const [anchor, setAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const menuWidth = 164;
+  const menuHeight = 148;
+  return <>
+    <Pressable ref={trigger} testID="dashboard-status-dropdown" accessibilityRole="button" accessibilityLabel={`Task status: ${statusLabels[value]}`} accessibilityState={{ expanded: !!anchor }} onPress={() => trigger.current?.measureInWindow((x, y, width, height) => setAnchor({ x, y, width, height }))} style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: 7, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, opacity: pressed ? 0.6 : 1 })}>
+      <Text numberOfLines={1} style={[s.muted, { fontSize: 11, color: c.foreground, fontFamily: 'Geist_500Medium' }]}>{statusLabels[value]}</Text><Feather name="chevron-down" size={13} color={c.mutedForeground} />
+    </Pressable>
+    <Modal visible={!!anchor} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setAnchor(null)}>
+      <View style={{ flex: 1 }} onAccessibilityEscape={() => setAnchor(null)}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Close status menu" onPress={() => setAnchor(null)} style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }} />
+        {anchor && <View accessibilityViewIsModal style={[s.card, { position: 'absolute', left: Math.max(8, Math.min(anchor.x + anchor.width - menuWidth, windowWidth - menuWidth - 8)), top: Math.max(8, Math.min(anchor.y + anchor.height + 4, windowHeight - menuHeight - 34)), width: menuWidth, padding: 5, gap: 0, elevation: 6, shadowColor: c.foreground, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12 }]}>
+          {(['open', 'completed', 'dismissed'] as const).map(status => <Pressable key={status} testID={`dashboard-status-${status}`} accessibilityRole="radio" accessibilityState={{ checked: status === value }} onPress={() => { onChange(status); setAnchor(null); }} style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: 10, borderRadius: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: pressed || status === value ? c.secondary : 'transparent' })}><Text style={[s.text, { fontSize: 13 }]}>{statusLabels[status]}</Text>{status === value && <Feather name="check" size={15} color={c.accent} />}</Pressable>)}
+        </View>}
+      </View>
+    </Modal>
+  </>;
+}
 
 export default function Dashboard() {
   const q = useGetOrganizer();
@@ -16,7 +40,7 @@ export default function Dashboard() {
   const tz = settings.data?.timezone ?? deviceZone();
   const live = useLive();
   const [filter, setFilter] = useState<'all' | 'scheduled' | 'unscheduled'>('all');
-  const [status, setStatus] = useState<'open' | 'completed' | 'dismissed'>('open');
+  const [status, setStatus] = useState<TaskStatus>('open');
   const [week, setWeek] = useState(0);
   const [date, setDate] = useState<string | null>(null);
   const [editor, setEditor] = useState<ActionItem | 'new' | null>(null);
@@ -40,22 +64,19 @@ export default function Dashboard() {
   const dayOf = (value: string) => formatInTimeZone(value, tz, 'yyyy-MM-dd');
   const visible = items.filter(i => i.status === status && (filter === 'all' || (filter === 'scheduled' ? !!i.dueAt : !i.dueAt)) && (!date || (!!i.dueAt && dayOf(i.dueAt) === date))).sort((a, b) => a.dueAt && b.dueAt ? a.dueAt.localeCompare(b.dueAt) || b.createdAt.localeCompare(a.createdAt) : a.dueAt ? -1 : b.dueAt ? 1 : b.createdAt.localeCompare(a.createdAt));
   const reset = () => { setWeek(0); setDate(null); setFilter('all'); setStatus('open'); };
-  return <Page title="Dashboard" eyebrow={`Index 0.1  /  ${format(today, 'EEE, MMM d')}`} action={<IconButton name="plus" label="New task" onPress={() => setEditor('new')} />}>
-    <View style={{ backgroundColor: c.primary, borderRadius: 8, padding: 20, gap: 22 }}>
-      <View style={s.between}><Text style={[s.label, { color: c.primaryForeground }]}>Your work, in view</Text><View style={[s.row, { gap: 6 }]}><View style={{ height: 5, width: 5, borderRadius: 3, backgroundColor: live === 'live' ? c.accent : c.mutedForeground }} /><Text style={[s.muted, { color: c.primaryForeground, fontSize: 10 }]}>{live === 'live' ? 'Live' : live === 'paused' ? 'Paused' : 'Connecting'}</Text></View></View>
-      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}><Text style={[s.heading, { fontSize: 55, lineHeight: 60, color: c.primaryForeground }]}>{q.data ? open.length : '—'}</Text><Copy style={{ color: c.primaryForeground }}>open tasks</Copy></View>
-      <View style={[s.between, { borderTopWidth: 1, borderTopColor: c.mutedForeground, paddingTop: 14 }]}><Pressable accessibilityRole="button" onPress={() => router.navigate('/inbox')}><Text style={[s.muted, { color: c.primaryForeground }]}>{q.data?.messageCount ?? '—'} messages <Feather name="arrow-up-right" size={12} /></Text></Pressable><Pressable accessibilityRole="button" onPress={() => { setFilter('scheduled'); setDate(null); setStatus('open'); }}><Text style={[s.muted, { color: c.primaryForeground }]}>{q.data ? open.filter(i => i.dueAt).length : '—'} scheduled</Text></Pressable></View>
-    </View>
-    <View style={s.between}><Text style={s.subheading}>Your week</Text><Pressable accessibilityRole="button" onPress={reset} style={{ paddingVertical: 10 }}><Text style={[s.muted, { color: c.accent }]}>All open items</Text></Pressable></View>
-    <View style={[s.card, { padding: 8, gap: 2 }]}>
-      <View style={s.between}><IconButton name="chevron-left" label="Previous week" onPress={() => { setWeek(w => w - 1); setDate(null); }} /><Text style={s.muted}>{format(first, 'MMM d')} – {format(days[6], 'MMM d, yyyy')}</Text><IconButton name="chevron-right" label="Next week" onPress={() => { setWeek(w => w + 1); setDate(null); }} /></View>
+  return <Page compact title="Dashboard" action={<View style={[s.row, { gap: 4 }]}><View style={[s.row, { gap: 5 }]}><View style={{ height: 5, width: 5, borderRadius: 3, backgroundColor: live === 'live' ? c.accent : c.mutedForeground }} /><Text style={[s.muted, { fontSize: 10 }]}>{live === 'live' ? 'Live' : live === 'paused' ? 'Paused' : 'Connecting'}</Text></View><IconButton name="plus" label="New task" onPress={() => setEditor('new')} /></View>}>
+    <View style={[s.card, { padding: 4, gap: 2 }]}>
+      <View style={[s.between, { gap: 4 }]}><IconButton name="chevron-left" label="Previous week" onPress={() => { setWeek(w => w - 1); setDate(null); }} /><View style={{ alignItems: 'center', gap: 1 }}><Text style={[s.subheading, { fontSize: 23, lineHeight: 27 }]}>{format(first, 'RRRR')} · Week {format(first, 'I')}</Text><Text style={[s.muted, { fontSize: 10 }]}>{format(first, 'MMM d')} – {format(days[6], 'MMM d')}</Text></View><IconButton name="chevron-right" label="Next week" onPress={() => { setWeek(w => w + 1); setDate(null); }} /></View>
       <View style={{ flexDirection: 'row' }}>{days.map(day => {
         const key = format(day, 'yyyy-MM-dd'); const count = open.filter(i => i.dueAt && dayOf(i.dueAt) === key).length;
-        return <Pressable key={key} accessibilityRole="button" accessibilityLabel={`${format(day, 'EEEE, MMMM d')}, ${count} open tasks`} accessibilityState={{ selected: date === key }} onPress={() => { setDate(date === key ? null : key); setStatus('open'); if (filter === 'unscheduled') setFilter('all'); }} style={{ flex: 1, paddingVertical: 10, alignItems: 'center', gap: 9, backgroundColor: date === key ? c.secondary : 'transparent', borderRadius: 8 }}><Text style={[s.muted, { fontSize: 10 }]}>{format(day, 'EEEEE')}</Text><Copy style={{ color: key === todayKey ? c.accent : c.foreground }}>{format(day, 'd')}</Copy><Text style={[s.muted, { fontSize: 10 }]}>{count || '·'}</Text></Pressable>;
+        return <Pressable key={key} accessibilityRole="button" accessibilityLabel={`${format(day, 'EEEE, MMMM d')}, ${count} open tasks`} accessibilityState={{ selected: date === key }} onPress={() => { setDate(date === key ? null : key); setStatus('open'); if (filter === 'unscheduled') setFilter('all'); }} style={{ flex: 1, paddingVertical: 6, alignItems: 'center', gap: 3, backgroundColor: date === key ? c.secondary : 'transparent', borderRadius: 8 }}><Text style={[s.muted, { fontSize: 10 }]}>{format(day, 'EEEEE')}</Text><Copy style={{ color: key === todayKey ? c.accent : c.foreground }}>{format(day, 'd')}</Copy><Text style={[s.muted, { fontSize: 10 }]}>{count || '·'}</Text></Pressable>;
       })}</View>
     </View>
-    <View style={{ gap: 8 }}><Chips values={['all', 'scheduled', 'unscheduled'] as const} value={filter} onChange={v => { setFilter(v); if (v === 'unscheduled') setDate(null); }} /><Chips values={['open', 'completed', 'dismissed'] as const} value={status} onChange={setStatus} /></View>
-    <View style={s.between}><Text style={s.label}>{date ? format(new Date(`${date}T12:00:00`), 'EEEE, MMM d') : 'All dates'}</Text><Text style={s.muted}>{visible.length} items</Text></View>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 3 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 1, flexShrink: 1, minWidth: 0 }}>{(['all', 'scheduled', 'unscheduled'] as const).map(kind => <Pressable key={kind} testID={`filter-${kind}`} accessibilityRole="button" accessibilityState={{ selected: filter === kind }} onPress={() => { setFilter(kind); if (kind === 'unscheduled') setDate(null); }} style={{ minHeight: 44, paddingHorizontal: 5, justifyContent: 'center', flexShrink: 1 }}><Text numberOfLines={1} style={[s.muted, { fontSize: 11, lineHeight: 22, textTransform: 'capitalize', color: filter === kind ? c.foreground : c.mutedForeground, fontFamily: filter === kind ? 'Geist_500Medium' : 'Geist_400Regular', borderBottomWidth: 2, borderBottomColor: filter === kind ? c.accent : 'transparent' }]}>{kind}</Text></Pressable>)}</View>
+      <StatusDropdown value={status} onChange={setStatus} />
+    </View>
+    <View style={[s.between, { gap: 6 }]}><Text style={[s.muted, { flex: 1, fontSize: 11 }]}>{date ? `${format(new Date(`${date}T12:00:00`), 'EEE, MMM d')} · ` : ''}{visible.length} {status} {visible.length === 1 ? 'task' : 'tasks'}</Text><Pressable accessibilityRole="button" onPress={reset} style={{ minHeight: 32, justifyContent: 'center' }}><Text style={[s.muted, { fontSize: 11, color: c.accent }]}>All open items</Text></Pressable></View>
     {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
     {q.isLoading ? <Skeleton /> : q.isError ? <Failure error={q.error} retry={() => void q.refetch()} /> : !visible.length ? <Empty title={status === 'open' ? 'A little breathing room.' : 'Nothing here yet.'} text={date ? 'No tasks scheduled for this day.' : status === 'open' ? 'Speak to your ring, or add a task.' : `Your ${status} tasks will appear here.`} icon="check-circle" /> :
       <View style={[s.card, { padding: 0, gap: 0 }]}>{visible.map((item, i) => <View key={item.id} style={{ padding: 14, borderTopWidth: i ? 1 : 0, borderTopColor: c.border }}>

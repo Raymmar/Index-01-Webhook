@@ -30,10 +30,10 @@ export function Button({ label, onPress, disabled, quiet, danger, testID }: { la
 export function IconButton({ name, label, onPress, disabled, color }: { name: React.ComponentProps<typeof Feather>['name']; label: string; onPress: () => void; disabled?: boolean; color?: string }) {
   return <Pressable testID={`button-${label.replaceAll(' ', '-').toLowerCase()}`} accessibilityLabel={label} accessibilityRole="button" disabled={disabled} onPress={onPress} style={({ pressed }) => ({ minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.3 : pressed ? 0.5 : 1 })}><Feather name={name} size={21} color={color ?? c.foreground} /></Pressable>;
 }
-export function Page({ title, eyebrow, action, children }: { title: string; eyebrow?: string; action?: ReactNode; children: ReactNode }) {
+export function Page({ title, eyebrow, action, children, compact = false }: { title: string; eyebrow?: string; action?: ReactNode; children: ReactNode; compact?: boolean }) {
   const insets = useSafeAreaInsets();
-  return <View style={s.screen}><KeyboardAwareScrollViewCompat contentInsetAdjustmentBehavior="never" automaticallyAdjustContentInsets={false} keyboardDismissMode="on-drag" bottomOffset={28} contentContainerStyle={[s.content, { paddingTop: (Platform.OS === 'web' ? 67 : insets.top) + 18, paddingBottom: Platform.OS === 'web' ? 116 : 100 + insets.bottom }]}>
-    <View style={{ gap: 12 }}>{eyebrow && <Text style={s.label}>{eyebrow}</Text>}<View style={s.between}><Text accessibilityRole="header" style={s.heading}>{title}</Text>{action}</View></View>{children}
+  return <View style={s.screen}><KeyboardAwareScrollViewCompat contentInsetAdjustmentBehavior="never" automaticallyAdjustContentInsets={false} keyboardDismissMode="on-drag" bottomOffset={28} contentContainerStyle={[s.content, compact && { gap: 12 }, { paddingTop: (Platform.OS === 'web' ? 67 : insets.top) + (compact ? 8 : 18), paddingBottom: Platform.OS === 'web' ? 116 : 100 + insets.bottom }]}>
+    <View style={{ gap: compact ? 6 : 12 }}>{eyebrow && <Text style={s.label}>{eyebrow}</Text>}<View style={s.between}><Text accessibilityRole="header" style={[s.heading, compact && { fontSize: 30, lineHeight: 36 }]}>{title}</Text>{action}</View></View>{children}
   </KeyboardAwareScrollViewCompat></View>;
 }
 export function Skeleton() {
