@@ -5,7 +5,6 @@ import { MoreVertical, RotateCw, Trash2 } from "lucide-react";
 import { useListWebhooks, getListWebhooksQueryKey, useCreateWebhook, useRotateWebhook, useRevokeWebhook, type WebhookCredentials, type Webhook } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CopyField } from "@/components/shell";
-import { useInboxStream } from "@/hooks/use-inbox-stream";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
@@ -34,7 +33,6 @@ function Instructions({ creds }: { creds: WebhookCredentials }) {
 export default function Webhooks() {
   const qc = useQueryClient();
   const list = useListWebhooks({ query: { queryKey: getListWebhooksQueryKey() } });
-  useInboxStream();
   const create = useCreateWebhook();
   const rotate = useRotateWebhook();
   const revoke = useRevokeWebhook();

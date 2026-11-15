@@ -4,6 +4,7 @@ import { publishableKeyFromHost } from "@clerk/shared/keys";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware, getClerkProxyHost } from "./middlewares/clerkProxyMiddleware";
 import receiveRouter from "./routes/receive";
 import inboxRouter from "./routes/inbox";
+import organizerRouter from "./routes/organizer";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -37,6 +38,7 @@ app.use(clerkMiddleware((req) => ({
   publishableKey: publishableKeyFromHost(getClerkProxyHost(req) ?? "", process.env.CLERK_PUBLISHABLE_KEY),
 })));
 app.use("/api", router);
+app.use("/api", organizerRouter);
 app.use("/api", inboxRouter);
 const errors: ErrorRequestHandler = (err, req, res, _next) => {
   const status = err.code === "LIMIT_FILE_SIZE" || err.type === "entity.too.large" ? 413

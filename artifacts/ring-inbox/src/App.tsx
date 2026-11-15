@@ -11,6 +11,8 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Inbox from "@/pages/inbox";
 import Webhooks from "@/pages/webhooks";
+import Items from "@/pages/items";
+import SettingsPage from "@/pages/settings";
 import { Shell } from "@/components/shell";
 
 const queryClient = new QueryClient();
@@ -134,6 +136,26 @@ function HomeRedirect() {
   );
 }
 
+const PRIVATE = ["/inbox", "/tasks", "/reminders", "/webhooks", "/settings"];
+
+function PrivateRoutes() {
+  return (
+    <Switch>
+      <Route path="/inbox" component={Inbox} />
+      <Route path="/tasks">{() => <Items kind="task" />}</Route>
+      <Route path="/reminders">{() => <Items kind="reminder" />}</Route>
+      <Route path="/webhooks" component={Webhooks} />
+      <Route path="/settings" component={SettingsPage} />
+    </Switch>
+  );
+}
+
+function Fallback() {
+  const [loc] = useLocation();
+  if (!PRIVATE.includes(loc)) return <NotFound />;
+  return <Private><PrivateRoutes /></Private>;
+}
+
 function Private({ children }: { children: ReactNode }) {
   return (
     <>
@@ -173,9 +195,7 @@ function ClerkProviderWithRoutes() {
               <Route path="/" component={HomeRedirect} />
               <Route path="/sign-in/*?" component={SignInPage} />
               <Route path="/sign-up/*?" component={SignUpPage} />
-              <Route path="/inbox">{() => <Private><Inbox /></Private>}</Route>
-              <Route path="/webhooks">{() => <Private><Webhooks /></Private>}</Route>
-              <Route component={NotFound} />
+              <Route component={Fallback} />
             </Switch>
           </RoutedErrorBoundary>
           <Toaster />

@@ -11,6 +11,82 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /settings:
+    get:
+      operationId: getSettings
+      responses:
+        "200":
+          description: Current account and app settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Settings" }
+    patch:
+      operationId: updateSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettingsUpdate" }
+      responses:
+        "200":
+          description: Saved settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Settings" }
+  /organizer:
+    get:
+      operationId: getOrganizer
+      responses:
+        "200":
+          description: Account-scoped tasks, reminders and processing states
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Organizer" }
+  /events/{id}/understand:
+    post:
+      operationId: understandEvent
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "202":
+          description: Queued or already processed
+  /items:
+    post:
+      operationId: createItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ItemInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActionItem" }
+  /items/{id}:
+    patch:
+      operationId: updateItem
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ItemUpdate" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActionItem" }
+    delete:
+      operationId: deleteItem
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "204":
+          description: Deleted action item; original note unchanged
   /healthz:
     get:
       operationId: healthCheck
@@ -130,6 +206,70 @@ components:
   securitySchemes:
     webhookToken: { type: http, scheme: bearer }
   schemas:
+    Settings:
+      type: object
+      required: [isOwner, allowed, allowSignups, timezone, aiProvider, aiModel, directKeyConfigured, managedConfigured]
+      properties:
+        isOwner: { type: boolean }
+        allowed: { type: boolean }
+        allowSignups: { type: boolean }
+        timezone: { type: [string, "null"] }
+        aiProvider: { type: string, enum: [replit, openai] }
+        aiModel: { type: string }
+        directKeyConfigured: { type: boolean }
+        managedConfigured: { type: boolean }
+    SettingsUpdate:
+      type: object
+      properties:
+        timezone: { type: string, minLength: 1, maxLength: 100 }
+        allowSignups: { type: boolean }
+        aiProvider: { type: string, enum: [replit, openai] }
+        aiModel: { type: string, minLength: 1, maxLength: 100 }
+    ActionItem:
+      type: object
+      required: [id, sourceEventId, kind, title, dueAt, timezone, status, needsReview, originalTimeText, createdAt]
+      properties:
+        id: { type: string }
+        sourceEventId: { type: [string, "null"] }
+        kind: { type: string, enum: [task, reminder] }
+        title: { type: string }
+        dueAt: { type: [string, "null"] }
+        timezone: { type: string }
+        status: { type: string, enum: [open, completed, dismissed] }
+        needsReview: { type: boolean }
+        originalTimeText: { type: [string, "null"] }
+        createdAt: { type: string }
+    ItemInput:
+      type: object
+      required: [kind, title]
+      properties:
+        kind: { type: string, enum: [task, reminder] }
+        title: { type: string, minLength: 1, maxLength: 500 }
+        dueAt: { type: [string, "null"] }
+    ItemUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 500 }
+        dueAt: { type: [string, "null"] }
+        status: { type: string, enum: [open, completed, dismissed] }
+        needsReview: { type: boolean }
+    ProcessingJob:
+      type: object
+      required: [eventId, status, error]
+      properties:
+        eventId: { type: string }
+        status: { type: string, enum: [pending, processing, completed, failed] }
+        error: { type: [string, "null"] }
+    Organizer:
+      type: object
+      required: [items, jobs]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ActionItem" }
+        jobs:
+          type: array
+          items: { $ref: "#/components/schemas/ProcessingJob" }
     WebhookInput:
       type: object
       required: [name]

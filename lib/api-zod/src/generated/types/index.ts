@@ -6,15 +6,29 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './actionItem';
+export * from './actionItemKind';
+export * from './actionItemStatus';
 export * from './clickPayload';
 export * from './eventPage';
 export * from './healthStatus';
 export * from './inboxEvent';
 export * from './inboxEventKind';
 export * from './inboxEventPayload';
+export * from './itemInput';
+export * from './itemInputKind';
+export * from './itemUpdate';
+export * from './itemUpdateStatus';
 export * from './listEventsParams';
+export * from './organizer';
+export * from './processingJob';
+export * from './processingJobStatus';
 export * from './receipt';
 export * from './recordingPayload';
+export * from './settings';
+export * from './settingsAiProvider';
+export * from './settingsUpdate';
+export * from './settingsUpdateAiProvider';
 export * from './webhook';
 export * from './webhookCredentials';
 export * from './webhookInput';

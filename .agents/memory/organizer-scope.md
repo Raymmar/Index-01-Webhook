@@ -26,6 +26,7 @@ or building this initial scope.
 
 **Why:** The user explicitly refined and agreed to this product direction.
 
-**How to apply:** Treat these as requirements when implementation is requested.
-This discussion did not authorize building the organizer yet. Preserve the original
-webhook and distinguish current functionality from proposed capabilities.
+**How to apply:** Preserve these requirements while extending the organizer.
+Preserve the original webhook and distinguish current functionality from proposed
+capabilities. The user authorized implementing the shared shell, AI, and settings
+together in one pass.

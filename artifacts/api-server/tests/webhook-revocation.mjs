@@ -6,9 +6,17 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createRequire } from "node:module";
+import { randomUUID } from "node:crypto";
 
 const temp = await mkdtemp(join(tmpdir(), "ring-revocation-"));
+const schemaName = `test_revoke_${randomUUID().replaceAll("-", "")}`;
+const pg = createRequire(resolve("lib/db/package.json"))("pg");
+const admin = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 try {
+  await admin.query(`CREATE SCHEMA ${schemaName}`);
+  for (const table of ["webhooks", "inbox_events", "app_settings", "user_preferences", "understanding_jobs", "action_items"]) {
+    await admin.query(`CREATE TABLE ${schemaName}.${table} (LIKE public.${table} INCLUDING ALL)`);
+  }
   const outfile = join(temp, "check.cjs");
   await build({
     stdin: {
@@ -107,6 +115,11 @@ try {
     plugins: [{
       name: "isolated-test-identity",
       setup(builder) {
+        builder.onResolve({ filter: /^@workspace\/db$/ }, () => ({ path: "db", namespace: "fixture-db" }));
+        builder.onLoad({ filter: /.*/, namespace: "fixture-db" }, () => ({
+          resolveDir: resolve("lib/db"),
+          contents: `import pg from "pg"; import {drizzle} from "drizzle-orm/node-postgres"; import * as schema from "./src/schema"; export * from "./src/schema"; export const pool=new pg.Pool({connectionString:process.env.DATABASE_URL, options:"-c search_path=${schemaName}"}); export const db=drizzle(pool,{schema});`,
+        }));
         builder.onResolve({ filter: /^@clerk\/express$/ }, () => ({ path: "identity", namespace: "test" }));
         builder.onLoad({ filter: /.*/, namespace: "test" }, () => ({
           contents: 'export const getAuth = req => ({ userId: req.headers["x-test-owner"] || null });',
@@ -116,5 +129,7 @@ try {
   });
   await createRequire(import.meta.url)(outfile).check();
 } finally {
+  await admin.query(`DROP SCHEMA IF EXISTS ${schemaName} CASCADE`);
+  await admin.end();
   await rm(temp, { recursive: true, force: true });
 }

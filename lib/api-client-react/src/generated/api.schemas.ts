@@ -5,6 +5,144 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type SettingsAiProvider = typeof SettingsAiProvider[keyof typeof SettingsAiProvider];
+
+
+export const SettingsAiProvider = {
+  replit: 'replit',
+  openai: 'openai',
+} as const;
+
+export interface Settings {
+  isOwner: boolean;
+  allowed: boolean;
+  allowSignups: boolean;
+  /** @nullable */
+  timezone: string | null;
+  aiProvider: SettingsAiProvider;
+  aiModel: string;
+  directKeyConfigured: boolean;
+  managedConfigured: boolean;
+}
+
+export type SettingsUpdateAiProvider = typeof SettingsUpdateAiProvider[keyof typeof SettingsUpdateAiProvider];
+
+
+export const SettingsUpdateAiProvider = {
+  replit: 'replit',
+  openai: 'openai',
+} as const;
+
+export interface SettingsUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  timezone?: string;
+  allowSignups?: boolean;
+  aiProvider?: SettingsUpdateAiProvider;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  aiModel?: string;
+}
+
+export type ActionItemKind = typeof ActionItemKind[keyof typeof ActionItemKind];
+
+
+export const ActionItemKind = {
+  task: 'task',
+  reminder: 'reminder',
+} as const;
+
+export type ActionItemStatus = typeof ActionItemStatus[keyof typeof ActionItemStatus];
+
+
+export const ActionItemStatus = {
+  open: 'open',
+  completed: 'completed',
+  dismissed: 'dismissed',
+} as const;
+
+export interface ActionItem {
+  id: string;
+  /** @nullable */
+  sourceEventId: string | null;
+  kind: ActionItemKind;
+  title: string;
+  /** @nullable */
+  dueAt: string | null;
+  timezone: string;
+  status: ActionItemStatus;
+  needsReview: boolean;
+  /** @nullable */
+  originalTimeText: string | null;
+  createdAt: string;
+}
+
+export type ItemInputKind = typeof ItemInputKind[keyof typeof ItemInputKind];
+
+
+export const ItemInputKind = {
+  task: 'task',
+  reminder: 'reminder',
+} as const;
+
+export interface ItemInput {
+  kind: ItemInputKind;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  title: string;
+  /** @nullable */
+  dueAt?: string | null;
+}
+
+export type ItemUpdateStatus = typeof ItemUpdateStatus[keyof typeof ItemUpdateStatus];
+
+
+export const ItemUpdateStatus = {
+  open: 'open',
+  completed: 'completed',
+  dismissed: 'dismissed',
+} as const;
+
+export interface ItemUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  title?: string;
+  /** @nullable */
+  dueAt?: string | null;
+  status?: ItemUpdateStatus;
+  needsReview?: boolean;
+}
+
+export type ProcessingJobStatus = typeof ProcessingJobStatus[keyof typeof ProcessingJobStatus];
+
+
+export const ProcessingJobStatus = {
+  pending: 'pending',
+  processing: 'processing',
+  completed: 'completed',
+  failed: 'failed',
+} as const;
+
+export interface ProcessingJob {
+  eventId: string;
+  status: ProcessingJobStatus;
+  /** @nullable */
+  error: string | null;
+}
+
+export interface Organizer {
+  items: ActionItem[];
+  jobs: ProcessingJob[];
+}
+
 export interface WebhookInput {
   /**
      * @minLength 1

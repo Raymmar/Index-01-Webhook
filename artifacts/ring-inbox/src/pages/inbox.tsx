@@ -1,18 +1,44 @@
-import { useState } from "react";
-import { Link } from "wouter";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useSearch } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Code2 } from "lucide-react";
-import { useListEvents, getListEventsQueryKey, listEvents, type InboxEvent } from "@workspace/api-client-react";
+import { useListEvents, getListEventsQueryKey, listEvents, useGetOrganizer, getGetOrganizerQueryKey, useUnderstandEvent, type InboxEvent, type ActionItem, type ProcessingJob } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useInboxStream } from "@/hooks/use-inbox-stream";
 
 function ts(s: string) { return format(new Date(s), "MMM d, h:mm a"); }
 function size(n: number) { return n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${(n / 1024).toFixed(1)} KB`; }
 
-function EventCard({ e }: { e: InboxEvent }) {
+function Organize({ e, items, job }: { e: InboxEvent; items: ActionItem[]; job?: ProcessingJob }) {
+  const qc = useQueryClient();
+  const understand = useUnderstandEvent({ mutation: { onSettled: () => qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() }) } });
+  if (!e.transcription) return null;
+  const busy = understand.isPending || job?.status === "pending" || job?.status === "processing";
+  const tasks = items.filter((i) => i.kind === "task").length;
+  const rems = items.filter((i) => i.kind === "reminder").length;
+  const btn = "rounded px-1.5 py-0.5 text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
+  if (busy) return <span className="flex items-center gap-1.5" data-testid={`status-organizing-${e.id}`}><span className="ri-pulse h-1.5 w-1.5 rounded-full bg-accent" />Organizing</span>;
+  if (job?.status === "failed" || understand.isError) {
+    return <span className="flex items-center gap-1 text-destructive" title={job?.error ?? undefined} data-testid={`status-failed-${e.id}`}>Failed<button type="button" className={btn} data-testid={`button-retry-organize-${e.id}`} onClick={() => understand.mutate({ id: e.id })}>Retry</button></span>;
+  }
+  if (items.length) {
+    return (
+      <span className="flex items-center gap-2" data-testid={`text-extracted-${e.id}`}>
+        {tasks > 0 && <Link href="/tasks" className="hover:text-foreground">{tasks} {tasks === 1 ? "task" : "tasks"}</Link>}
+        {rems > 0 && <Link href="/reminders" className="hover:text-foreground">{rems} {rems === 1 ? "reminder" : "reminders"}</Link>}
+      </span>
+    );
+  }
+  if (job?.status === "completed") return <span data-testid={`text-extracted-${e.id}`}>Nothing to organize</span>;
+  return <button type="button" className={btn} data-testid={`button-organize-${e.id}`} onClick={() => understand.mutate({ id: e.id })}>Organize</button>;
+}
+
+function EventCard({ e, items, job, highlight }: { e: InboxEvent; items: ActionItem[]; job?: ProcessingJob; highlight: boolean }) {
   const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => { if (highlight) ref.current?.scrollIntoView({ block: "center", behavior: "smooth" }); }, [highlight]);
   return (
-    <article className="ri-in rounded-lg border border-border bg-card p-3" data-testid={`card-event-${e.id}`}>
+    <article ref={ref} id={`event-${e.id}`} className={`ri-in rounded-lg border bg-card p-3 ${highlight ? "border-accent" : "border-border"}`} data-testid={`card-event-${e.id}`}>
       {e.transcription ? <p className="whitespace-pre-wrap break-words font-sans text-lg font-normal leading-relaxed" data-testid={`text-transcription-${e.id}`}>{e.transcription}</p> : <p className="text-sm text-muted-foreground">{e.kind === "recording" ? "Transcript unavailable" : "Webhook event received"}</p>}
       {e.audioUrl && (
         <div className="mt-2">
@@ -26,6 +52,7 @@ function EventCard({ e }: { e: InboxEvent }) {
           <time dateTime={e.recordedAt || e.receivedAt} title={`${e.recordedAt ? "Recorded" : "Received"} ${format(new Date(e.recordedAt || e.receivedAt), "PPpp")}`} data-testid={`text-received-${e.id}`}>{ts(e.recordedAt || e.receivedAt)}</time>
           {e.audioSize != null && <><span aria-hidden="true">·</span><span>{size(e.audioSize)}</span></>}
         </div>
+        <div className="ml-auto flex shrink-0 items-center"><Organize e={e} items={items} job={job} /></div>
         <button type="button" onClick={() => setOpen((value) => !value)} aria-label={open ? "Hide payload" : "Show payload"} title={open ? "Hide payload" : "Show payload"} aria-expanded={open} aria-controls={`payload-${e.id}`} data-testid={`button-payload-${e.id}`} className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${open ? "bg-secondary text-foreground" : ""}`}>
           <Code2 className="h-4 w-4" aria-hidden="true" />
         </button>
@@ -37,7 +64,8 @@ function EventCard({ e }: { e: InboxEvent }) {
 
 export default function Inbox() {
   const q = useListEvents(undefined, { query: { queryKey: getListEventsQueryKey() } });
-  useInboxStream();
+  const organizer = useGetOrganizer({ query: { queryKey: getGetOrganizerQueryKey() } });
+  const target = new URLSearchParams(useSearch()).get("event");
   const [older, setOlder] = useState<InboxEvent[]>([]);
   const [cursor, setCursor] = useState<string | null | undefined>(undefined);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -46,6 +74,14 @@ export default function Inbox() {
   const nextCursor = cursor === undefined ? q.data?.nextCursor : cursor;
   const seen = new Set(head.map((e) => e.id));
   const all = [...head, ...older.filter((e) => !seen.has(e.id))];
+  const byEvent = useMemo(() => {
+    const m = new Map<string, ActionItem[]>();
+    for (const i of organizer.data?.items ?? []) if (i.sourceEventId) m.set(i.sourceEventId, [...(m.get(i.sourceEventId) ?? []), i]);
+    return m;
+  }, [organizer.data]);
+  const jobs = useMemo(() => new Map((organizer.data?.jobs ?? []).map((j) => [j.eventId, j])), [organizer.data]);
+  const found = !target || all.some((e) => e.id === target);
+  const searching = !!target && !found && !!nextCursor && !moreErr && !q.isLoading;
 
   async function loadMore() {
     if (!nextCursor) return;
@@ -54,8 +90,13 @@ export default function Inbox() {
     catch { setMoreErr(true); } finally { setLoadingMore(false); }
   }
 
+  const loadRef = useRef(loadMore);
+  loadRef.current = loadMore;
+  useEffect(() => { if (searching && !loadingMore) void loadRef.current(); }, [searching, loadingMore, all.length]);
+
   return (
     <div>
+      {target && !found && !searching && !q.isLoading && <p className="mb-3 text-sm text-muted-foreground" data-testid="text-source-missing">That note is no longer in the inbox.</p>}
       {q.isLoading ? (
         <div className="space-y-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-28 w-full" />)}</div>
       ) : q.isError ? (
@@ -71,7 +112,7 @@ export default function Inbox() {
         </div>
       ) : (
         <div className="space-y-3">
-          {all.map((e) => <EventCard key={e.id} e={e} />)}
+          {all.map((e) => <EventCard key={e.id} e={e} items={byEvent.get(e.id) ?? []} job={jobs.get(e.id)} highlight={e.id === target} />)}
           {nextCursor && (
             <button type="button" onClick={loadMore} disabled={loadingMore} data-testid="button-load-more" className="w-full rounded-md border border-border py-2 text-sm text-muted-foreground hover:bg-secondary disabled:opacity-50">
               {loadingMore ? "Loading..." : moreErr ? "Failed, try again" : "Load older events"}

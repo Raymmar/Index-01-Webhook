@@ -8,6 +8,131 @@
 import * as zod from 'zod';
 
 
+export const GetSettingsResponse = zod.object({
+  "isOwner": zod.boolean(),
+  "allowed": zod.boolean(),
+  "allowSignups": zod.boolean(),
+  "timezone": zod.string().nullable(),
+  "aiProvider": zod.enum(['replit', 'openai']),
+  "aiModel": zod.string(),
+  "directKeyConfigured": zod.boolean(),
+  "managedConfigured": zod.boolean()
+})
+
+
+export const updateSettingsBodyTimezoneMax = 100;
+
+export const updateSettingsBodyAiModelMax = 100;
+
+
+
+export const UpdateSettingsBody = zod.object({
+  "timezone": zod.string().min(1).max(updateSettingsBodyTimezoneMax).optional(),
+  "allowSignups": zod.boolean().optional(),
+  "aiProvider": zod.enum(['replit', 'openai']).optional(),
+  "aiModel": zod.string().min(1).max(updateSettingsBodyAiModelMax).optional()
+})
+
+export const UpdateSettingsResponse = zod.object({
+  "isOwner": zod.boolean(),
+  "allowed": zod.boolean(),
+  "allowSignups": zod.boolean(),
+  "timezone": zod.string().nullable(),
+  "aiProvider": zod.enum(['replit', 'openai']),
+  "aiModel": zod.string(),
+  "directKeyConfigured": zod.boolean(),
+  "managedConfigured": zod.boolean()
+})
+
+
+export const GetOrganizerResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "sourceEventId": zod.string().nullable(),
+  "kind": zod.enum(['task', 'reminder']),
+  "title": zod.string(),
+  "dueAt": zod.string().nullable(),
+  "timezone": zod.string(),
+  "status": zod.enum(['open', 'completed', 'dismissed']),
+  "needsReview": zod.boolean(),
+  "originalTimeText": zod.string().nullable(),
+  "createdAt": zod.string()
+})),
+  "jobs": zod.array(zod.object({
+  "eventId": zod.string(),
+  "status": zod.enum(['pending', 'processing', 'completed', 'failed']),
+  "error": zod.string().nullable()
+}))
+})
+
+
+export const UnderstandEventParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UnderstandEventResponse = zod.void()
+
+
+export const createItemBodyTitleMax = 500;
+
+
+
+export const CreateItemBody = zod.object({
+  "kind": zod.enum(['task', 'reminder']),
+  "title": zod.string().min(1).max(createItemBodyTitleMax),
+  "dueAt": zod.string().nullish()
+})
+
+export const CreateItemResponse = zod.object({
+  "id": zod.string(),
+  "sourceEventId": zod.string().nullable(),
+  "kind": zod.enum(['task', 'reminder']),
+  "title": zod.string(),
+  "dueAt": zod.string().nullable(),
+  "timezone": zod.string(),
+  "status": zod.enum(['open', 'completed', 'dismissed']),
+  "needsReview": zod.boolean(),
+  "originalTimeText": zod.string().nullable(),
+  "createdAt": zod.string()
+})
+
+
+export const UpdateItemParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const updateItemBodyTitleMax = 500;
+
+
+
+export const UpdateItemBody = zod.object({
+  "title": zod.string().min(1).max(updateItemBodyTitleMax).optional(),
+  "dueAt": zod.string().nullish(),
+  "status": zod.enum(['open', 'completed', 'dismissed']).optional(),
+  "needsReview": zod.boolean().optional()
+})
+
+export const UpdateItemResponse = zod.object({
+  "id": zod.string(),
+  "sourceEventId": zod.string().nullable(),
+  "kind": zod.enum(['task', 'reminder']),
+  "title": zod.string(),
+  "dueAt": zod.string().nullable(),
+  "timezone": zod.string(),
+  "status": zod.enum(['open', 'completed', 'dismissed']),
+  "needsReview": zod.boolean(),
+  "originalTimeText": zod.string().nullable(),
+  "createdAt": zod.string()
+})
+
+
+export const DeleteItemParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteItemResponse = zod.void()
+
+
 /**
  * Returns server health status
  * @summary Health check

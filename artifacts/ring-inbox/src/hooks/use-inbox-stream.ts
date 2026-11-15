@@ -1,27 +1,27 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getListEventsQueryKey, getListWebhooksQueryKey } from "@workspace/api-client-react";
+import { getListEventsQueryKey, getListWebhooksQueryKey, getGetOrganizerQueryKey, getGetSettingsQueryKey } from "@workspace/api-client-react";
 
-export function useInboxStream() {
+/** Mount once, in the signed-in shell. */
+export function useInboxStream(enabled = true) {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<"connecting" | "live" | "reconnecting">("connecting");
 
   useEffect(() => {
+    if (!enabled) return;
     const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     const stream = new EventSource(`${base}/api/events/stream`, { withCredentials: true });
     const refresh = () => {
       void queryClient.invalidateQueries({ queryKey: getListEventsQueryKey() });
       void queryClient.invalidateQueries({ queryKey: getListWebhooksQueryKey() });
+      void queryClient.invalidateQueries({ queryKey: getGetOrganizerQueryKey() });
+      void queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() });
     };
-    stream.addEventListener("ready", () => {
-      setStatus("live");
-      // Includes deliveries missed while offline or connecting.
-      refresh();
-    });
+    stream.addEventListener("ready", () => { setStatus("live"); refresh(); });
     stream.addEventListener("inbox-changed", refresh);
     stream.onerror = () => setStatus("reconnecting");
     return () => stream.close();
-  }, [queryClient]);
+  }, [queryClient, enabled]);
 
   return status;
 }

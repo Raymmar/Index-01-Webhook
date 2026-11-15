@@ -2,7 +2,7 @@ import express, { Router, type IRouter } from "express";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import multer from "multer";
 import { rateLimit } from "express-rate-limit";
-import { db, eventsTable, webhooksTable } from "@workspace/db";
+import { db, eventsTable, webhooksTable, jobsTable, appSettingsTable } from "@workspace/db";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { ReceiveWebhookParams, ReceiveWebhookBody } from "@workspace/api-zod";
 import { audioFile, saveAudio } from "../lib/recording-storage";
@@ -34,6 +34,10 @@ router.post("/receive/:id", limiter, async (req, res, next): Promise<void> => {
   const [hook] = await db.select().from(webhooksTable).where(eq(webhooksTable.id, params.data.id));
   if (!hook || hook.revokedAt || !timingSafeEqual(Buffer.from(hashToken(token), "hex"), Buffer.from(hook.tokenHash, "hex"))) {
     res.status(401).json({ error: "Invalid webhook credentials" }); return;
+  }
+  const [app] = await db.select().from(appSettingsTable).where(eq(appSettingsTable.id, 1));
+  if (app && !app.allowSignups && app.ownerId !== hook.ownerId) {
+    res.status(403).json({ error: "This workspace is private" }); return;
   }
   res.locals.webhook = hook;
   next();
@@ -83,6 +87,9 @@ router.post("/receive/:id", limiter, async (req, res, next): Promise<void> => {
         audioPath, audioSize: file?.size ?? null,
         payload: redact(body) as Record<string, unknown>,
       });
+      if (typeof body.transcription === "string" && body.transcription.trim()) {
+        await tx.insert(jobsTable).values({ eventId: id, ownerId: hook.ownerId }).onConflictDoNothing();
+      }
       // Delivered only after commit, so SSE readers can immediately fetch it.
       // Contains only the account identifier, never transcript or credentials.
       await tx.execute(sql`SELECT pg_notify('ring_inbox_changed', ${hook.ownerId})`);
