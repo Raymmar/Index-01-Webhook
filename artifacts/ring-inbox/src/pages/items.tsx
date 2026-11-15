@@ -18,7 +18,7 @@ function useInvalidate() {
   return () => qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() });
 }
 
-function Row({ item, tz }: { item: ActionItem; tz: string }) {
+export function ActionItemRow({ item, tz, showKind = false }: { item: ActionItem; tz: string; showKind?: boolean }) {
   const invalidate = useInvalidate();
   const { toast } = useToast();
   const update = useUpdateItem({ mutation: { onSettled: invalidate } });
@@ -74,6 +74,7 @@ function Row({ item, tz }: { item: ActionItem; tz: string }) {
           aria-label="Title" data-testid={`input-title-${item.id}`}
           className={`w-full rounded bg-transparent px-1 -mx-1 text-[15px] outline-none hover:bg-secondary/50 focus:bg-card focus-visible:ring-2 focus-visible:ring-ring ${done ? "text-muted-foreground line-through" : ""}`} />
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+          {showKind && <span>{item.kind === "task" ? "Task" : "Reminder"}</span>}
           {editingDate ? (
             <span className="flex items-center gap-1">
               <input type="datetime-local" value={date} onChange={(e) => { setDate(e.target.value); setDateErr(""); }} autoFocus aria-invalid={!!dateErr} data-testid={`input-due-${item.id}`} className={`${field} py-0.5 text-xs`}
@@ -193,7 +194,7 @@ export default function Items({ kind }: { kind: Kind }) {
         </div>
       ) : (
         <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-          {list.map((i) => <Row key={i.id} item={i} tz={tz} />)}
+          {list.map((i) => <ActionItemRow key={i.id} item={i} tz={tz} />)}
         </ul>
       )}
     </div>

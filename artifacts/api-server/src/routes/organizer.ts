@@ -53,7 +53,8 @@ router.patch("/settings", async (req, res): Promise<void> => {
 router.get("/organizer", async (_req, res) => {
   const items = await db.select().from(itemsTable).where(eq(itemsTable.ownerId, res.locals.ownerId)).orderBy(desc(itemsTable.createdAt));
   const jobs = await db.select({ eventId: jobsTable.eventId, status: jobsTable.status, error: jobsTable.error }).from(jobsTable).where(eq(jobsTable.ownerId, res.locals.ownerId));
-  res.json({ items: items.map(publicItem), jobs });
+  const [messages] = await db.select({ total: sql<number>`count(*)::int` }).from(eventsTable).where(eq(eventsTable.ownerId, res.locals.ownerId));
+  res.json({ items: items.map(publicItem), jobs, messageCount: messages.total });
 });
 function publicItem(item: typeof itemsTable.$inferSelect) {
   const { ownerId: _owner, ...rest } = item;

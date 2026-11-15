@@ -9,6 +9,8 @@ import type { ActionItem } from './actionItem';
 import type { ProcessingJob } from './processingJob';
 
 export interface Organizer {
+  /** @minimum 0 */
+  messageCount: number;
   items: ActionItem[];
   jobs: ProcessingJob[];
 }

@@ -33,7 +33,7 @@ export function WeekAhead() {
   ).sort((a, b) => (a.dueAt || "9999").localeCompare(b.dueAt || "9999"));
   const update = (updated: ActionItem) => setItems((current) => current.map((item) => item.id === updated.id ? updated : item));
   const remove = (id: string) => setItems((current) => current.filter((item) => item.id !== id));
-  const source = (id: string) => { setHighlight(null); requestAnimationFrame(() => setHighlight(id)); };
+  const source = (id: string) => { setSection("inbox"); setHighlight(null); requestAnimationFrame(() => setHighlight(id)); };
   const navigate = (next: NavSection) => {
     if (next === "webhooks" || next === "settings") {
       setNotice(`${next === "webhooks" ? "Webhooks" : "Settings"} remain in the existing app. This preview explores the Dashboard only.`);
@@ -60,12 +60,8 @@ export function WeekAhead() {
     </>
   );
   const feed = (
-    <section aria-label="Inbox feed" className="min-w-0">
-      <div className="mb-4 flex items-baseline justify-between">
-        <h2 className="font-display text-2xl">Inbox</h2>
-        <span className="text-xs text-muted-foreground">Latest notes</span>
-      </div>
-      <div className="space-y-3 overflow-y-auto pr-1 md:max-h-[calc(100dvh-210px)]" tabIndex={0} aria-label="Scrollable notes">
+    <section aria-label="Inbox" className="min-w-0">
+      <div className="space-y-3">
         {messages.map((e) => <EventCard key={e.id} e={e} items={items.filter((item) => item.sourceEventId === e.id)} highlight={highlight === e.id} onNavigate={navigate} />)}
         <div className="py-3 text-center">
           {expandedFeed ? <p className="text-xs text-muted-foreground">You’ve reached the beginning of your inbox.</p> : <button type="button" onClick={() => setExpandedFeed(true)} className={`${button} border border-border`}>Load older notes</button>}
@@ -75,20 +71,20 @@ export function WeekAhead() {
   );
   return (
     <Shell active={section} fullWidth items={items} onNavigate={navigate}>
-      <div className="mx-auto max-w-[1440px]">
+      <div className={`mx-auto ${section === "dashboard" ? "max-w-5xl" : "max-w-3xl"}`}>
         {notice && <div role="status" className="mb-4 flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-xs text-muted-foreground"><span>{notice}</span><button type="button" className={button} onClick={() => setNotice(null)}>Dismiss</button></div>}
-        <header className="mb-7">
+        {section !== "inbox" && <header className="mb-7">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h1 className="font-display text-3xl">{section === "dashboard" ? "Dashboard" : section === "inbox" ? "Inbox" : section === "tasks" ? "Tasks" : "Reminders"}</h1>
             <span className="text-xs text-muted-foreground">{format(today, "EEEE, MMMM d")}</span>
           </div>
-          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
+          {section === "dashboard" && <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
             <span><span className="font-mono text-foreground">{messages.length}</span> messages</span>
             <span><span className="font-mono text-foreground">{open.filter((item) => item.kind === "task").length}</span> open tasks</span>
             <span><span className="font-mono text-foreground">{open.filter((item) => item.kind === "reminder").length}</span> reminders</span>
-          </div>
-        </header>
-        {section === "inbox" ? <div className="max-w-3xl">{feed}</div> : <div className="grid min-w-0 grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+          </div>}
+        </header>}
+        {section === "inbox" ? feed : <div className="min-w-0">
           <section className="min-w-0" aria-label="Actionable items">
             <div className="mb-4 flex items-baseline justify-between">
               <h2 className="font-display text-2xl">{section === "dashboard" ? "Your week" : "Open items"}</h2>
@@ -122,7 +118,6 @@ export function WeekAhead() {
             </div>
             {list}
           </section>
-          {feed}
         </div>}
       </div>
     </Shell>

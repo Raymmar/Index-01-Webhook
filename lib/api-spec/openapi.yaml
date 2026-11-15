@@ -262,8 +262,9 @@ components:
         error: { type: [string, "null"] }
     Organizer:
       type: object
-      required: [items, jobs]
+      required: [items, jobs, messageCount]
       properties:
+        messageCount: { type: integer, minimum: 0 }
         items:
           type: array
           items: { $ref: "#/components/schemas/ActionItem" }

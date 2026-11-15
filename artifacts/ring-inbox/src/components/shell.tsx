@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useClerk, useUser } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { BellRing, Inbox as InboxIcon, ListChecks, Menu, Settings as SettingsIcon, Webhook } from "lucide-react";
+import { BellRing, Inbox as InboxIcon, LayoutDashboard, ListChecks, Menu, Settings as SettingsIcon, Webhook } from "lucide-react";
 import { useGetSettings, getGetSettingsQueryKey, useGetOrganizer, getGetOrganizerQueryKey, useUpdateSettings } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -16,6 +16,7 @@ export function Logo({ className = "h-7 w-7" }: { className?: string }) {
 }
 
 const NAV = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/inbox", label: "Inbox", icon: InboxIcon },
   { href: "/tasks", label: "Tasks", icon: ListChecks },
   { href: "/reminders", label: "Reminders", icon: BellRing },
@@ -99,7 +100,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   const sidebar = (
     <div className="flex h-full flex-col">
-      <Link href="/inbox" onClick={close} className="flex items-center gap-2 px-4 pb-4 pt-5" data-testid="link-home">
+      <Link href="/dashboard" onClick={close} className="flex items-center gap-2 px-4 pb-4 pt-5" data-testid="link-home">
         <Logo className="h-6 w-6" />
         <span className="font-display text-xl">Ring Inbox</span>
       </Link>
@@ -133,7 +134,7 @@ export function Shell({ children }: { children: ReactNode }) {
           {sidebar}
         </SheetContent>
       </Sheet>
-      <main className="min-w-0 flex-1"><div className="mx-auto max-w-3xl px-5 py-8">
+      <main className="min-w-0 flex-1"><div className={`mx-auto ${loc === "/dashboard" ? "max-w-5xl" : "max-w-3xl"} px-5 py-8`}>
         {update.isError && settings.data.timezone === null && (
           <div role="alert" className="mb-4 rounded-lg border border-destructive/40 bg-card px-3 py-2 text-sm" data-testid="banner-timezone-error">
             Could not save your timezone. <button type="button" className="underline disabled:opacity-50" disabled={update.isPending} data-testid="button-retry-timezone" onClick={() => sendTz.current()}>Retry</button>

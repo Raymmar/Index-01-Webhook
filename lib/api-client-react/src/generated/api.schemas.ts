@@ -139,6 +139,8 @@ export interface ProcessingJob {
 }
 
 export interface Organizer {
+  /** @minimum 0 */
+  messageCount: number;
   items: ActionItem[];
   jobs: ProcessingJob[];
 }

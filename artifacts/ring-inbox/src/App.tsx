@@ -13,6 +13,7 @@ import Inbox from "@/pages/inbox";
 import Webhooks from "@/pages/webhooks";
 import Items from "@/pages/items";
 import SettingsPage from "@/pages/settings";
+import Dashboard from "@/pages/dashboard";
 import { Shell } from "@/components/shell";
 
 const queryClient = new QueryClient();
@@ -130,17 +131,18 @@ function ClerkQueryClientCacheInvalidator() {
 function HomeRedirect() {
   return (
     <>
-      <Show when="signed-in"><Redirect to="/inbox" /></Show>
+      <Show when="signed-in"><Redirect to="/dashboard" /></Show>
       <Show when="signed-out"><Home /></Show>
     </>
   );
 }
 
-const PRIVATE = ["/inbox", "/tasks", "/reminders", "/webhooks", "/settings"];
+const PRIVATE = ["/dashboard", "/inbox", "/tasks", "/reminders", "/webhooks", "/settings"];
 
 function PrivateRoutes() {
   return (
     <Switch>
+      <Route path="/dashboard" component={Dashboard} />
       <Route path="/inbox" component={Inbox} />
       <Route path="/tasks">{() => <Items kind="task" />}</Route>
       <Route path="/reminders">{() => <Items kind="reminder" />}</Route>

@@ -75,6 +75,7 @@ export async function check() {
     assert.equal((await api("/events/" + receipt.id + "/understand", "POST", "other")).status, 404);
     await Promise.all([processNextJob(), processNextJob()]);
     let data = await (await api("/organizer")).json();
+    assert.equal(data.messageCount, 1);
     const job = data.jobs.find(j => j.eventId === receipt.id);
     assert.equal(job.status, "completed", JSON.stringify(job));
     const items = data.items.filter(i => i.sourceEventId === receipt.id);
@@ -91,6 +92,7 @@ export async function check() {
     assert.equal((await api("/items/" + target.id, "PATCH", "other", { title: "Wrong owner" })).status, 404);
     assert.equal((await api("/items/" + target.id, "DELETE", "other")).status, 404);
     assert.equal((await (await api("/organizer", "GET", "other")).json()).items.length, 0);
+    assert.equal((await (await api("/organizer", "GET", "other")).json()).messageCount, 0);
     assert.equal((await api("/items/" + target.id, "PATCH", "owner", { title: "Changed", status: "completed" })).status, 200);
     assert.equal((await api("/items/" + target.id, "PATCH", "owner", { status: "open" })).status, 200);
     assert.equal((await api("/items/" + target.id, "DELETE")).status, 204);

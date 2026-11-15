@@ -23,6 +23,11 @@ Replit for AI or connected services.
 The current scope is ingestion and understanding only. Connectors stay separate;
 external actions will be connected through a workflow layer later.
 
+Dashboard is the primary signed-in view, based on the Week Ahead design. Keep
+Inbox on its own unchanged page, without an inbox feed in Dashboard. Tasks and
+Reminders retain their own pages and share the same item UI with Dashboard.
+**Why:** The user refined the dashboard direction before authorizing integration.
+
 Do not add UI that is unnecessary for implemented functionality. In particular,
 do not add explanatory limitation text about reminder delivery while discussing
 or building this initial scope.

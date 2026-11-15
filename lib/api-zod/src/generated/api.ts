@@ -45,7 +45,12 @@ export const UpdateSettingsResponse = zod.object({
 })
 
 
+export const getOrganizerResponseMessageCountMin = 0;
+
+
+
 export const GetOrganizerResponse = zod.object({
+  "messageCount": zod.number().int().min(getOrganizerResponseMessageCountMin),
   "items": zod.array(zod.object({
   "id": zod.string(),
   "sourceEventId": zod.string().nullable(),
