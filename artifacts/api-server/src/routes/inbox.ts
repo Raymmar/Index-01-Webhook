@@ -3,7 +3,7 @@ import { getAuth } from "@clerk/express";
 import { randomBytes, randomUUID } from "node:crypto";
 import { db, webhooksTable, eventsTable, actionsTable, type WebhookRow } from "@workspace/db";
 import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
-import { CreateWebhookBody, CreateWebhookResponse, ListWebhooksResponse, ListEventsQueryParams, ListEventsResponse, RotateWebhookParams, RevokeWebhookParams, GetEventAudioParams } from "@workspace/api-zod";
+import { CreateWebhookBody, CreateWebhookResponse, ListWebhooksResponse, ListEventsQueryParams, ListEventsResponse, RotateWebhookParams, RevokeWebhookParams, GetEventAudioParams, GetEventParams, GetEventResponse } from "@workspace/api-zod";
 import { hashToken } from "./receive";
 import { audioFile } from "../lib/recording-storage";
 import { openInboxStream } from "../lib/inbox-stream";
@@ -106,6 +106,22 @@ router.get("/events", async (req, res): Promise<void> => {
   }));
   const last = items.at(-1);
   res.json(ListEventsResponse.parse({ items, nextCursor: rows.length > pageSize && last ? `${rows[pageSize - 1]!.cursorTime}|${last.id}` : null }));
+});
+
+router.get("/events/:id", async (req, res): Promise<void> => {
+  const params = GetEventParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Invalid event" }); return; }
+  const [row] = await db.select({ event: eventsTable, webhookName: webhooksTable.name })
+    .from(eventsTable).leftJoin(webhooksTable, eq(eventsTable.webhookId, webhooksTable.id))
+    .where(and(eq(eventsTable.id, params.data.id), eq(eventsTable.ownerId, res.locals.ownerId)));
+  if (!row) { res.status(404).json({ error: "Message not found" }); return; }
+  const { event, webhookName } = row;
+  res.json(GetEventResponse.parse({
+    id: event.id, webhookId: event.webhookId, webhookName: webhookName ?? "Manual",
+    receivedAt: event.receivedAt.toISOString(), recordedAt: event.recordedAt?.toISOString() ?? null,
+    kind: event.kind, transcription: event.transcription, audioSize: event.audioSize,
+    audioUrl: event.audioPath ? `/api/events/${event.id}/audio` : null, payload: event.payload,
+  }));
 });
 
 router.get("/events/:id/audio", async (req, res): Promise<void> => {

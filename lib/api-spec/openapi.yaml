@@ -176,6 +176,22 @@ paths:
               schema: { type: string }
         "401":
           description: Sign in required
+  /events/{id}:
+    get:
+      operationId: getEvent
+      summary: Get an original message in the signed-in account
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Original message and private recording URL
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InboxEvent" }
+        "401":
+          description: Sign in required
+        "404":
+          description: Message not found in your account
   /events/{id}/audio:
     get:
       operationId: getEventAudio

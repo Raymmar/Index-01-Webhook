@@ -247,6 +247,27 @@ export const ListEventsResponse = zod.object({
 export const StreamEventsResponse = zod.unknown()
 
 
+/**
+ * @summary Get an original message in the signed-in account
+ */
+export const GetEventParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetEventResponse = zod.object({
+  "id": zod.string(),
+  "webhookId": zod.string().nullable(),
+  "webhookName": zod.string(),
+  "receivedAt": zod.string(),
+  "recordedAt": zod.string().nullable(),
+  "kind": zod.enum(['recording', 'json']),
+  "transcription": zod.string().nullable(),
+  "audioUrl": zod.string().nullable(),
+  "audioSize": zod.number().int().nullable(),
+  "payload": zod.record(zod.string(), zod.unknown())
+})
+
+
 export const GetEventAudioParams = zod.object({
   "id": zod.coerce.string()
 })

@@ -3,8 +3,20 @@ import { Platform, Text, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCreateItem, useUpdateItem, getGetOrganizerQueryKey, getListEventsQueryKey, type ActionItem } from '@workspace/api-client-react';
-import { Sheet, Button, Field, IconButton, Copy, s, c, errorMessage } from './ui';
+import { useCreateItem, useUpdateItem, useGetEvent, getGetOrganizerQueryKey, getListEventsQueryKey, type ActionItem } from '@workspace/api-client-react';
+import { Sheet, Button, Field, IconButton, Copy, Failure, s, c, errorMessage } from './ui';
+import { Recording } from './recording';
+
+function TaskRecording({ eventId }: { eventId: string }) {
+  const source = useGetEvent(eventId);
+  if (source.isLoading) return <Text style={s.muted}>Loading original recording…</Text>;
+  if (source.isError) return <Failure error={source.error} retry={() => void source.refetch()} />;
+  if (!source.data?.audioUrl) return null;
+  return <View style={{ gap: 10 }}>
+    <Text style={s.label}>Original recording</Text>
+    <Recording url={source.data.audioUrl} />
+  </View>;
+}
 
 export function ItemEditor({ item, tz, onClose }: { item?: ActionItem; tz: string; onClose: () => void }) {
   const [title, setTitle] = useState(item?.title ?? '');
@@ -40,5 +52,6 @@ export function ItemEditor({ item, tz, onClose }: { item?: ActionItem; tz: strin
     </View>}
     <Text style={s.muted}>{tz.replaceAll('_', ' ')}</Text>{!!error && <Text style={s.error}>{error}</Text>}
     <Button label={busy ? 'Saving…' : item ? 'Save task' : 'Add task'} disabled={busy || !title.trim()} onPress={save} />
+    {item && <TaskRecording eventId={item.sourceEventId} />}
   </Sheet>;
 }
