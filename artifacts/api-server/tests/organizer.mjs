@@ -67,10 +67,11 @@ export async function check() {
     const delivery = await fetch(base + hook.webhook.path.slice(4), {
       method: "POST", headers: { "content-type": "application/json", authorization: hook.headerValue },
       body: JSON.stringify({ recordedAt: Date.parse("2026-11-15T16:58:00Z"),
-        transcription: "Add update the landing page to my task list. Also add buy printer paper to my task list. Remind me in 30 minutes to call Sam. Remind me tomorrow at 9 AM to send the report. Remind me sometime tomorrow morning to check the plants. My idea is that an annual plan might be useful." }),
+        transcription: "Add update the landing page to my task list. Also add buy printer paper to my task list. Remind me in 30 minutes to call Sam. Remind me tomorrow at 9 AM to send the report. Remind me tomorrow to check the plants. My idea is that an annual plan might be useful." }),
     });
     assert.equal(delivery.status, 201);
     const receipt = await delivery.json();
+    await db.update(eventsTable).set({ receivedAt: new Date("2026-11-15T16:58:00Z") }).where(eq(eventsTable.id, receipt.id));
     assert.equal((await api("/events/" + receipt.id + "/understand", "POST", "other")).status, 404);
     await Promise.all([processNextJob(), processNextJob()]);
     let data = await (await api("/organizer")).json();
@@ -81,7 +82,7 @@ export async function check() {
     assert.equal(items.filter(i => i.kind === "reminder").length, 3);
     assert.ok(items.some(i => i.dueAt === "2026-11-15T17:28:00.000Z"));
     assert.ok(items.some(i => i.dueAt === "2026-11-16T17:00:00.000Z"));
-    assert.ok(items.some(i => i.needsReview && i.dueAt === null));
+    assert.ok(items.some(i => i.title.toLowerCase().includes("plants") && i.dueAt === "2026-11-16T16:58:00.000Z" && !i.needsReview));
     assert.equal((await db.select().from(eventsTable)).length, 1);
     await api("/events/" + receipt.id + "/understand", "POST");
     await processNextJob();

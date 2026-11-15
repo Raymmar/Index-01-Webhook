@@ -36,7 +36,7 @@ export async function processNextJob() {
     const [note] = await db.select().from(eventsTable).where(eq(eventsTable.id, job.eventId));
     if (!note?.transcription) throw new Error("No transcript");
     const actions = await extractActions({
-      transcript: note.transcription, recordedAt: note.recordedAt ?? note.receivedAt,
+      transcript: note.transcription, recordedAt: note.recordedAt ?? note.receivedAt, receivedAt: note.receivedAt,
       timezone: job.timezone, provider: job.provider, model: job.model,
     });
     await db.transaction(async tx => {

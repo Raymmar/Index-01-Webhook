@@ -23,9 +23,11 @@ other accounts' APIs and incoming webhooks without deleting their existing data.
 Every note and item remains scoped to its own account.
 
 The browser detects an IANA timezone once, saves it per account, and Settings
-permits overrides. Extraction anchors relative dates to recordedAt (receivedAt
-only when absent). Resolved dates are stored as timestamptz/UTC. Ambiguous or
-nonexistent local times require review. Changes to the display timezone do not
+permits overrides. Extraction anchors relative dates to receivedAt.
+Date-only cues use the receipt's local hour/minute on the specified day; morning,
+afternoon, evening, and tonight default to 09:00, 13:00, 18:00, and 20:00.
+Explicit times take precedence. Resolved dates are stored as timestamptz/UTC.
+Missing time cues, contradictory instructions, or invalid DST times require review. Changes to the display timezone do not
 reschedule saved instants.
 
 ## Durable processing

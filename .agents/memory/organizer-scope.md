@@ -8,6 +8,9 @@ one webhook may produce multiple tasks and reminders.
 
 Use UTC for reminder instants and localized display. Detect the owner's timezone,
 save it, and provide a settings override.
+Resolve reminder dates from message receipt time. Date-only phrases such as
+"tomorrow" should receive a concrete time, not be left undated for review.
+**Why:** The user explicitly rejected leaving these reminders at "Check time".
 
 The first person who logs in becomes the owner automatically, with no additional
 setup. Default to one owner per remix. Provide a simple owner-controlled Settings
