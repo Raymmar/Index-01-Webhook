@@ -55,6 +55,8 @@ export default function SettingsPage() {
 
   const zoneList = allZones.includes(tz) || !tz ? allZones : [tz, ...allZones];
   const directMissing = s.aiProvider === "openai" && !s.directKeyConfigured;
+  const choices = s.availableModels ?? [];
+  const customModel = s.aiProvider === "openai" && !choices.includes(model);
 
   return (
     <div className="space-y-6">
@@ -83,7 +85,7 @@ export default function SettingsPage() {
               <div className="flex rounded-md border border-border p-0.5 text-sm" role="radiogroup">
                 {([["replit", "Replit managed"], ["openai", "OpenAI direct"]] as const).map(([v, l]) => (
                   <button key={v} type="button" role="radio" aria-checked={s.aiProvider === v} disabled={update.isPending} data-testid={`radio-provider-${v}`}
-                    onClick={() => { if (v !== s.aiProvider) save({ aiProvider: v }); }}
+                    onClick={() => { if (v !== s.aiProvider) save({ aiProvider: v, aiModel: "gpt-5-mini" }); }}
                     className={`rounded px-3 py-1 disabled:opacity-60 ${s.aiProvider === v ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}>{l}</button>
                 ))}
               </div>
@@ -95,8 +97,15 @@ export default function SettingsPage() {
             )}
             <Row label="Model">
               <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); const m = model.trim(); if (m && m !== s.aiModel) save({ aiModel: m }); }}>
-                <input value={model} onChange={(e) => setModel(e.target.value)} maxLength={100} spellCheck={false} data-testid="input-model" className={`${field} w-full font-mono text-[13px] sm:w-48`} />
-                <button disabled={update.isPending || !model.trim() || model.trim() === s.aiModel} data-testid="button-save-model" className="rounded-md bg-primary px-3 text-sm text-primary-foreground disabled:opacity-50">Save</button>
+                <div className="space-y-2">
+                  <select aria-label="AI model" value={customModel ? "__custom" : model} disabled={update.isPending} onChange={(e) => setModel(e.target.value === "__custom" ? "" : e.target.value)} data-testid="select-model" className={`${field} w-full font-mono text-[13px] sm:w-64`}>
+                    {!choices.includes(model) && !customModel && <option value={model} disabled>{model} (unavailable)</option>}
+                    {choices.map(m => <option key={m} value={m}>{m}</option>)}
+                    {s.aiProvider === "openai" && <option value="__custom">Custom model</option>}
+                  </select>
+                  {customModel && <input aria-label="Custom OpenAI model ID" value={model} onChange={(e) => setModel(e.target.value)} maxLength={100} spellCheck={false} placeholder="Model ID" data-testid="input-model" className={`${field} w-full font-mono text-[13px]`} />}
+                </div>
+                <button disabled={update.isPending || !model.trim() || model.trim() === s.aiModel || (s.aiProvider === "replit" && !choices.includes(model))} data-testid="button-save-model" className="rounded-md bg-primary px-3 text-sm text-primary-foreground disabled:opacity-50">Save</button>
               </form>
             </Row>
           </Section>

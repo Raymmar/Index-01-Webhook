@@ -17,4 +17,5 @@ export interface Settings {
   aiModel: string;
   directKeyConfigured: boolean;
   managedConfigured: boolean;
+  availableModels: string[];
 }

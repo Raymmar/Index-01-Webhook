@@ -4,6 +4,7 @@ import { and, eq, lte, lt, or, sql } from "drizzle-orm";
 import { batchProcess } from "@workspace/integrations-openai-ai-server/batch";
 import { extractActions } from "./understanding";
 import { logger } from "./logger";
+import { processingFailure } from "./ai-models";
 
 let running = false;
 export async function processNextJob() {
@@ -50,12 +51,14 @@ export async function processNextJob() {
       await tx.update(jobsTable).set({ status: "completed", leaseId: null, error: null }).where(eq(jobsTable.eventId, job.eventId));
       await tx.execute(sql`SELECT pg_notify('ring_inbox_changed', ${job.ownerId})`);
     });
-  } catch {
+  } catch (error) {
+    const failure = processingFailure(error);
+    const failed = !failure.retry || job.attempts >= 3;
     // No provider messages/payloads in logs: they may contain transcripts or keys.
     await db.transaction(async tx => {
       await tx.update(jobsTable).set({
-        status: job.attempts >= 3 ? "failed" : "pending", leaseId: null,
-        error: job.attempts >= 3 ? "Could not organize this note. Check AI settings and retry." : null,
+        status: failed ? "failed" : "pending", leaseId: null,
+        error: failed ? failure.message : null,
         availableAt: new Date(Date.now() + 15_000 * 2 ** (job.attempts - 1)),
       }).where(and(eq(jobsTable.eventId, job.eventId), eq(jobsTable.leaseId, leaseId)));
       await tx.execute(sql`SELECT pg_notify('ring_inbox_changed', ${job.ownerId})`);

@@ -23,6 +23,7 @@ export interface Settings {
   aiModel: string;
   directKeyConfigured: boolean;
   managedConfigured: boolean;
+  availableModels: string[];
 }
 
 export type SettingsUpdateAiProvider = typeof SettingsUpdateAiProvider[keyof typeof SettingsUpdateAiProvider];

@@ -19,7 +19,7 @@ function Organize({ e, items, job }: { e: InboxEvent; items: ActionItem[]; job?:
   const btn = "rounded px-1.5 py-0.5 text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
   if (busy) return <span className="flex items-center gap-1.5" data-testid={`status-organizing-${e.id}`}><span className="ri-pulse h-1.5 w-1.5 rounded-full bg-accent" />Organizing</span>;
   if (job?.status === "failed" || understand.isError) {
-    return <span className="flex items-center gap-1 text-destructive" title={job?.error ?? undefined} data-testid={`status-failed-${e.id}`}>Failed<button type="button" className={btn} data-testid={`button-retry-organize-${e.id}`} onClick={() => understand.mutate({ id: e.id })}>Retry</button></span>;
+    return <span className="flex max-w-56 flex-wrap items-center gap-1 text-destructive" data-testid={`status-failed-${e.id}`}><span>{job?.error ?? "Could not start processing. Retry this note."}</span><button type="button" className={btn} data-testid={`button-retry-organize-${e.id}`} onClick={() => understand.mutate({ id: e.id })}>Retry</button></span>;
   }
   if (items.length) {
     return (

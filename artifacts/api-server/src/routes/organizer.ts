@@ -5,6 +5,7 @@ import { db, appSettingsTable, preferencesTable, itemsTable, jobsTable, eventsTa
 import { and, desc, eq, sql } from "drizzle-orm";
 import { UpdateSettingsBody, CreateItemBody, UpdateItemBody, UpdateItemParams, DeleteItemParams, UnderstandEventParams } from "@workspace/api-zod";
 import { accountFor, validTimezone, parseInstant } from "../lib/account";
+import { managedModels, directModels } from "../lib/ai-models";
 
 const router: IRouter = Router();
 router.use(async (req, res, next) => {
@@ -21,6 +22,7 @@ function settings(account: Awaited<ReturnType<typeof accountFor>>) {
     allowSignups: account.app.allowSignups, aiProvider: account.app.aiProvider, aiModel: account.app.aiModel,
     directKeyConfigured: Boolean(process.env.OPENAI_API_KEY),
     managedConfigured: Boolean(process.env.AI_INTEGRATIONS_OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL),
+    availableModels: account.app.aiProvider === "replit" ? managedModels : directModels,
   };
 }
 router.get("/settings", (_req, res) => { res.json(settings(res.locals.account)); });
@@ -37,6 +39,11 @@ router.patch("/settings", async (req, res): Promise<void> => {
   if (adminChange && !res.locals.account.isOwner) { res.status(403).json({ error: "Only the owner can change app settings" }); return; }
   if (data.aiProvider === "openai" && !process.env.OPENAI_API_KEY) { res.status(400).json({ error: "Set OPENAI_API_KEY in server secrets first" }); return; }
   if (data.aiModel !== undefined && !data.aiModel.trim()) { res.status(400).json({ error: "Model is required" }); return; }
+  if ((data.aiModel !== undefined || data.aiProvider !== undefined) &&
+      (data.aiProvider ?? res.locals.account.app.aiProvider) === "replit" &&
+      !managedModels.includes((data.aiModel ?? res.locals.account.app.aiModel).trim())) {
+    res.status(400).json({ error: "Choose a supported Replit model from the selector." }); return;
+  }
   await db.transaction(async (tx) => {
     if (data.timezone) await tx.update(preferencesTable).set({ timezone: data.timezone }).where(eq(preferencesTable.ownerId, res.locals.ownerId));
     if (adminChange) await tx.update(appSettingsTable).set({

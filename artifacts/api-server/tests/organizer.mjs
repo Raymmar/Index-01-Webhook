@@ -29,6 +29,7 @@ import receive from "./src/routes/receive";
 import { accountFor } from "./src/lib/account";
 import { processNextJob } from "./src/lib/understanding-worker";
 import { resolveDue } from "./src/lib/understanding";
+import { processingFailure } from "./src/lib/ai-models";
 import { eq } from "drizzle-orm";
 export async function check() {
   const app = express();
@@ -54,6 +55,12 @@ export async function check() {
     // Set isolated fixture identity so subsequent checks are deterministic.
     await db.update(appSettingsTable).set({ ownerId: "owner" });
     assert.equal((await (await api("/settings")).json()).isOwner, true);
+    assert.ok((await (await api("/settings")).json()).availableModels.includes("gpt-5.6-terra"));
+    assert.equal((await api("/settings", "PATCH", "owner", { aiModel: "gpt-5.6" })).status, 400);
+    assert.equal((await (await api("/settings")).json()).aiModel, "gpt-5-mini");
+    assert.equal(processingFailure({ status: 400, code: "UNSUPPORTED_MODEL", message: "private content" }).retry, false);
+    assert.ok(!processingFailure({ status: 400, code: "UNSUPPORTED_MODEL", message: "private content" }).message.includes("private content"));
+    assert.equal(processingFailure({ status: 429 }).retry, true);
     assert.equal((await (await api("/settings", "GET", "other")).json()).allowed, false);
     assert.equal((await api("/events", "GET", "other")).status, 403);
     assert.equal((await api("/settings", "PATCH", "owner", { timezone: "Invalid/Zone" })).status, 400);

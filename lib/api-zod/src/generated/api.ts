@@ -16,7 +16,8 @@ export const GetSettingsResponse = zod.object({
   "aiProvider": zod.enum(['replit', 'openai']),
   "aiModel": zod.string(),
   "directKeyConfigured": zod.boolean(),
-  "managedConfigured": zod.boolean()
+  "managedConfigured": zod.boolean(),
+  "availableModels": zod.array(zod.string())
 })
 
 
@@ -41,7 +42,8 @@ export const UpdateSettingsResponse = zod.object({
   "aiProvider": zod.enum(['replit', 'openai']),
   "aiModel": zod.string(),
   "directKeyConfigured": zod.boolean(),
-  "managedConfigured": zod.boolean()
+  "managedConfigured": zod.boolean(),
+  "availableModels": zod.array(zod.string())
 })
 
 

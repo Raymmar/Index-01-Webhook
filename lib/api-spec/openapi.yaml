@@ -208,7 +208,7 @@ components:
   schemas:
     Settings:
       type: object
-      required: [isOwner, allowed, allowSignups, timezone, aiProvider, aiModel, directKeyConfigured, managedConfigured]
+      required: [isOwner, allowed, allowSignups, timezone, aiProvider, aiModel, directKeyConfigured, managedConfigured, availableModels]
       properties:
         isOwner: { type: boolean }
         allowed: { type: boolean }
@@ -218,6 +218,9 @@ components:
         aiModel: { type: string }
         directKeyConfigured: { type: boolean }
         managedConfigured: { type: boolean }
+        availableModels:
+          type: array
+          items: { type: string }
     SettingsUpdate:
       type: object
       properties:
