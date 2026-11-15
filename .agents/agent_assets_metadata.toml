@@ -1,0 +1,100 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "g5bhrlGo1Dcq0u6UUNDAL"
+uri = "file://generated-artifacts/index-store/index-icon-1024.png"
+type = "image"
+title = "Index ring icon"
+description = "1024 × 1024 opaque PNG. Proposed icon; not installed in the app."
+logical_id = "d8e72022-a607-4817-a4d3-a9f11132aa1b"
+content_hash = "sha256:7ccb8994240bbce51b268409c9b083655d2f1fbd1cc36fbcbc619167803e3557"
+size = 27533
+mtime_ms = 1794784575669
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b90499e7-6008-46b5-93de-e8f2baea4c2d/d8e72022-a607-4817-a4d3-a9f11132aa1b/36f8e0e2-a22d-44ed-b2ac-e57de713d6f9"
+storage_version_token = "1794784669510959"
+content_type = "image/png"
+
+[[outputs]]
+id = "lTMDyux9eZJCMhRUF58hU"
+uri = "file://generated-artifacts/index-store/index-universal-5244x2950.png"
+type = "image"
+title = "Universal App Store artwork"
+description = "5244 × 2950 PNG for header and search placements."
+logical_id = "fa802910-4678-48b4-af98-dbc92b281a2f"
+content_hash = "sha256:b580f957dd36ba7e56024f3582f1160c558220f95cd631088eeb886e6de2e1af"
+size = 142750
+mtime_ms = 1794784655284
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b90499e7-6008-46b5-93de-e8f2baea4c2d/fa802910-4678-48b4-af98-dbc92b281a2f/0061ad99-9da7-4a92-b360-4b605c7b29b4"
+storage_version_token = "1794784670124706"
+content_type = "image/png"
+
+[[outputs]]
+id = "5wjQDjUWTE77rvcJCP3RW"
+uri = "file://generated-artifacts/index-store/index-header-3840x1646.png"
+type = "image"
+title = "Wide App Store header"
+description = "3840 × 1646 PNG with centered key artwork."
+logical_id = "44a1efb5-c3c6-40e9-8c2b-c92e26a0663f"
+content_hash = "sha256:5e15ccc7730bc4d0c451084ecd92c20f8e2710a0221432dc57b3e9423181e9dd"
+size = 104140
+mtime_ms = 1794784657108
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b90499e7-6008-46b5-93de-e8f2baea4c2d/44a1efb5-c3c6-40e9-8c2b-c92e26a0663f/8e23e7fc-2160-4445-aca7-1805be26eeda"
+storage_version_token = "1794784670710024"
+content_type = "image/png"
+
+[[outputs]]
+id = "BwKO8oiXe37Q6Y-fRnvU-"
+uri = "file://generated-artifacts/index-store/01-voice-inbox-1320x2868.png"
+type = "image"
+title = "Your voice inbox"
+description = "Feature artwork — 1320 × 2868. Not an app screenshot."
+logical_id = "bc1afc5e-8f78-4d87-a226-5682d899a45d"
+content_hash = "sha256:3c2f3a644eb31f336196a305e327c8f2c0ce61e0e44f196f06fcd2d8b81db823"
+size = 216139
+mtime_ms = 1794784582404
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b90499e7-6008-46b5-93de-e8f2baea4c2d/bc1afc5e-8f78-4d87-a226-5682d899a45d/c9c25442-8027-4a16-9044-60a7febdb1a1"
+storage_version_token = "1794784671238652"
+content_type = "image/png"
+
+[[outputs]]
+id = "J_rwxHBTpykO37-9wmL4C"
+uri = "file://generated-artifacts/index-store/02-action-tasks-1320x2868.png"
+type = "image"
+title = "Turn intent into tasks"
+description = "Feature artwork — 1320 × 2868. Not an app screenshot."
+logical_id = "80d3ddbd-cc07-4474-a3a2-f527b4ce4e0f"
+content_hash = "sha256:a986ba8b5294ec2202ef125c9bed77a81b41d8cfb5f56276b576cab2182c21af"
+size = 219615
+mtime_ms = 1794784584164
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b90499e7-6008-46b5-93de-e8f2baea4c2d/80d3ddbd-cc07-4474-a3a2-f527b4ce4e0f/75804cba-2b9b-4a4c-a1e4-34a5e1478c99"
+storage_version_token = "1794784671811648"
+content_type = "image/png"
+
+[[outputs]]
+id = "Lvueb3U5FCwzMz8DwPx1w"
+uri = "file://generated-artifacts/index-store/03-connect-ring-1320x2868.png"
+type = "image"
+title = "Your ring, your endpoint"
+description = "Feature artwork — 1320 × 2868. Not an app screenshot."
+logical_id = "02e0598a-0910-4f34-9109-73ee5033d24f"
+content_hash = "sha256:53718ae5d5c920b623bc5aca1f8e4f67f578b9b7c5b8dab0148f8e8bd504bebc"
+size = 195874
+mtime_ms = 1794784585988
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b90499e7-6008-46b5-93de-e8f2baea4c2d/02e0598a-0910-4f34-9109-73ee5033d24f/cc7ce668-d48a-4052-a0f9-20e21f62a6ae"
+storage_version_token = "1794784672354008"
+content_type = "image/png"
+
+[[outputs]]
+id = "fnE1_0LvWdiigd9oH2na9"
+uri = "file://generated-artifacts/index-store/04-your-setup-1320x2868.png"
+type = "image"
+title = "Your setup, your choice"
+description = "Feature artwork — 1320 × 2868. Not an app screenshot."
+logical_id = "8a301580-730a-495c-8f54-1c635664cdd9"
+content_hash = "sha256:983547570ee9f0d8bf9b931cb0b0b4a4a7d3855c91408a43833638d069893163"
+size = 197790
+mtime_ms = 1794784587748
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b90499e7-6008-46b5-93de-e8f2baea4c2d/8a301580-730a-495c-8f54-1c635664cdd9/964e6429-a14b-4cdd-967d-18b834f9f41f"
+storage_version_token = "1794784672942506"
+content_type = "image/png"

@@ -4,5 +4,12 @@ export const modules: ModuleMap = {
   "./components/mockups/ring-dashboard/Current.tsx": () => import("../components/mockups/ring-dashboard/Current.tsx"),
   "./components/mockups/ring-dashboard/DailyAgenda.tsx": () => import("../components/mockups/ring-dashboard/DailyAgenda.tsx"),
   "./components/mockups/ring-dashboard/Overview.tsx": () => import("../components/mockups/ring-dashboard/Overview.tsx"),
-  "./components/mockups/ring-dashboard/WeekAhead.tsx": () => import("../components/mockups/ring-dashboard/WeekAhead.tsx")
+  "./components/mockups/ring-dashboard/WeekAhead.tsx": () => import("../components/mockups/ring-dashboard/WeekAhead.tsx"),
+  "./components/mockups/index-store/ActionTasks.tsx": () => import("../components/mockups/index-store/ActionTasks.tsx"),
+  "./components/mockups/index-store/ConnectRing.tsx": () => import("../components/mockups/index-store/ConnectRing.tsx"),
+  "./components/mockups/index-store/RingIcon.tsx": () => import("../components/mockups/index-store/RingIcon.tsx"),
+  "./components/mockups/index-store/UniversalHeader.tsx": () => import("../components/mockups/index-store/UniversalHeader.tsx"),
+  "./components/mockups/index-store/VoiceInbox.tsx": () => import("../components/mockups/index-store/VoiceInbox.tsx"),
+  "./components/mockups/index-store/WideHeader.tsx": () => import("../components/mockups/index-store/WideHeader.tsx"),
+  "./components/mockups/index-store/YourSetup.tsx": () => import("../components/mockups/index-store/YourSetup.tsx")
 };
