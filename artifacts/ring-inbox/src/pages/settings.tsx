@@ -65,7 +65,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-4xl">Settings</h1>
+      <h1 className="font-display text-3xl">Settings</h1>
       {err && <p role="alert" className="text-sm text-destructive" data-testid="text-settings-error">{err}</p>}
 
       <Section title="Account">

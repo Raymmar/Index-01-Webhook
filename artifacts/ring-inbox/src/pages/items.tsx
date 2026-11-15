@@ -176,7 +176,7 @@ export default function Items() {
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between gap-3">
-        <h1 className="font-display text-4xl">{label}</h1>
+        <h1 className="font-display text-3xl">{label}</h1>
         <div className="flex rounded-md border border-border bg-card p-0.5 text-xs" role="tablist">
           {(["open", "done"] as const).map((s) => (
             <button key={s} type="button" role="tab" aria-selected={show === s} onClick={() => setShow(s)} data-testid={`tab-${s}`}

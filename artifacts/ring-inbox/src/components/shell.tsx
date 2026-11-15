@@ -157,7 +157,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <div className="min-w-0 flex-1 lg:flex">
       {wide && inboxOpen && <section id="incoming-sidebar" aria-label="Incoming messages" className="animate-in slide-in-from-left-4 motion-reduce:animate-none min-w-0 border-b border-border px-4 py-6 lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:w-80 lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r xl:w-96">
         <header className="mb-4 flex shrink-0 flex-wrap items-baseline justify-between gap-2">
-          <h2 className="font-display text-2xl">Incoming messages</h2>
+          <h2 className="font-display text-3xl">Incoming messages</h2>
           <button type="button" data-testid="button-close-inbox" className="rounded text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => {
             setInboxOpen(false);
             document.querySelector<HTMLButtonElement>('button[data-testid="link-inbox"]')?.focus();
@@ -173,8 +173,8 @@ export function Shell({ children }: { children: ReactNode }) {
           const inboxButton = document.querySelector<HTMLButtonElement>('button[data-testid="link-inbox"]');
           if (inboxButton?.getClientRects().length) inboxButton.focus(); else menuButton.current?.focus();
         }}>
-          <header className="flex items-center justify-between gap-2 pr-7">
-            <SheetTitle className="font-display text-2xl font-normal">Incoming messages</SheetTitle>
+          <header className="flex shrink-0 flex-wrap items-baseline justify-between gap-2 pr-7">
+            <SheetTitle className="font-display text-3xl font-normal">Incoming messages</SheetTitle>
             <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setInboxOpen(false)}>Close inbox</button>
           </header>
           <div tabIndex={0} aria-label="Incoming message feed" className="min-h-0 flex-1 overflow-y-auto overscroll-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

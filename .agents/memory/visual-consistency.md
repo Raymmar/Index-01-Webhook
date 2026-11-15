@@ -24,3 +24,9 @@ after noticing the larger inbox text.
 Adjust shared page sizing and spacing centrally rather than manually overriding
 one page.
 **Why:** The user clarified this when asking for larger Dashboard content.
+
+Keep workspace page titles and the open inbox sidebar heading consistent with
+Dashboard, including Webhooks and Settings.
+**Why:** The user explicitly requested the same heading across these pages.
+**How to apply:** Preserve section-heading hierarchy and message-title styling;
+do not treat page-title normalization as permission to restyle message content.

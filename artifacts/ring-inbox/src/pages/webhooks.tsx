@@ -45,7 +45,7 @@ export default function Webhooks() {
 
   return (
     <div className="space-y-8">
-      <h1 className="font-display text-4xl">Webhooks</h1>
+      <h1 className="font-display text-3xl">Webhooks</h1>
       <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) create.mutate({ data: { name: name.trim() } }, done); }}>
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Webhook name" data-testid="input-name"
           className="flex-1 rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
