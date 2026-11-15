@@ -24,8 +24,146 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /webhooks:
+    get:
+      operationId: listWebhooks
+      responses:
+        "200":
+          description: Your endpoints
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Webhook" }
+    post:
+      operationId: createWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WebhookInput" }
+      responses:
+        "201":
+          description: Created with one-time secret
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebhookCredentials" }
+  /webhooks/{id}/rotate:
+    post:
+      operationId: rotateWebhook
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Rotated credentials
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebhookCredentials" }
+  /events:
+    get:
+      operationId: listEvents
+      parameters:
+        - { name: before, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Latest received events
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventPage" }
+  /events/{id}/audio:
+    get:
+      operationId: getEventAudio
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Private audio
+          content:
+            audio/mp4:
+              schema: { type: string, format: binary }
+  /receive/{id}:
+    post:
+      operationId: receiveWebhook
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      security: [{ webhookToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClickPayload" }
+          multipart/form-data:
+            schema: { $ref: "#/components/schemas/RecordingPayload" }
+      responses:
+        "201":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Receipt" }
 components:
+  securitySchemes:
+    webhookToken: { type: http, scheme: bearer }
   schemas:
+    WebhookInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+    Webhook:
+      type: object
+      required: [id, name, path, createdAt, eventCount, lastReceivedAt]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        path: { type: string }
+        createdAt: { type: string }
+        eventCount: { type: integer }
+        lastReceivedAt: { type: [string, "null"] }
+    WebhookCredentials:
+      type: object
+      required: [webhook, headerName, headerValue]
+      properties:
+        webhook: { $ref: "#/components/schemas/Webhook" }
+        headerName: { type: string }
+        headerValue: { type: string }
+    InboxEvent:
+      type: object
+      required: [id, webhookId, webhookName, receivedAt, recordedAt, kind, transcription, audioUrl, audioSize, payload]
+      properties:
+        id: { type: string }
+        webhookId: { type: string }
+        webhookName: { type: string }
+        receivedAt: { type: string }
+        recordedAt: { type: [string, "null"] }
+        kind: { type: string, enum: [recording, json] }
+        transcription: { type: [string, "null"] }
+        audioUrl: { type: [string, "null"] }
+        audioSize: { type: [integer, "null"] }
+        payload: { type: object, additionalProperties: true }
+    EventPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/InboxEvent" }
+        nextCursor: { type: [string, "null"] }
+    ClickPayload:
+      type: object
+      additionalProperties: true
+    RecordingPayload:
+      type: object
+      properties:
+        audio: { type: string, format: binary }
+        transcription: { type: string }
+        recordedAt: { type: string }
+        client: { type: string }
+    Receipt:
+      type: object
+      required: [id, received]
+      properties:
+        id: { type: string }
+        received: { type: boolean }
     HealthStatus:
       type: object
       properties:

@@ -1,6 +1,6 @@
-# [Project name]
+# Ring Inbox
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A personal inbox for Pebble Index ring webhook deliveries, with Clerk login and private audio playback.
 
 ## Run & Operate
 
@@ -26,15 +26,19 @@ _Populate as you build — short repo map plus pointers to the source-of-truth f
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- The screenshot supplied by the user is a **Webhook · Click** setup that sends JSON with a click count. Pebble's recording-webhook documentation separately describes multipart audio/transcript uploads. Accept both; do not assume click events contain recordings.
+- Capture each delivery separately for initial diagnostics rather than deduplicating on timestamps: Pebble's cited docs do not specify event IDs or retry semantics.
+- Audio uploads come from Pebble as multipart requests, not from a browser direct-upload flow. Persist them privately in App Storage before acknowledging receipt.
+- Browser requests use Clerk session cookies; Pebble requests use independent, revocable bearer tokens stored only as hashes.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Initial scope: sign in, create a personal webhook, copy setup information, and receive JSON/text/audio into a feed. This is for the creator now, with account-scoped ownership to support other users later.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Keep the first version minimal: inbox and webhook setup only. Future voice-command routing, prompts, workflows, and integrations are explicitly out of scope.
+- Validate actual UI, schema, naming, and implementation before assumptions; distinguish confirmed behavior from future proposals.
 
 ## Gotchas
 

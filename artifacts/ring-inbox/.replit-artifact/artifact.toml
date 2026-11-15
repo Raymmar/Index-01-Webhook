@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Ring Inbox"
+description = "A private inbox for Pebble Index webhooks, with Clerk login, personal endpoints, JSON payload inspection, audio and transcripts."
+version = "1.0.0"
+id = "artifacts/ring-inbox"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19228
+
+[services.development]
+run = "pnpm --filter @workspace/ring-inbox run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/ring-inbox", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/ring-inbox/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19228"
+BASE_PATH = "/"
