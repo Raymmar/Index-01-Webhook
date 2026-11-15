@@ -12,7 +12,7 @@ function EventCard({ e }: { e: InboxEvent }) {
   const [open, setOpen] = useState(false);
   return (
     <article className="ri-in rounded-lg border bg-card p-3" data-testid={`card-event-${e.id}`}>
-      {e.transcription ? <p className="whitespace-pre-wrap break-words font-display text-2xl leading-snug" data-testid={`text-transcription-${e.id}`}>{e.transcription}</p> : <p className="text-sm text-muted-foreground">{e.kind === "recording" ? "Transcript unavailable" : "Webhook event received"}</p>}
+      {e.transcription ? <p className="whitespace-pre-wrap break-words font-sans text-2xl leading-snug" data-testid={`text-transcription-${e.id}`}>{e.transcription}</p> : <p className="text-sm text-muted-foreground">{e.kind === "recording" ? "Transcript unavailable" : "Webhook event received"}</p>}
       {e.audioUrl && (
         <div className="mt-2">
           <audio controls preload="none" src={e.audioUrl} className="h-8 w-full" data-testid={`audio-${e.id}`} />
