@@ -19,7 +19,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <div className="mx-auto flex max-w-3xl items-center gap-5 px-5 py-3">
           <Link href="/inbox" className="flex items-center gap-2" data-testid="link-home">
             <Logo className="h-6 w-6" />
-            <span className="font-display text-xl">Ring Inbox</span>
+            <span className="font-display text-xl">Index</span>
           </Link>
           <nav className="flex gap-1 text-sm">
             {nav.map((n) => (
