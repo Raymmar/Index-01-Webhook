@@ -17,8 +17,9 @@ new Function("require", "exports", compiled)(name =>
 const { FeedScrollAnchor } = exports;
 const { renderToStaticMarkup } = require("react-dom/server");
 
-function fixture(embedded) {
-  let ids = ["a", "b", "c", "d", "e", "f"];
+function fixture(embedded, count = 6) {
+  let ids = count === 6 ? ["a", "b", "c", "d", "e", "f"] : Array.from({ length: count }, (_, n) => String(n));
+  let positionReads = 0;
   let scroll = 500;
   let focused;
   let listener;
@@ -44,7 +45,10 @@ function fixture(embedded) {
     if (!cards.has(id)) cards.set(id, {
       dataset: { eventId: id },
       isConnected: true,
-      getBoundingClientRect: () => ({ top: top + ids.indexOf(id) * 160 - scroll, bottom: top + (ids.indexOf(id) + 1) * 160 - scroll }),
+      getBoundingClientRect: () => {
+        positionReads++;
+        return { top: top + ids.indexOf(id) * 160 - scroll, bottom: top + (ids.indexOf(id) + 1) * 160 - scroll };
+      },
       focus: () => { focused = id; },
     });
     return cards.get(id);
@@ -53,6 +57,7 @@ function fixture(embedded) {
   const component = new FeedScrollAnchor(props);
   component.root.current = {
     closest: () => scroller,
+    getElementsByTagName: () => ids.map(card),
     querySelectorAll: () => ids.map(card),
     focus: () => { focused = "feed"; },
   };
@@ -66,6 +71,7 @@ function fixture(embedded) {
     component,
     card,
     get scroll() { return scroll; },
+    get positionReads() { return positionReads; },
     get focused() { return focused; },
     scrollTo(value) { scroll = value; listener?.(); },
     update(nextIds, { target = component.props.target, display = nextIds } = {}) {
@@ -80,6 +86,13 @@ function fixture(embedded) {
 
 for (const embedded of [false, true]) {
   const layout = embedded ? "embedded desktop/mobile scroller" : "window feed";
+  test(`${layout}: anchoring deep history reads logarithmically many card positions`, () => {
+    const f = fixture(embedded, 2048);
+    f.scrollTo(1900 * 160 + 40);
+    const snapshot = f.component.getSnapshotBeforeUpdate(f.component.props);
+    assert.equal(snapshot.anchor.element.dataset.eventId, "1900");
+    assert.ok(f.positionReads <= 16, `Read ${f.positionReads} card positions`);
+  });
   test(`${layout}: offscreen arrivals accumulate without moving the visible card`, () => {
     const f = fixture(embedded);
     const before = f.card("d").getBoundingClientRect().top;

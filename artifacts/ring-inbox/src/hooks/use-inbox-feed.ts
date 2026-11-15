@@ -3,6 +3,7 @@ import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-quer
 import { getListEventsQueryKey, listEvents, type EventPage } from "@workspace/api-client-react";
 import { mergeEvents } from "@/lib/feed-order";
 import { refreshFeed, singleFlight } from "@/lib/feed-pagination";
+import { shareFeedPage } from "@/lib/feed-sharing";
 
 const PAGE_SIZE = 20;
 // Keep the events prefix so the existing SSE invalidation also refreshes this feed.
@@ -17,6 +18,7 @@ export function useInboxFeed() {
   const busy = useRef(false);
   const q = useQuery({
     queryKey: key,
+    structuralSharing: shareFeedPage,
     retry: false,
     queryFn: async ({ signal }) => {
       const page = await refreshFeed(client.getQueryData<EventPage>(key), before =>

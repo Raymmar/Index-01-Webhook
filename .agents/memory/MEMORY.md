@@ -3,3 +3,4 @@
 - [Visual consistency](visual-consistency.md) — user requires one shared style guide and palette across the app, including login.
 - [Organizer product scope](organizer-scope.md) — original webhook is the only note; extract tasks/reminders, one owner per remix, portable AI providers.
 - [Mobile touch interactions](mobile-touch.md) — requested swipes mean direct finger gestures, not arrow-button navigation.
+- [Inbox performance tradeoffs](inbox-performance.md) — estimated-height containment broke deep-link landing; prefer measured reductions in unchanged-card work.

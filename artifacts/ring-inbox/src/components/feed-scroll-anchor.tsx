@@ -37,8 +37,19 @@ export class FeedScrollAnchor extends Component<Props, { unseen: string[] }> {
     if ((root?.scrollTop ?? window.scrollY) <= 8) return { anchor: null, away: false };
     const top = root?.getBoundingClientRect().top ?? 0;
     const bottom = root?.getBoundingClientRect().bottom ?? window.innerHeight;
-    const element = [...(this.root.current?.querySelectorAll<HTMLElement>("article") ?? [])]
-      .find(card => { const rect = card.getBoundingClientRect(); return rect.bottom > top && rect.top < bottom; });
+    // Cards are in vertical DOM order, including processing-priority cards.
+    // A linear scan reads every preceding card in a long history.
+    // Probe only O(log n) card positions instead.
+    const cards = this.root.current?.getElementsByTagName("article");
+    let low = 0;
+    let high = cards?.length ?? 0;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (cards![middle].getBoundingClientRect().bottom <= top) low = middle + 1;
+      else high = middle;
+    }
+    const candidate = cards?.[low];
+    const element = candidate && candidate.getBoundingClientRect().top < bottom ? candidate : null;
     return { away: true, anchor: element ? { element, top: element.getBoundingClientRect().top, root } : null };
   }
 

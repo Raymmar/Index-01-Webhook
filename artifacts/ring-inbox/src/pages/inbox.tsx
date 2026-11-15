@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearch } from "wouter";
 import { useMutationState, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -12,6 +12,7 @@ import { ActionItemRow } from "./items";
 
 function ts(s: string) { return format(new Date(s), "MMM d, h:mm a"); }
 function size(n: number) { return n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${(n / 1024).toFixed(1)} KB`; }
+const EMPTY_ITEMS: ActionItem[] = [];
 
 function Organize({ e, items, job, pending, error, onOrganize }: { e: InboxEvent; items: ActionItem[]; job?: ProcessingJob; pending: boolean; error: boolean; onOrganize: () => void }) {
   const busy = pending || job?.status === "pending" || job?.status === "processing";
@@ -30,7 +31,7 @@ function Organize({ e, items, job, pending, error, onOrganize }: { e: InboxEvent
   return <button type="button" className={btn} data-testid={`button-organize-${e.id}`} onClick={onOrganize}>Organize</button>;
 }
 
-export function EventCard({ e, items, job, highlight, embedded, localPending }: { e: InboxEvent; items: ActionItem[]; job?: ProcessingJob; highlight: boolean; embedded: boolean; localPending: boolean }) {
+export const EventCard = memo(function EventCard({ e, items, job, highlight, embedded, localPending }: { e: InboxEvent; items: ActionItem[]; job?: ProcessingJob; highlight: boolean; embedded: boolean; localPending: boolean }) {
   const qc = useQueryClient();
   const understand = useUnderstandEvent({ mutation: { onSettled: () => qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() }) } });
   const pending = understand.isPending || localPending;
@@ -39,7 +40,7 @@ export function EventCard({ e, items, job, highlight, embedded, localPending }: 
   const ref = useRef<HTMLElement>(null);
   useEffect(() => { if (highlight) ref.current?.scrollIntoView({ block: "center", behavior: "smooth" }); }, [highlight]);
   return (
-    <article ref={ref} tabIndex={-1} data-event-id={e.id} id={`${embedded ? "incoming" : "event"}-${e.id}`} className={`ri-in min-w-0 rounded-lg border p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${busy ? "bg-accent/5" : "bg-card"} ${highlight ? "border-accent" : "border-border"}`} data-testid={`card-event-${e.id}`}>
+    <article ref={ref} tabIndex={-1} data-event-id={e.id} id={`${embedded ? "incoming" : "event"}-${e.id}`} className={`min-w-0 rounded-lg border p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${busy ? "bg-accent/5" : "bg-card"} ${highlight ? "border-accent" : "border-border"}`} data-testid={`card-event-${e.id}`}>
       {e.transcription ? <p className="app-content-text whitespace-pre-wrap break-words" data-testid={`text-transcription-${e.id}`}>{e.transcription}</p> : <p className="text-sm text-muted-foreground">{e.kind === "recording" ? "Transcript unavailable" : "Webhook event received"}</p>}
       {e.audioUrl && (
         <div className="mt-2">
@@ -66,10 +67,15 @@ export function EventCard({ e, items, job, highlight, embedded, localPending }: 
           <Code2 className="h-4 w-4" aria-hidden="true" />
         </button>
       </footer>
-      <pre id={`${embedded ? "incoming-" : ""}payload-${e.id}`} hidden={!open} aria-label="Event payload" className="mt-2 max-h-80 overflow-auto rounded-md bg-primary p-3 font-mono text-[12px] leading-relaxed text-primary-foreground">{JSON.stringify(e.payload, null, 2)}</pre>
+      <pre id={`${embedded ? "incoming-" : ""}payload-${e.id}`} hidden={!open} aria-label="Event payload" className="mt-2 max-h-80 overflow-auto rounded-md bg-primary p-3 font-mono text-[12px] leading-relaxed text-primary-foreground">{open ? JSON.stringify(e.payload, null, 2) : null}</pre>
     </article>
   );
-}
+}, (previous, next) =>
+  previous.e === next.e && previous.job === next.job &&
+  previous.highlight === next.highlight && previous.embedded === next.embedded &&
+  previous.localPending === next.localPending &&
+  previous.items.length === next.items.length &&
+  previous.items.every((item, index) => item === next.items[index]));
 
 /** The signed-in shell embeds the same feed and cards as the full Inbox route. */
 export function InboxFeed({ embedded = false, selectedNote = null }: { embedded?: boolean; selectedNote?: string | null }) {
@@ -84,16 +90,20 @@ export function InboxFeed({ embedded = false, selectedNote = null }: { embedded?
   const all = q.data?.items ?? [];
   const byEvent = useMemo(() => {
     const m = new Map<string, ActionItem[]>();
-    for (const i of organizer.data?.items ?? []) if (i.sourceEventId) m.set(i.sourceEventId, [...(m.get(i.sourceEventId) ?? []), i]);
+    for (const i of organizer.data?.items ?? []) if (i.sourceEventId) {
+      const group = m.get(i.sourceEventId);
+      if (group) group.push(i);
+      else m.set(i.sourceEventId, [i]);
+    }
     return m;
-  }, [organizer.data]);
-  const jobs = useMemo(() => new Map((organizer.data?.jobs ?? []).map((j) => [j.eventId, j])), [organizer.data]);
+  }, [organizer.data?.items]);
+  const jobs = useMemo(() => new Map((organizer.data?.jobs ?? []).map((j) => [j.eventId, j])), [organizer.data?.jobs]);
   const pendingIds = useMutationState({
     filters: { mutationKey: ["understandEvent"], status: "pending" },
     select: mutation => (mutation.state.variables as { id: string } | undefined)?.id,
   });
-  const localPending = new Set(pendingIds.filter((id): id is string => !!id));
-  const displayed = embedded ? prioritizeEvents(all, [...jobs.values()], localPending) : all;
+  const localPending = useMemo(() => new Set(pendingIds.filter((id): id is string => !!id)), [pendingIds]);
+  const displayed = useMemo(() => embedded ? prioritizeEvents(all, [...jobs.values()], localPending) : all, [embedded, all, jobs, localPending]);
   const found = !target || all.some((e) => e.id === target);
   const searching = !!target && !found && !!nextCursor && !moreErr && !q.isLoading && !q.isError;
 
@@ -132,7 +142,7 @@ export function InboxFeed({ embedded = false, selectedNote = null }: { embedded?
       ) : (
         <FeedScrollAnchor embedded={embedded} target={target} events={all}>
         <div className="space-y-3" aria-busy={loadingMore}>
-          {displayed.map((e) => <EventCard key={e.id} e={e} items={byEvent.get(e.id) ?? []} job={jobs.get(e.id)} highlight={e.id === target} embedded={embedded} localPending={localPending.has(e.id)} />)}
+          {displayed.map((e) => <EventCard key={e.id} e={e} items={byEvent.get(e.id) ?? EMPTY_ITEMS} job={jobs.get(e.id)} highlight={e.id === target} embedded={embedded} localPending={localPending.has(e.id)} />)}
           <div ref={sentinel} aria-hidden="true" className="h-px" data-testid="inbox-bottom-sentinel" />
           <div role="status" aria-live="polite" className="text-center text-xs text-muted-foreground">
             {loadingMore ? "Loading older messages…" : moreErr ? "Could not load older messages. Retry below." : !nextCursor ? "You’ve reached the beginning of your messages." : ""}
