@@ -30,3 +30,6 @@ Dashboard, including Webhooks and Settings.
 **Why:** The user explicitly requested the same heading across these pages.
 **How to apply:** Preserve section-heading hierarchy and message-title styling;
 do not treat page-title normalization as permission to restyle message content.
+
+Keep inbox open/close controls free of hover tooltips; preserve their icons and accessible labels.
+**Why:** The user explicitly rejected the unrequested “Open inbox” flyout and reiterated that only the icon was requested.

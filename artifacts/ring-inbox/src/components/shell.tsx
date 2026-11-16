@@ -6,7 +6,6 @@ import { Inbox as InboxIcon, LayoutDashboard, Menu, PanelLeftClose, Settings as 
 import { useGetSettings, getGetSettingsQueryKey, useGetOrganizer, getGetOrganizerQueryKey, useUpdateSettings } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useInboxStream } from "@/hooks/use-inbox-stream";
 import { browserZone } from "@/lib/tz";
 import { InboxDrawerContext } from "@/hooks/use-inbox-drawer";
@@ -37,19 +36,14 @@ function NavLink({ href, label, icon: Icon, active, count, onNav, onToggle, expa
       {onToggle && expanded && <PanelLeftClose className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />}
     </>;
   return onToggle
-    ? <Tooltip><TooltipTrigger asChild><button type="button" className={className} data-testid={`link-${label.toLowerCase()}`} aria-label={toggleHint} aria-expanded={expanded} aria-controls="incoming-sidebar" onClick={onToggle}>{content}</button></TooltipTrigger><TooltipContent side="right">{toggleHint}</TooltipContent></Tooltip>
+    ? <button type="button" className={className} data-testid={`link-${label.toLowerCase()}`} aria-label={toggleHint} aria-expanded={expanded} aria-controls="incoming-sidebar" onClick={onToggle}>{content}</button>
     : <Link href={href} onClick={onNav} data-testid={`link-${label.toLowerCase()}`} aria-current={active ? "page" : undefined} className={className}>{content}</Link>;
 }
 
 function CloseInboxButton({ onClick }: { onClick: () => void }) {
-  return <Tooltip>
-    <TooltipTrigger asChild>
-      <button type="button" data-testid="button-close-inbox" aria-label="Close inbox" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={onClick}>
+  return <button type="button" data-testid="button-close-inbox" aria-label="Close inbox" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={onClick}>
         <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
-      </button>
-    </TooltipTrigger>
-    <TooltipContent>Close inbox</TooltipContent>
-  </Tooltip>;
+      </button>;
 }
 
 function SignOutButton() {
