@@ -4,7 +4,7 @@ import { SwipeDelete } from "@/components/swipe-delete";
 import { useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, CornerUpLeft, MoreVertical, Trash2, X } from "lucide-react";
-import { useGetOrganizer, getGetOrganizerQueryKey, getListEventsQueryKey, useGetSettings, getGetSettingsQueryKey, useCreateItem, useUpdateItem, useDeleteItem, type ActionItem, type ItemUpdate } from "@workspace/api-client-react";
+import { useGetOrganizer, getGetOrganizerQueryKey, getListEventsQueryKey, useGetSettings, getGetSettingsQueryKey, useCreateItem, useUpdateItem, type ActionItem, type ItemUpdate } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
@@ -13,6 +13,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { browserZone, formatDue, toLocalInput, tryLocalInput } from "@/lib/tz";
 import { compareActionItems } from "@/lib/action-order";
 import { TaskTitleField } from "@/components/task-title-field";
+import { useTaskDeletion } from "@/components/task-deletion-provider";
 
 const field = "rounded-md border border-input bg-card px-2.5 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
@@ -29,7 +30,9 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
   const invalidate = useInvalidate();
   const { toast } = useToast();
   const update = useUpdateItem({ mutation: { onSettled: invalidate } });
-  const del = useDeleteItem({ mutation: { onSettled: invalidate } });
+  const deletion = useTaskDeletion();
+  const [deleting, setDeleting] = useState(false);
+  const deletingRef = useRef(false);
   const [title, setTitle] = useState(item.title);
   const [editingDate, setEditingDate] = useState(false);
   const [date, setDate] = useState(toLocalInput(item.dueAt, tz));
@@ -39,6 +42,20 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
   const skipSave = useRef(false);
   useEffect(() => { if (!editingTitle) setTitle(item.title); }, [item.title, editingTitle]);
   const done = item.status !== "open";
+
+  async function removeTask() {
+    if (deletingRef.current) return;
+    deletingRef.current = true;
+    setDeleting(true);
+    try { await deletion.remove(item); }
+    catch (error) {
+      toast({ variant: "destructive", description: "Could not delete. Try again." });
+      throw error;
+    } finally {
+      deletingRef.current = false;
+      setDeleting(false);
+    }
+  }
 
   function patch(data: ItemUpdate, undo?: { label: string; data: ItemUpdate }) {
     update.mutate({ id: item.id, data }, {
@@ -67,7 +84,7 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
   }
 
   return (
-    <li data-testid={`row-item-${item.id}`}><SwipeDelete disabled={update.isPending || del.isPending} onDelete={() => del.mutateAsync({ id: item.id })}><div className={`group flex items-start gap-3 px-3 py-2.5 ${update.isPending ? "opacity-70" : ""}`}>
+    <li data-testid={`row-item-${item.id}`}><SwipeDelete disabled={update.isPending || deleting} onDelete={removeTask}><div inert={deleting} className={`group flex items-start gap-3 px-3 py-2.5 ${update.isPending || deleting ? "opacity-70" : ""}`}>
       <button type="button" aria-label={done ? "Reopen" : "Complete"} data-testid={`button-complete-${item.id}`} disabled={update.isPending}
         onClick={() => item.status === "open"
           ? patch({ status: "completed" }, { label: "Marked complete.", data: { status: "open" } })
@@ -117,13 +134,13 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="font-display text-2xl font-normal">{confirm === "delete" ? "Remove this task?" : "Dismiss this task?"}</AlertDialogTitle>
-            <AlertDialogDescription>{confirm === "delete" ? "Only this task is removed. Other tasks, the original message, and its audio stay unchanged." : "It moves out of your open list. You can restore it later."}</AlertDialogDescription>
+            <AlertDialogDescription>{confirm === "delete" ? "Only this task is removed. Other tasks, the original message, and its audio stay unchanged. Undo is available for 15 seconds." : "It moves out of your open list. You can restore it later from Completed & dismissed."}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancel-confirm">Cancel</AlertDialogCancel>
-            <AlertDialogAction data-testid="button-confirm" className={confirm === "delete" ? "bg-destructive text-destructive-foreground" : ""}
+            <AlertDialogAction disabled={deleting || update.isPending} data-testid="button-confirm" className={confirm === "delete" ? "bg-destructive text-destructive-foreground" : ""}
               onClick={() => {
-                if (confirm === "delete") del.mutate({ id: item.id }, { onError: () => toast({ variant: "destructive", description: "Could not delete. Try again." }) });
+                if (confirm === "delete") void removeTask().catch(() => {});
                 else patch({ status: "dismissed" }, { label: "Dismissed.", data: { status: "open" } });
                 setConfirm(null);
               }}>{confirm === "delete" ? "Remove task" : "Dismiss"}</AlertDialogAction>

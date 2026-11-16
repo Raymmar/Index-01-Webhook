@@ -10,6 +10,7 @@ import { useInboxStream } from "@/hooks/use-inbox-stream";
 import { browserZone } from "@/lib/tz";
 import { InboxDrawerContext } from "@/hooks/use-inbox-drawer";
 import { InboxFeed } from "@/pages/inbox";
+import { TaskDeletionProvider } from "@/components/task-deletion-provider";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -149,6 +150,7 @@ export function Shell({ children }: { children: ReactNode }) {
   );
 
   return (
+    <TaskDeletionProvider key={user?.id}>
     <InboxDrawerContext.Provider value={{ openInbox }}>
     <div className="min-h-[100dvh] bg-background md:flex">
       <aside className="sticky top-0 hidden h-[100dvh] w-60 shrink-0 border-r border-border bg-sidebar md:block">{sidebar}</aside>
@@ -201,6 +203,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </div>
     </div>
     </InboxDrawerContext.Provider>
+    </TaskDeletionProvider>
   );
 }
 

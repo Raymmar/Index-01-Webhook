@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ActionItemRow, Composer } from "../../src/pages/items";
 import { InboxDrawerContext } from "../../src/hooks/use-inbox-drawer";
+import { TaskDeletionProvider } from "../../src/components/task-deletion-provider";
 import { ItemEditor } from "../../../index-mobile/components/item-editor";
 import { getGetOrganizerQueryKey, useGetOrganizer, type ActionItem } from "@workspace/api-client-react";
 import "../../src/index.css";
@@ -42,5 +43,5 @@ function Harness() {
     </main>
   </InboxDrawerContext.Provider>;
 }
-createRoot(document.getElementById("root")!).render(<QueryClientProvider client={client}><Harness /></QueryClientProvider>);
+createRoot(document.getElementById("root")!).render(<QueryClientProvider client={client}><TaskDeletionProvider><Harness /></TaskDeletionProvider></QueryClientProvider>);
 Object.assign(window, { fixture: { requests, get tasks() { return tasks; }, long, refresh: () => client.invalidateQueries({ queryKey: getGetOrganizerQueryKey() }) } });
