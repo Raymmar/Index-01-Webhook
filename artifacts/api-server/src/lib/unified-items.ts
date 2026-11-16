@@ -33,5 +33,6 @@ export function publicAction(item: typeof actionsTable.$inferSelect) {
     title: item.title, dueAt: item.dueAt?.toISOString() ?? null,
     timezone: item.timezone, status: item.status, needsReview: item.needsReview,
     originalTimeText: item.originalTimeText, createdAt: item.createdAt.toISOString(),
+    pinnedAt: item.pinnedAt?.toISOString() ?? null,
   };
 }

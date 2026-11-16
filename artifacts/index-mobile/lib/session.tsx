@@ -41,6 +41,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     let generation = 0;
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
     const refresh = () => {
+      void qc.invalidateQueries({ predicate: query => String(query.queryKey[0]).startsWith('/api/events/') });
       void qc.invalidateQueries({ queryKey: getListEventsQueryKey() });
       void qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() });
       void qc.invalidateQueries({ queryKey: getGetSettingsQueryKey() });

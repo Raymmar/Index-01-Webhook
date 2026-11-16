@@ -2,13 +2,17 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearch } from "wouter";
 import { useMutationState, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Code2 } from "lucide-react";
+import { Code2, MoreVertical, Trash2 } from "lucide-react";
 import { useGetOrganizer, getGetOrganizerQueryKey, useUnderstandEvent, type InboxEvent, type ActionItem, type ProcessingJob } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { prioritizeEvents } from "@/lib/feed-order";
 import { useInboxFeed } from "@/hooks/use-inbox-feed";
 import { FeedScrollAnchor } from "@/components/feed-scroll-anchor";
 import { ActionItemRow } from "./items";
+import { SwipeDelete } from "@/components/swipe-delete";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
+import { useDeleteEvent, getListEventsQueryKey, getGetEventQueryKey, type EventPage } from "@workspace/api-client-react";
 
 function ts(s: string) { return format(new Date(s), "MMM d, h:mm a"); }
 function size(n: number) { return n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${(n / 1024).toFixed(1)} KB`; }
@@ -33,6 +37,28 @@ function Organize({ e, items, job, pending, error, onOrganize }: { e: InboxEvent
 
 export const EventCard = memo(function EventCard({ e, items, job, highlight, embedded, localPending }: { e: InboxEvent; items: ActionItem[]; job?: ProcessingJob; highlight: boolean; embedded: boolean; localPending: boolean }) {
   const qc = useQueryClient();
+  const deletion = useDeleteEvent();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const deleting = useRef(false);
+  function requestDelete() {
+    deletion.reset();
+    setConfirmDelete(true);
+  }
+  async function remove() {
+    if (deleting.current) return;
+    deleting.current = true;
+    try {
+    await deletion.mutateAsync({ id: e.id });
+    setConfirmDelete(false);
+    await qc.cancelQueries({ queryKey: getListEventsQueryKey() });
+    qc.setQueriesData<EventPage>({ queryKey: getListEventsQueryKey() }, previous => previous && ({ ...previous, items: previous.items.filter(item => item.id !== e.id) }));
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: getListEventsQueryKey() }),
+      qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() }),
+      qc.invalidateQueries({ queryKey: getGetEventQueryKey(e.id) }),
+    ]);
+    } finally { deleting.current = false; }
+  }
   const understand = useUnderstandEvent({ mutation: { onSettled: () => qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() }) } });
   const pending = understand.isPending || localPending;
   const busy = pending || job?.status === "pending" || job?.status === "processing";
@@ -40,8 +66,10 @@ export const EventCard = memo(function EventCard({ e, items, job, highlight, emb
   const ref = useRef<HTMLElement>(null);
   useEffect(() => { if (highlight) ref.current?.scrollIntoView({ block: "center", behavior: "smooth" }); }, [highlight]);
   return (
-    <article ref={ref} tabIndex={-1} data-event-id={e.id} id={`${embedded ? "incoming" : "event"}-${e.id}`} className={`min-w-0 rounded-lg border p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${busy ? "bg-accent/5" : "bg-card"} ${highlight ? "border-accent" : "border-border"}`} data-testid={`card-event-${e.id}`}>
+    <SwipeDelete disabled={deletion.isPending || confirmDelete} onDelete={async () => requestDelete()}><article ref={ref} tabIndex={-1} data-event-id={e.id} id={`${embedded ? "incoming" : "event"}-${e.id}`} className={`min-w-0 rounded-lg border p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${busy ? "bg-accent/5" : "bg-card"} ${highlight ? "border-accent" : "border-border"}`} data-testid={`card-event-${e.id}`}>
+      <div className="flex items-start gap-2"><div className="min-w-0 flex-1">
       {e.transcription ? <p className="app-content-text whitespace-pre-wrap break-words" data-testid={`text-transcription-${e.id}`}>{e.transcription}</p> : <p className="text-sm text-muted-foreground">{e.kind === "recording" ? "Transcript unavailable" : "Webhook event received"}</p>}
+      </div><DropdownMenu><DropdownMenuTrigger asChild><button type="button" aria-label="Message actions" data-testid={`button-message-actions-${e.id}`} disabled={deletion.isPending} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"><MoreVertical className="h-4 w-4" /></button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={requestDelete} data-testid={`button-delete-message-${e.id}`}><Trash2 className="mr-2 h-4 w-4" />Delete message</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>
       {e.audioUrl && (
         <div className="mt-2">
           <audio controls preload="none" src={e.audioUrl} onPlay={event => {
@@ -68,7 +96,20 @@ export const EventCard = memo(function EventCard({ e, items, job, highlight, emb
         </button>
       </footer>
       <pre id={`${embedded ? "incoming-" : ""}payload-${e.id}`} hidden={!open} aria-label="Event payload" className="mt-2 max-h-80 overflow-auto rounded-md bg-primary p-3 font-mono text-[12px] leading-relaxed text-primary-foreground">{open ? JSON.stringify(e.payload, null, 2) : null}</pre>
-    </article>
+      <AlertDialog open={confirmDelete} onOpenChange={value => { if (!deleting.current) setConfirmDelete(value); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this message?</AlertDialogTitle>
+            <AlertDialogDescription>The original message and audio will be hidden. Tasks and other objects created from it will remain, with a notice that the original content was deleted.</AlertDialogDescription>
+          </AlertDialogHeader>
+          {deletion.isError && <p role="alert" className="text-sm text-destructive">Could not delete. Your message is still here. Try again.</p>}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletion.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={deletion.isPending} className="bg-destructive text-destructive-foreground" onClick={event => { event.preventDefault(); void remove().catch(() => {}); }}>{deletion.isPending ? "Deleting…" : "Delete message"}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </article></SwipeDelete>
   );
 }, (previous, next) =>
   previous.e === next.e && previous.job === next.job &&

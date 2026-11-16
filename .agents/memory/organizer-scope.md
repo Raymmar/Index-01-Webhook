@@ -8,6 +8,14 @@ The user intends to open-source this version.
 **How to apply:** Keep the existing remix-friendly scope; do not assume a license
 or publish source without a separate instruction.
 
+Deleting an original inbox message must not remove tasks or other objects
+created from it. Treat the message as soft-deleted and reference that its
+original content was deleted in associated tasks.
+**Why:** The user explicitly clarified that derived objects must survive deletion
+of their source.
+**How to apply:** Preserve this independence when adding future derived objects
+or changing message retention.
+
 The iOS companion must be a separate native mobile app, not a reskin or WebView
 of the website. It shares the backend and accounts, defaults to Dashboard, and
 has Dashboard, Inbox, Webhooks, and Settings bottom tabs with native glass controls.

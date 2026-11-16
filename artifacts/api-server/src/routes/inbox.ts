@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { randomBytes, randomUUID } from "node:crypto";
-import { db, webhooksTable, eventsTable, actionsTable, type WebhookRow } from "@workspace/db";
+import { db, webhooksTable, eventsTable, actionsTable, jobsTable, type WebhookRow } from "@workspace/db";
 import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { CreateWebhookBody, CreateWebhookResponse, ListWebhooksResponse, ListEventsQueryParams, ListEventsResponse, RotateWebhookParams, RevokeWebhookParams, GetEventAudioParams, GetEventParams, GetEventResponse } from "@workspace/api-zod";
 import { hashToken } from "./receive";
@@ -92,7 +92,7 @@ router.get("/events", async (req, res): Promise<void> => {
     cursorTime: sql<string>`to_char(${eventsTable.receivedAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
   }).from(eventsTable)
     .leftJoin(webhooksTable, eq(eventsTable.webhookId, webhooksTable.id))
-    .where(and(eq(eventsTable.ownerId, res.locals.ownerId), older,
+    .where(and(eq(eventsTable.ownerId, res.locals.ownerId), isNull(eventsTable.deletedAt), older,
       query.data.view === "notes" ? and(
         sql`NOT EXISTS (SELECT 1 FROM ${actionsTable} WHERE ${actionsTable.sourceEventId} = ${eventsTable.id} AND ${actionsTable.ownerId} = ${eventsTable.ownerId} AND ${actionsTable.removedAt} IS NULL)`,
       ) : undefined,
@@ -108,6 +108,21 @@ router.get("/events", async (req, res): Promise<void> => {
   res.json(ListEventsResponse.parse({ items, nextCursor: rows.length > pageSize && last ? `${rows[pageSize - 1]!.cursorTime}|${last.id}` : null }));
 });
 
+router.delete("/events/:id", async (req, res): Promise<void> => {
+  const params = GetEventParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Invalid event" }); return; }
+  const event = await db.transaction(async tx => {
+    // Match the worker's job-then-source lock order. Revoke an active lease too.
+    await tx.update(jobsTable).set({ status: "completed", leaseId: null, error: null })
+      .where(and(eq(jobsTable.eventId, params.data.id), eq(jobsTable.ownerId, res.locals.ownerId)));
+    const [deleted] = await tx.update(eventsTable).set({ deletedAt: sql`coalesce(${eventsTable.deletedAt}, now())` })
+      .where(and(eq(eventsTable.id, params.data.id), eq(eventsTable.ownerId, res.locals.ownerId))).returning({ id: eventsTable.id });
+    if (deleted) await tx.execute(sql`SELECT pg_notify('ring_inbox_changed', ${res.locals.ownerId})`);
+    return deleted;
+  });
+  if (!event) { res.status(404).json({ error: "Message not found" }); return; }
+  res.status(204).end();
+});
 router.get("/events/:id", async (req, res): Promise<void> => {
   const params = GetEventParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid event" }); return; }
@@ -119,8 +134,9 @@ router.get("/events/:id", async (req, res): Promise<void> => {
   res.json(GetEventResponse.parse({
     id: event.id, webhookId: event.webhookId, webhookName: webhookName ?? "Manual",
     receivedAt: event.receivedAt.toISOString(), recordedAt: event.recordedAt?.toISOString() ?? null,
-    kind: event.kind, transcription: event.transcription, audioSize: event.audioSize,
-    audioUrl: event.audioPath ? `/api/events/${event.id}/audio` : null, payload: event.payload,
+    deletedAt: event.deletedAt?.toISOString() ?? null,
+    kind: event.kind, transcription: event.deletedAt ? null : event.transcription, audioSize: event.deletedAt ? null : event.audioSize,
+    audioUrl: !event.deletedAt && event.audioPath ? `/api/events/${event.id}/audio` : null, payload: event.deletedAt ? {} : event.payload,
   }));
 });
 
@@ -128,7 +144,7 @@ router.get("/events/:id/audio", async (req, res): Promise<void> => {
   const params = GetEventAudioParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid event" }); return; }
   const [event] = await db.select().from(eventsTable).where(and(eq(eventsTable.id, params.data.id), eq(eventsTable.ownerId, res.locals.ownerId)));
-  if (!event?.audioPath || !event.audioSize) { res.status(404).json({ error: "Audio not found" }); return; }
+  if (!event?.audioPath || !event.audioSize || event.deletedAt) { res.status(404).json({ error: "Audio not found" }); return; }
   const size = event.audioSize;
   const range = req.get("range");
   let start = 0, end = size - 1;

@@ -3,7 +3,7 @@ import { getAuth } from "@clerk/express";
 import { randomUUID } from "node:crypto";
 import { db, appSettingsTable, preferencesTable, jobsTable, eventsTable, actionsTable } from "@workspace/db";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
-import { UpdateSettingsBody, CreateItemBody, UpdateItemBody, UpdateItemParams, DeleteItemParams, UnderstandEventParams } from "@workspace/api-zod";
+import { UpdateSettingsBody, CreateItemBody, UpdateItemBody, UpdateItemParams, DeleteItemParams, UnderstandEventParams, PinItemParams } from "@workspace/api-zod";
 import { accountFor, validTimezone, parseInstant } from "../lib/account";
 import { managedModels, directModels } from "../lib/ai-models";
 import { publicAction } from "../lib/unified-items";
@@ -59,16 +59,16 @@ router.patch("/settings", async (req, res): Promise<void> => {
   res.json(settings(await accountFor(res.locals.ownerId)));
 });
 router.get("/organizer", async (_req, res) => {
-  const items = await db.select().from(actionsTable).where(and(eq(actionsTable.ownerId, res.locals.ownerId), isNull(actionsTable.removedAt))).orderBy(desc(actionsTable.createdAt), desc(actionsTable.id));
+  const items = await db.select({ action: actionsTable, deletedAt: eventsTable.deletedAt }).from(actionsTable).innerJoin(eventsTable, eq(actionsTable.sourceEventId, eventsTable.id)).where(and(eq(actionsTable.ownerId, res.locals.ownerId), isNull(actionsTable.removedAt))).orderBy(desc(actionsTable.createdAt), desc(actionsTable.id));
   const jobs = await db.select({ eventId: jobsTable.eventId, status: jobsTable.status, error: jobsTable.error }).from(jobsTable).where(eq(jobsTable.ownerId, res.locals.ownerId));
-  const [messages] = await db.select({ total: sql<number>`count(*)::int` }).from(eventsTable).where(eq(eventsTable.ownerId, res.locals.ownerId));
-  res.json({ items: items.map(publicAction), jobs, messageCount: messages.total });
+  const [messages] = await db.select({ total: sql<number>`count(*)::int` }).from(eventsTable).where(and(eq(eventsTable.ownerId, res.locals.ownerId), isNull(eventsTable.deletedAt)));
+  res.json({ items: items.map(({ action, deletedAt }) => ({ ...publicAction(action), sourceDeleted: !!deletedAt })), jobs, messageCount: messages.total });
 });
 router.post("/events/:id/understand", async (req, res): Promise<void> => {
   const params = UnderstandEventParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid note" }); return; }
   const [event] = await db.select().from(eventsTable).where(and(eq(eventsTable.id, params.data.id), eq(eventsTable.ownerId, res.locals.ownerId)));
-  if (!event) { res.status(404).json({ error: "Note not found" }); return; }
+  if (!event || event.deletedAt) { res.status(404).json({ error: "Note not found" }); return; }
   if (!event.transcription?.trim()) { res.status(400).json({ error: "This note has no transcript" }); return; }
   if (!res.locals.account.timezone) { res.status(400).json({ error: "Set your timezone first" }); return; }
   await db.transaction(async (tx) => {
@@ -103,6 +103,31 @@ router.post("/items", async (req, res): Promise<void> => {
     return created!;
   });
   res.status(201).json(publicAction(item!));
+});
+router.post("/items/:id/pin", async (req, res): Promise<void> => {
+  const params = PinItemParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Invalid item" }); return; }
+  const item = await db.transaction(async tx => {
+    // Serialize pins per owner, including simultaneous requests from other devices.
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${res.locals.ownerId}, 20))`);
+    const [pinned] = await tx.update(actionsTable).set({
+      pinnedAt: sql`greatest(clock_timestamp(), (SELECT max(pinned_at) + interval '1 millisecond' FROM active_actions WHERE owner_id = ${res.locals.ownerId}))`,
+    }).where(and(eq(actionsTable.id, params.data.id), eq(actionsTable.ownerId, res.locals.ownerId), isNull(actionsTable.removedAt))).returning();
+    if (pinned) await tx.execute(sql`SELECT pg_notify('ring_inbox_changed', ${res.locals.ownerId})`);
+    return pinned;
+  });
+  if (!item) { res.status(404).json({ error: "Item not found" }); return; }
+  res.json(publicAction(item));
+});
+router.delete("/items/:id/pin", async (req, res): Promise<void> => {
+  const params = PinItemParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Invalid item" }); return; }
+  const [item] = await db.update(actionsTable).set({ pinnedAt: null }).where(and(
+    eq(actionsTable.id, params.data.id), eq(actionsTable.ownerId, res.locals.ownerId), isNull(actionsTable.removedAt),
+  )).returning();
+  if (!item) { res.status(404).json({ error: "Item not found" }); return; }
+  await db.execute(sql`SELECT pg_notify('ring_inbox_changed', ${res.locals.ownerId})`);
+  res.json(publicAction(item));
 });
 router.patch("/items/:id", async (req, res): Promise<void> => {
   const params = UpdateItemParams.safeParse(req.params);

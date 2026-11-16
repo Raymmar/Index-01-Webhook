@@ -64,6 +64,30 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ActionItem" }
+  /items/{id}/pin:
+    delete:
+      operationId: unpinItem
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Unpinned task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActionItem" }
+    post:
+      operationId: pinItem
+      summary: Pin or refresh pin priority using server-owned recency
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Pinned task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActionItem" }
+        "404":
+          description: Active task not found in your account
   /items/{id}:
     patch:
       operationId: updateItem
@@ -177,6 +201,13 @@ paths:
         "401":
           description: Sign in required
   /events/{id}:
+    delete:
+      operationId: deleteEvent
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "204":
+          description: Soft-deleted original message; derived objects retained
     get:
       operationId: getEvent
       summary: Get an original message in the signed-in account
@@ -250,10 +281,11 @@ components:
         aiModel: { type: string, minLength: 1, maxLength: 100 }
     ActionItem:
       type: object
-      required: [id, sourceEventId, kind, title, dueAt, timezone, status, needsReview, originalTimeText, createdAt]
+      required: [id, sourceEventId, kind, title, dueAt, timezone, status, needsReview, originalTimeText, createdAt, pinnedAt]
       properties:
         id: { type: string }
         sourceEventId: { type: string, description: Original inbox message shared by independently identified child actions }
+        sourceDeleted: { type: boolean }
         kind: { type: string, enum: [task] }
         title: { type: string }
         dueAt: { type: [string, "null"] }
@@ -261,6 +293,7 @@ components:
         status: { type: string, enum: [open, completed, dismissed] }
         needsReview: { type: boolean }
         originalTimeText: { type: [string, "null"] }
+        pinnedAt: { type: [string, "null"], description: Server-owned pin recency }
         createdAt: { type: string }
     ItemInput:
       type: object
@@ -320,6 +353,7 @@ components:
       type: object
       required: [id, webhookId, webhookName, receivedAt, recordedAt, kind, transcription, audioUrl, audioSize, payload]
       properties:
+        deletedAt: { type: [string, "null"] }
         id: { type: string }
         webhookId: { type: [string, "null"] }
         webhookName: { type: string }

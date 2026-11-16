@@ -56,6 +56,7 @@ export const GetOrganizerResponse = zod.object({
   "items": zod.array(zod.object({
   "id": zod.string(),
   "sourceEventId": zod.string().describe('Original inbox message shared by independently identified child actions'),
+  "sourceDeleted": zod.boolean().optional(),
   "kind": zod.enum(['task']),
   "title": zod.string(),
   "dueAt": zod.string().nullable(),
@@ -63,6 +64,7 @@ export const GetOrganizerResponse = zod.object({
   "status": zod.enum(['open', 'completed', 'dismissed']),
   "needsReview": zod.boolean(),
   "originalTimeText": zod.string().nullable(),
+  "pinnedAt": zod.string().nullable().describe('Server-owned pin recency'),
   "createdAt": zod.string()
 })),
   "jobs": zod.array(zod.object({
@@ -93,6 +95,7 @@ export const CreateItemBody = zod.object({
 export const CreateItemResponse = zod.object({
   "id": zod.string(),
   "sourceEventId": zod.string().describe('Original inbox message shared by independently identified child actions'),
+  "sourceDeleted": zod.boolean().optional(),
   "kind": zod.enum(['task']),
   "title": zod.string(),
   "dueAt": zod.string().nullable(),
@@ -100,6 +103,56 @@ export const CreateItemResponse = zod.object({
   "status": zod.enum(['open', 'completed', 'dismissed']),
   "needsReview": zod.boolean(),
   "originalTimeText": zod.string().nullable(),
+  "pinnedAt": zod.string().nullable().describe('Server-owned pin recency'),
+  "createdAt": zod.string()
+})
+
+
+
+
+
+export const UnpinItemParams = zod.object({
+  "id": zod.coerce.string().min(1)
+})
+
+export const UnpinItemResponse = zod.object({
+  "id": zod.string(),
+  "sourceEventId": zod.string().describe('Original inbox message shared by independently identified child actions'),
+  "sourceDeleted": zod.boolean().optional(),
+  "kind": zod.enum(['task']),
+  "title": zod.string(),
+  "dueAt": zod.string().nullable(),
+  "timezone": zod.string(),
+  "status": zod.enum(['open', 'completed', 'dismissed']),
+  "needsReview": zod.boolean(),
+  "originalTimeText": zod.string().nullable(),
+  "pinnedAt": zod.string().nullable().describe('Server-owned pin recency'),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Pin or refresh pin priority using server-owned recency
+ */
+
+
+
+export const PinItemParams = zod.object({
+  "id": zod.coerce.string().min(1)
+})
+
+export const PinItemResponse = zod.object({
+  "id": zod.string(),
+  "sourceEventId": zod.string().describe('Original inbox message shared by independently identified child actions'),
+  "sourceDeleted": zod.boolean().optional(),
+  "kind": zod.enum(['task']),
+  "title": zod.string(),
+  "dueAt": zod.string().nullable(),
+  "timezone": zod.string(),
+  "status": zod.enum(['open', 'completed', 'dismissed']),
+  "needsReview": zod.boolean(),
+  "originalTimeText": zod.string().nullable(),
+  "pinnedAt": zod.string().nullable().describe('Server-owned pin recency'),
   "createdAt": zod.string()
 })
 
@@ -122,6 +175,7 @@ export const UpdateItemBody = zod.object({
 export const UpdateItemResponse = zod.object({
   "id": zod.string(),
   "sourceEventId": zod.string().describe('Original inbox message shared by independently identified child actions'),
+  "sourceDeleted": zod.boolean().optional(),
   "kind": zod.enum(['task']),
   "title": zod.string(),
   "dueAt": zod.string().nullable(),
@@ -129,6 +183,7 @@ export const UpdateItemResponse = zod.object({
   "status": zod.enum(['open', 'completed', 'dismissed']),
   "needsReview": zod.boolean(),
   "originalTimeText": zod.string().nullable(),
+  "pinnedAt": zod.string().nullable().describe('Server-owned pin recency'),
   "createdAt": zod.string()
 })
 
@@ -225,6 +280,7 @@ export const ListEventsQueryParams = zod.object({
 
 export const ListEventsResponse = zod.object({
   "items": zod.array(zod.object({
+  "deletedAt": zod.string().nullish(),
   "id": zod.string(),
   "webhookId": zod.string().nullable(),
   "webhookName": zod.string(),
@@ -247,6 +303,16 @@ export const ListEventsResponse = zod.object({
 export const StreamEventsResponse = zod.unknown()
 
 
+
+
+
+export const DeleteEventParams = zod.object({
+  "id": zod.coerce.string().min(1)
+})
+
+export const DeleteEventResponse = zod.void()
+
+
 /**
  * @summary Get an original message in the signed-in account
  */
@@ -255,6 +321,7 @@ export const GetEventParams = zod.object({
 })
 
 export const GetEventResponse = zod.object({
+  "deletedAt": zod.string().nullish(),
   "id": zod.string(),
   "webhookId": zod.string().nullable(),
   "webhookName": zod.string(),

@@ -13,6 +13,7 @@ function TaskRecording({ eventId }: { eventId: string }) {
   const source = useGetEvent(eventId);
   if (source.isLoading) return <Text style={s.muted}>Loading original recording…</Text>;
   if (source.isError) return <Failure error={source.error} retry={() => void source.refetch()} />;
+  if (source.data?.deletedAt) return <Text style={s.muted}>Original content deleted</Text>;
   if (!source.data?.audioUrl) return null;
   return <View style={{ gap: 10 }}>
     <Text style={s.label}>Original recording</Text>

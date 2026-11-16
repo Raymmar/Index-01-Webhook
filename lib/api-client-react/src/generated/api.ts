@@ -492,6 +492,148 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getCreateItemMutationOptions(options), queryClient);
     }
 
+export const getUnpinItemUrl = (id: string,) => {
+
+
+
+
+  return `/api/items/${id}/pin`
+}
+
+export const unpinItem = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<ActionItem> => {
+
+  return customFetch<ActionItem>(getUnpinItemUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getUnpinItemMutationKey = () => ['unpinItem'] as const;
+
+export const getUnpinItemMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unpinItem>>, TError,UnpinItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unpinItem>>, TError,UnpinItemMutationVariables, TContext> => {
+
+const mutationKey = getUnpinItemMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unpinItem>>, UnpinItemMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  unpinItem(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnpinItemMutationResult = NonNullable<Awaited<ReturnType<typeof unpinItem>>>
+
+    export type UnpinItemMutationError = ErrorType<unknown>
+    export type UnpinItemMutationVariables = {id: string}
+
+    export const useUnpinItem = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unpinItem>>, TError,UnpinItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof unpinItem>>,
+        TError,
+        UnpinItemMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUnpinItemMutationOptions(options), queryClient);
+    }
+
+export const getPinItemUrl = (id: string,) => {
+
+
+
+
+  return `/api/items/${id}/pin`
+}
+
+/**
+ * @summary Pin or refresh pin priority using server-owned recency
+ */
+export const pinItem = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<ActionItem> => {
+
+  return customFetch<ActionItem>(getPinItemUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPinItemMutationKey = () => ['pinItem'] as const;
+
+export const getPinItemMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pinItem>>, TError,PinItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof pinItem>>, TError,PinItemMutationVariables, TContext> => {
+
+const mutationKey = getPinItemMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pinItem>>, PinItemMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  pinItem(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PinItemMutationResult = NonNullable<Awaited<ReturnType<typeof pinItem>>>
+
+    export type PinItemMutationError = ErrorType<void>
+    export type PinItemMutationVariables = {id: string}
+
+    /**
+ * @summary Pin or refresh pin priority using server-owned recency
+ */
+export const usePinItem = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pinItem>>, TError,PinItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof pinItem>>,
+        TError,
+        PinItemMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPinItemMutationOptions(options), queryClient);
+    }
+
 export const getUpdateItemUrl = (id: string,) => {
 
 
@@ -1267,6 +1409,74 @@ export function useStreamEvents<TData = Awaited<ReturnType<typeof streamEvents>>
 
 
 
+
+export const getDeleteEventUrl = (id: string,) => {
+
+
+
+
+  return `/api/events/${id}`
+}
+
+export const deleteEvent = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteEventUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteEventMutationKey = () => ['deleteEvent'] as const;
+
+export const getDeleteEventMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEvent>>, TError,DeleteEventMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteEvent>>, TError,DeleteEventMutationVariables, TContext> => {
+
+const mutationKey = getDeleteEventMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteEvent>>, DeleteEventMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteEvent(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteEventMutationResult = NonNullable<Awaited<ReturnType<typeof deleteEvent>>>
+
+    export type DeleteEventMutationError = ErrorType<unknown>
+    export type DeleteEventMutationVariables = {id: string}
+
+    export const useDeleteEvent = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEvent>>, TError,DeleteEventMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteEvent>>,
+        TError,
+        DeleteEventMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteEventMutationOptions(options), queryClient);
+    }
 
 export const getGetEventUrl = (id: string,) => {
 

@@ -51,4 +51,5 @@ export const actionsTable = pgTable("active_actions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   editedAt: timestamp("edited_at", { withTimezone: true }),
   removedAt: timestamp("removed_at", { withTimezone: true }),
+  pinnedAt: timestamp("pinned_at", { withTimezone: true }),
 }, (t) => [index("actions_owner_source_idx").on(t.ownerId, t.sourceEventId)]);

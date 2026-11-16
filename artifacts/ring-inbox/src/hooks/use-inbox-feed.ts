@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { getListEventsQueryKey, listEvents, type EventPage } from "@workspace/api-client-react";
 import { mergeEvents } from "@/lib/feed-order";
-import { refreshFeed, singleFlight } from "@/lib/feed-pagination";
+import { singleFlight } from "@/lib/feed-pagination";
 import { shareFeedPage } from "@/lib/feed-sharing";
 
 const PAGE_SIZE = 20;
@@ -21,11 +21,19 @@ export function useInboxFeed() {
     structuralSharing: shareFeedPage,
     retry: false,
     queryFn: async ({ signal }) => {
-      const page = await refreshFeed(client.getQueryData<EventPage>(key), before =>
-        listEvents({ pageSize: PAGE_SIZE, ...(before ? { before } : {}) }, { signal }));
+      const previous = client.getQueryData<EventPage>(key);
+      const targetSize = Math.max(PAGE_SIZE, previous?.items.length ?? 0);
+      let page = await listEvents({ pageSize: PAGE_SIZE }, { signal });
+      while (page.nextCursor && page.items.length < targetSize) {
+        const next = await listEvents({ pageSize: PAGE_SIZE, before: page.nextCursor }, { signal });
+        if (next.nextCursor === page.nextCursor) throw new Error("Inbox cursor did not advance");
+        page = { items: mergeEvents(page.items, next.items), nextCursor: next.nextCursor };
+      }
       // An older-page request may have completed while the head was refreshing.
       const current = client.getQueryData<EventPage>(key);
-      return current ? { items: mergeEvents(current.items, page.items), nextCursor: current.items.length ? current.nextCursor : page.nextCursor } : page;
+      const known = new Set(previous?.items.map(item => item.id));
+      const added = current?.items.filter(item => !known.has(item.id) && !page.items.some(fresh => fresh.id === item.id)) ?? [];
+      return added.length ? { items: mergeEvents(page.items, added), nextCursor: current!.nextCursor } : page;
     },
   });
 

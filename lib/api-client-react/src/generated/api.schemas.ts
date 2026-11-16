@@ -69,6 +69,7 @@ export interface ActionItem {
   id: string;
   /** Original inbox message shared by independently identified child actions */
   sourceEventId: string;
+  sourceDeleted?: boolean;
   kind: ActionItemKind;
   title: string;
   /** @nullable */
@@ -78,6 +79,11 @@ export interface ActionItem {
   needsReview: boolean;
   /** @nullable */
   originalTimeText: string | null;
+  /**
+     * Server-owned pin recency
+     * @nullable
+     */
+  pinnedAt: string | null;
   createdAt: string;
 }
 
@@ -188,6 +194,8 @@ export const InboxEventKind = {
 export type InboxEventPayload = { [key: string]: unknown };
 
 export interface InboxEvent {
+  /** @nullable */
+  deletedAt?: string | null;
   id: string;
   /** @nullable */
   webhookId: string | null;

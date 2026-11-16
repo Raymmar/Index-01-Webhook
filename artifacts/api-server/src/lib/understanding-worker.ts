@@ -35,6 +35,11 @@ export async function processNextJob() {
   if (!job) return false;
   try {
     const [note] = await db.select().from(eventsTable).where(and(eq(eventsTable.id, job.eventId), eq(eventsTable.ownerId, job.ownerId)));
+    if (note?.deletedAt) {
+      await db.update(jobsTable).set({ status: "completed", leaseId: null, error: null })
+        .where(and(eq(jobsTable.eventId, job.eventId), eq(jobsTable.leaseId, leaseId)));
+      return true;
+    }
     if (!note?.transcription) throw new Error("No transcript");
     const actions = await extractActions({
       transcript: note.transcription, recordedAt: note.recordedAt ?? note.receivedAt, receivedAt: note.receivedAt,
@@ -48,7 +53,7 @@ export async function processNextJob() {
       const [source] = await tx.select().from(eventsTable).where(and(
         eq(eventsTable.id, job.eventId), eq(eventsTable.ownerId, job.ownerId),
       )).for("update");
-      if (source && !source.actionsInitializedAt && !source.editedAt) {
+      if (source && !source.deletedAt && !source.actionsInitializedAt && !source.editedAt) {
         if (actions.length) await tx.insert(actionsTable).values(actions.map(action => ({
           id: randomUUID(), ownerId: job.ownerId, sourceEventId: job.eventId,
           title: action.title, sourceAction: action.sourceAction, dueAt: action.dueAt,

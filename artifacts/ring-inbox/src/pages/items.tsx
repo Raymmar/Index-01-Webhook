@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useInboxDrawer } from "@/hooks/use-inbox-drawer";
+import { SwipeDelete } from "@/components/swipe-delete";
 import { useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, CornerUpLeft, MoreVertical, Trash2, X } from "lucide-react";
@@ -66,7 +67,7 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
   }
 
   return (
-    <li className={`group flex items-start gap-3 px-3 py-2.5 ${update.isPending ? "opacity-70" : ""}`} data-testid={`row-item-${item.id}`}>
+    <li data-testid={`row-item-${item.id}`}><SwipeDelete disabled={update.isPending || del.isPending} onDelete={() => del.mutateAsync({ id: item.id })}><div className={`group flex items-start gap-3 px-3 py-2.5 ${update.isPending ? "opacity-70" : ""}`}>
       <button type="button" aria-label={done ? "Reopen" : "Complete"} data-testid={`button-complete-${item.id}`} disabled={update.isPending}
         onClick={() => item.status === "open"
           ? patch({ status: "completed" }, { label: "Marked complete.", data: { status: "open" } })
@@ -97,7 +98,7 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
           )}
           {item.needsReview && <span className="rounded border border-accent/50 px-1.5 text-accent" title={item.originalTimeText ?? undefined} data-testid={`status-review-${item.id}`}>Check time{item.originalTimeText ? `: “${item.originalTimeText}”` : ""}</span>}
           {item.status === "dismissed" && <span>Dismissed</span>}
-          {item.sourceEventId && <button type="button" onClick={() => openInbox(item.sourceEventId!)} data-testid={`link-source-${item.id}`} className="hover:text-foreground">Original note</button>}
+          {item.sourceDeleted ? <span>Original content deleted</span> : item.sourceEventId && <button type="button" onClick={() => openInbox(item.sourceEventId!)} data-testid={`link-source-${item.id}`} className="hover:text-foreground">Original note</button>}
         </div>
       </div>
       <DropdownMenu>
@@ -129,7 +130,7 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </li>
+    </div></SwipeDelete></li>
   );
 }
 

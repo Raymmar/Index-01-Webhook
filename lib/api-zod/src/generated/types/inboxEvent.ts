@@ -9,6 +9,8 @@ import type { InboxEventKind } from './inboxEventKind';
 import type { InboxEventPayload } from './inboxEventPayload';
 
 export interface InboxEvent {
+  /** @nullable */
+  deletedAt?: string | null;
   id: string;
   /** @nullable */
   webhookId: string | null;

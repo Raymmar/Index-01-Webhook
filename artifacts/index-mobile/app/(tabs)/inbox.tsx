@@ -8,22 +8,50 @@ import { useGetOrganizer, useGetSettings, useUnderstandEvent, getGetOrganizerQue
 import { Copy, Skeleton, Failure, Empty, IconButton, Button, Sheet, s, c, errorMessage } from '@/components/ui';
 import { Recording } from '@/components/recording';
 import { useInboxPages, useLive, deviceZone } from '@/lib/session';
+import { useDeleteEvent, getGetEventQueryKey } from '@workspace/api-client-react';
+import { Confirm } from '@/components/ui';
+import { SwipeTaskRow } from '@/components/swipe-task-row';
 
-function Message({ event, job, tz, focused = false }: { event: InboxEvent; job?: ProcessingJob; tz: string; focused?: boolean }) {
+function Message({ event, job, tz, focused = false, onDeleted }: { event: InboxEvent; job?: ProcessingJob; tz: string; focused?: boolean; onDeleted?: () => void }) {
   const [payload, setPayload] = useState(false);
   const [error, setError] = useState('');
   const retry = useUnderstandEvent();
   const qc = useQueryClient();
+  const deletion = useDeleteEvent();
+  const deleting = useRef(false);
+  const [deleted, setDeleted] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  function requestDelete() { setError(''); setMenu(false); setConfirmDelete(true); }
+  async function remove() {
+    if (deleting.current) return;
+    deleting.current = true; setError('');
+    try {
+      await deletion.mutateAsync({ id: event.id });
+      setDeleted(true); setConfirmDelete(false); onDeleted?.();
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: getListEventsQueryKey() }),
+        qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() }),
+        qc.invalidateQueries({ queryKey: getGetEventQueryKey(event.id) }),
+      ]);
+    } catch (e) { setError(errorMessage(e)); }
+    finally { deleting.current = false; }
+  }
   const processing = job?.status === 'processing' || job?.status === 'pending';
   const label = job?.status === 'pending' ? 'Queued' : job?.status === 'processing' ? 'Processing' : job?.status === 'failed' ? 'Understanding failed' : event.kind === 'recording' ? 'Voice note' : 'Message';
-  return <View style={[s.card, { backgroundColor: processing ? c.processing : c.card, borderColor: focused ? c.accent : c.border, gap: 16 }]}>
+  if (deleted) return null;
+  return <><SwipeTaskRow id={`message-${event.id}`} pinEnabled={false} leftLabel="Delete" disabled={deletion.isPending || confirmDelete || !!event.deletedAt} onPin={() => {}} onDelete={requestDelete}>{guard => <View style={[s.card, { backgroundColor: processing ? c.processing : c.card, borderColor: focused ? c.accent : c.border, gap: 16 }]}>
+    {!event.deletedAt && <View style={{ alignItems: 'flex-end' }}><IconButton name="more-horizontal" label="Message actions" onPress={() => guard(() => setMenu(true))} /></View>}
     <View style={s.between}><View style={[s.row, { gap: 7 }]}>{processing && <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: c.accent }} />}<Text style={[s.label, { color: processing ? c.accent : job?.status === 'failed' ? c.destructive : c.mutedForeground }]}>{label}</Text></View><Text style={[s.muted, { fontSize: 10 }]}>{formatInTimeZone(event.recordedAt ?? event.receivedAt, tz, 'MMM d · h:mm a')}</Text></View>
-    {event.transcription ? <Copy selectable style={{ fontSize: 16, lineHeight: 26 }}>{event.transcription}</Copy> : <Text style={s.muted}>{event.kind === 'recording' ? 'No transcript was included.' : 'JSON event received.'}</Text>}
-    {!!event.audioUrl && <Recording url={event.audioUrl} />}
+    {event.deletedAt ? <Copy>Original content deleted</Copy> : event.transcription ? <Copy selectable style={{ fontSize: 16, lineHeight: 26 }}>{event.transcription}</Copy> : <Text style={s.muted}>{event.kind === 'recording' ? 'No transcript was included.' : 'JSON event received.'}</Text>}
+    {!!event.audioUrl && <View onTouchStart={e => e.stopPropagation()}><Recording url={event.audioUrl} /></View>}
     {job?.status === 'failed' && <View style={{ gap: 9 }}><Text style={s.error}>{job.error || 'This message could not be understood.'}</Text><Button label={retry.isPending ? 'Retrying…' : 'Try understanding again'} quiet disabled={retry.isPending} onPress={() => { setError(''); retry.mutate({ id: event.id }, { onSuccess: () => { void qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() }); void qc.invalidateQueries({ queryKey: getListEventsQueryKey() }); }, onError: e => setError(errorMessage(e)) }); }} />{!!error && <Text style={s.error}>{error}</Text>}</View>}
-    <View style={s.between}><Text style={[s.muted, { flex: 1, fontSize: 10 }]} numberOfLines={1}>{event.webhookName}{event.audioSize != null ? ` · ${Math.round(event.audioSize / 1024)} KB` : ''}</Text><Pressable accessibilityRole="button" accessibilityState={{ expanded: payload }} onPress={() => setPayload(v => !v)} style={{ minHeight: 36, justifyContent: 'center' }}><Text style={s.muted}>{payload ? 'Hide payload −' : 'Payload +'}</Text></Pressable></View>
+    <View style={s.between}><Text style={[s.muted, { flex: 1, fontSize: 10 }]} numberOfLines={1}>{event.webhookName}{event.audioSize != null ? ` · ${Math.round(event.audioSize / 1024)} KB` : ''}</Text><Pressable accessibilityRole="button" accessibilityState={{ expanded: payload }} onPress={() => guard(() => setPayload(v => !v))} style={{ minHeight: 36, justifyContent: 'center' }}><Text style={s.muted}>{payload ? 'Hide payload −' : 'Payload +'}</Text></Pressable></View>
     {payload && <View style={{ backgroundColor: c.secondary, padding: 12, borderRadius: 6 }}><Text selectable style={{ color: c.foreground, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 11, lineHeight: 18 }}>{JSON.stringify(event.payload, null, 2)}</Text><Text style={[s.muted, { marginTop: 12, fontSize: 10 }]}>Received {formatInTimeZone(event.receivedAt, tz, 'PPpp')} · {event.id}</Text></View>}
-  </View>;
+  </View>}</SwipeTaskRow>
+    {menu && <Sheet visible title="Message actions" onClose={() => setMenu(false)}><Button label="Delete message" danger onPress={requestDelete} /></Sheet>}
+    {confirmDelete && <Confirm title="Delete message" message="The original message and audio will be hidden. Linked tasks remain and will show that the original content was deleted." pending={deletion.isPending} error={error || undefined} onClose={() => setConfirmDelete(false)} onConfirm={() => void remove()} />}
+  </>;
 }
 
 export default function Inbox() {
@@ -69,6 +97,6 @@ export default function Inbox() {
     {!!focusState && <View style={s.card}><Text style={s.muted}>{focusState}</Text>{(q.isError || q.isFetchNextPageError) && <Button label="Retry finding original" quiet onPress={() => { if (q.isFetchNextPageError) void q.fetchNextPage(); else void q.refetch(); }} />}</View>}
     {unloadedJobs.map(job => <View key={job.eventId} style={[s.card, { backgroundColor: c.processing }]}><Text style={[s.label, { color: c.accent }]}>{job.status === 'pending' ? 'Queued' : 'Processing'}</Text><Button label="View original" quiet onPress={() => router.setParams({ focus: job.eventId })} /></View>)}
   </View>} renderItem={({ item }) => <Message event={item} job={jobMap.get(item.id)} tz={tz} />} ListEmptyComponent={q.isLoading ? <Skeleton /> : q.isError ? <Failure error={q.error} retry={() => void q.refetch()} /> : <Empty title="The start of a thought." text="Messages and recordings from your ring appear here, unchanged." />} ListFooterComponent={<View style={{ gap: 12, paddingTop: 10 }}>{q.isFetchNextPageError ? <Failure error={q.error} retry={() => void q.fetchNextPage()} /> : q.isFetchingNextPage ? <Skeleton /> : q.hasNextPage ? <Button label="Load older messages" quiet onPress={() => void q.fetchNextPage()} /> : events.length ? <Text style={[s.muted, { textAlign: 'center' }]}>All messages loaded</Text> : null}</View>} />
-    {selected && <Sheet visible title="Original message" onClose={close}><Message event={events.find(e => e.id === selected.id) ?? selected} job={jobMap.get(selected.id)} tz={tz} focused /></Sheet>}
+    {selected && <Sheet visible title="Original message" onClose={close}><Message event={events.find(e => e.id === selected.id) ?? selected} job={jobMap.get(selected.id)} tz={tz} focused onDeleted={close} /></Sheet>}
   </View>;
 }

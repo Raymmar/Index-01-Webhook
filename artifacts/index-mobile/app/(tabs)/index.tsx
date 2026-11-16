@@ -5,11 +5,14 @@ import { addDays, format, startOfWeek } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Feather } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { useGetOrganizer, useGetSettings, useUpdateItem, useDeleteItem, getGetOrganizerQueryKey, getListEventsQueryKey, type ActionItem, type ItemUpdate } from '@workspace/api-client-react';
+import { useGetOrganizer, useGetSettings, useUpdateItem, useDeleteItem, usePinItem, getGetOrganizerQueryKey, getListEventsQueryKey, type Organizer, type ActionItem, type ItemUpdate } from '@workspace/api-client-react';
 import { Page, Copy, Skeleton, Failure, Empty, IconButton, Button, Confirm, Sheet, s, c, errorMessage } from '@/components/ui';
 import { ItemEditor } from '@/components/item-editor';
 import { deviceZone, useLive } from '@/lib/session';
 import { useHorizontalSwipe } from '@/hooks/use-horizontal-swipe';
+import { SwipeTaskRow } from '@/components/swipe-task-row';
+import { compareTasks } from '@/lib/task-order';
+import { useUnpinItem } from '@workspace/api-client-react';
 
 type TaskStatus = 'open' | 'completed' | 'dismissed';
 const statusLabels: Record<TaskStatus, string> = { open: 'Open', completed: 'Completed', dismissed: 'Dismissed' };
@@ -51,9 +54,40 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const update = useUpdateItem();
   const del = useDeleteItem();
+  const pin = usePinItem();
+  const unpin = useUnpinItem();
+  const pending = useRef(new Set<string>());
+  const pendingPins = useRef(new Set<string>());
+  const queuedPins = useRef(new Set<string>());
+  const [pendingIds, setPendingIds] = useState(new Set<string>());
   const qc = useQueryClient();
   const invalidate = () => { void qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() }); void qc.invalidateQueries({ queryKey: getListEventsQueryKey() }); };
+  async function taskAction(item: ActionItem, kind: 'pin' | 'delete' | 'unpin') {
+    if (kind === 'pin' && pendingPins.current.has(item.id)) { queuedPins.current.add(item.id); return; }
+    if (pending.current.has(item.id) || update.isPending) return;
+    pending.current.add(item.id);
+    if (kind !== 'delete') pendingPins.current.add(item.id);
+    setPendingIds(new Set(pending.current));
+    setError('');
+    try {
+      const saved = kind === 'pin' ? await pin.mutateAsync({ id: item.id }) : kind === 'unpin' ? await unpin.mutateAsync({ id: item.id }) : await update.mutateAsync({ id: item.id, data: { status: 'dismissed' } });
+      // Cancel in-flight reads before applying the authoritative mutation response.
+      await qc.cancelQueries({ queryKey: getGetOrganizerQueryKey() });
+      qc.setQueryData<Organizer>(getGetOrganizerQueryKey(), previous => previous && ({
+        ...previous, items: previous.items.map(row => row.id === item.id ? { ...row, ...saved } : row),
+      }));
+      setMenu(null);
+    } catch (e) { setError(errorMessage(e)); }
+    finally {
+      pending.current.delete(item.id);
+      pendingPins.current.delete(item.id);
+      setPendingIds(new Set(pending.current));
+      if (queuedPins.current.delete(item.id)) void taskAction(item, 'pin');
+      else invalidate();
+    }
+  }
   function patch(item: ActionItem, data: ItemUpdate) {
+    if (pending.current.has(item.id)) return;
     setError('');
     update.mutate({ id: item.id, data }, { onSuccess: () => { invalidate(); setMenu(null); setConfirm(null); }, onError: e => setError(errorMessage(e)) });
   }
@@ -64,7 +98,7 @@ export default function Dashboard() {
   const first = addDays(startOfWeek(today, { weekStartsOn: 1 }), week * 7);
   const days = Array.from({ length: 7 }, (_, i) => addDays(first, i));
   const dayOf = (value: string) => formatInTimeZone(value, tz, 'yyyy-MM-dd');
-  const visible = items.filter(i => i.status === status && (filter === 'all' || (filter === 'scheduled' ? !!i.dueAt : !i.dueAt)) && (!date || (!!i.dueAt && dayOf(i.dueAt) === date))).sort((a, b) => a.dueAt && b.dueAt ? a.dueAt.localeCompare(b.dueAt) || b.createdAt.localeCompare(a.createdAt) : a.dueAt ? -1 : b.dueAt ? 1 : b.createdAt.localeCompare(a.createdAt));
+  const visible = items.filter(i => i.status === status && (filter === 'all' || (filter === 'scheduled' ? !!i.dueAt : !i.dueAt)) && (!date || (!!i.dueAt && dayOf(i.dueAt) === date))).sort(compareTasks);
   function openEditor(item: ActionItem) {
     setEditorTasks([...visible]);
     setEditor(item);
@@ -89,16 +123,28 @@ export default function Dashboard() {
     <Text style={[s.muted, { fontSize: 11 }]}>{date ? `${format(new Date(`${date}T12:00:00`), 'EEE, MMM d')} · ` : ''}{visible.length} {status} {visible.length === 1 ? 'task' : 'tasks'}</Text>
     {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
     {q.isLoading ? <Skeleton /> : q.isError ? <Failure error={q.error} retry={() => void q.refetch()} /> : !visible.length ? <Empty title={status === 'open' ? 'A little breathing room.' : 'Nothing here yet.'} text={date ? 'No tasks scheduled for this day.' : status === 'open' ? 'Speak to your ring, or add a task.' : `Your ${status} tasks will appear here.`} icon="check-circle" /> :
-      <View style={[s.card, { padding: 0, gap: 0 }]}>{visible.map((item, i) => <View key={item.id} style={{ padding: 14, borderTopWidth: i ? 1 : 0, borderTopColor: c.border }}>
+      <View style={[s.card, { padding: 0, gap: 0, overflow: 'hidden' }]}>{visible.map((item, i) => <SwipeTaskRow key={item.id} id={item.id} disabled={pendingIds.has(item.id) || update.isPending} allowPendingPin={pendingPins.current.has(item.id)} onPin={() => void taskAction(item, 'pin')} onDelete={() => void taskAction(item, 'delete')}>{guard => <View style={{ padding: 14, borderTopWidth: i ? 1 : 0, borderTopColor: c.border }}>
+        {!!item.pinnedAt && <Pressable accessibilityRole="button" accessibilityLabel={`Unpin ${item.title}`} disabled={pendingIds.has(item.id)} onPress={() => guard(() => void taskAction(item, 'unpin'))} style={{ minHeight: 44, paddingLeft: 51, flexDirection: 'row', alignItems: 'center', gap: 5 }}><Feather name="map-pin" size={12} color={c.accent} /><Text style={[s.muted, { color: c.accent }]}>Pinned</Text></Pressable>}
+        {item.sourceDeleted && <Text style={[s.muted, { paddingLeft: 51 }]}>Original content deleted</Text>}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 7 }}>
-          <IconButton name={item.status === 'completed' ? 'check-circle' : item.status === 'dismissed' ? 'rotate-ccw' : 'circle'} label={`${item.status === 'open' ? 'Complete' : 'Reopen'} ${item.title}`} disabled={update.isPending} onPress={() => patch(item, { status: item.status === 'open' ? 'completed' : 'open' })} color={item.status === 'completed' ? c.success : c.mutedForeground} />
-          <Pressable accessibilityRole="button" accessibilityLabel={`Edit ${item.title}`} style={{ flex: 1, paddingTop: 9, gap: 6 }} onPress={() => openEditor(item)}><Copy style={{ fontSize: 16, lineHeight: 25, textDecorationLine: item.status !== 'open' ? 'line-through' : 'none', color: item.status !== 'open' ? c.mutedForeground : c.foreground }}>{item.title}</Copy><Text style={[s.muted, { color: item.dueAt && item.status === 'open' && new Date(item.dueAt).getTime() < Date.now() ? c.accent : c.mutedForeground }]}>{item.dueAt ? `${new Date(item.dueAt).getTime() < Date.now() && item.status === 'open' ? 'Overdue · ' : ''}${formatInTimeZone(item.dueAt, tz, 'MMM d · h:mm a')}` : 'No date'}</Text>{item.needsReview && <Text style={{ ...s.muted, color: c.accent }}>Check time{item.originalTimeText ? `: “${item.originalTimeText}”` : ''}</Text>}</Pressable>
-          <IconButton name="more-horizontal" label={`Actions for ${item.title}`} onPress={() => { setError(''); setMenu(item); }} />
+          <IconButton name={item.status === 'completed' ? 'check-circle' : item.status === 'dismissed' ? 'rotate-ccw' : 'circle'} label={`${item.status === 'open' ? 'Complete' : 'Reopen'} ${item.title}`} disabled={update.isPending || pendingIds.has(item.id)} onPress={() => guard(() => patch(item, { status: item.status === 'open' ? 'completed' : 'open' }))} color={item.status === 'completed' ? c.success : c.mutedForeground} />
+          <Pressable accessibilityRole="button" accessibilityLabel={`Edit ${item.title}`} style={{ flex: 1, paddingTop: 9, gap: 6 }} onPress={() => guard(() => openEditor(item))}><Copy style={{ fontSize: 16, lineHeight: 25, textDecorationLine: item.status !== 'open' ? 'line-through' : 'none', color: item.status !== 'open' ? c.mutedForeground : c.foreground }}>{item.title}</Copy><Text style={[s.muted, { color: item.dueAt && item.status === 'open' && new Date(item.dueAt).getTime() < Date.now() ? c.accent : c.mutedForeground }]}>{item.dueAt ? `${new Date(item.dueAt).getTime() < Date.now() && item.status === 'open' ? 'Overdue · ' : ''}${formatInTimeZone(item.dueAt, tz, 'MMM d · h:mm a')}` : 'No date'}</Text>{item.needsReview && <Text style={{ ...s.muted, color: c.accent }}>Check time{item.originalTimeText ? `: “${item.originalTimeText}”` : ''}</Text>}</Pressable>
+          <IconButton name="more-horizontal" label={`Actions for ${item.title}`} onPress={() => guard(() => { setError(''); setMenu(item); })} />
         </View>
-      </View>)}</View>}
+      </View>}</SwipeTaskRow>)}</View>}
     <Text style={s.muted}>{tz.replaceAll('_', ' ')}</Text>
     {editor && <ItemEditor item={editor === 'new' ? undefined : editor} tasks={editorTasks} tz={tz} onClose={() => setEditor(null)} />}
-    {!!menu && <Sheet visible title="Task actions" onClose={() => setMenu(null)}><Copy>{menu.title}</Copy><Button label="Edit task" quiet onPress={() => { openEditor(menu); setMenu(null); }} /><Button label="Original message" quiet onPress={() => { router.navigate({ pathname: '/inbox', params: { focus: menu.sourceEventId } }); setMenu(null); }} /><Button label={menu.status === 'dismissed' ? 'Restore task' : 'Dismiss task'} quiet disabled={update.isPending} onPress={() => menu.status === 'dismissed' ? patch(menu, { status: 'open' }) : (setConfirm({ item: menu, kind: 'dismiss' }), setMenu(null))} /><Button label="Make a note" quiet onPress={() => { setConfirm({ item: menu, kind: 'note' }); setMenu(null); }} />{!!error && <Text style={s.error}>{error}</Text>}</Sheet>}
+    {!!menu && <Sheet visible title="Task actions" onClose={() => setMenu(null)}><View pointerEvents={pendingIds.has(menu.id) ? 'none' : 'auto'} style={{ gap: 12 }}>
+      <Copy>{menu.title}</Copy>
+      <Button label={menu.pinnedAt ? 'Repin task' : 'Pin task'} quiet disabled={pendingIds.has(menu.id) || update.isPending} onPress={() => void taskAction(menu, 'pin')} />
+      {!!menu.pinnedAt && <Button label="Unpin task" quiet disabled={pendingIds.has(menu.id) || update.isPending} onPress={() => void taskAction(menu, 'unpin')} />}
+      <Button label="Edit task" quiet onPress={() => { openEditor(menu); setMenu(null); }} />
+      {menu.sourceDeleted ? <Text style={s.muted}>Original content deleted</Text> : <Button label="Original message" quiet onPress={() => { router.navigate({ pathname: '/inbox', params: { focus: menu.sourceEventId } }); setMenu(null); }} />}
+      <Button label={menu.status === 'dismissed' ? 'Restore task' : 'Dismiss task'} quiet disabled={update.isPending} onPress={() => menu.status === 'dismissed' ? patch(menu, { status: 'open' }) : void taskAction(menu, 'delete')} />
+      <Text style={s.muted}>Dismissed tasks can be restored from the Dismissed filter.</Text>
+      <Button label="Make a note" quiet onPress={() => { setConfirm({ item: menu, kind: 'note' }); setMenu(null); }} />
+      {!!error && <Text style={s.error}>{error}</Text>}
+    </View></Sheet>}
     {!!confirm && <Confirm title={confirm.kind === 'note' ? 'Make a note' : 'Dismiss task'} message={confirm.kind === 'note' ? 'Remove this task’s action and due date. The original message and audio remain in your inbox.' : 'Move this task out of your open list. You can restore it later.'} pending={update.isPending || del.isPending} error={error || undefined} onClose={() => { setConfirm(null); setError(''); }} onConfirm={() => confirm.kind === 'note' ? del.mutate({ id: confirm.item.id }, { onSuccess: () => { invalidate(); setConfirm(null); }, onError: e => setError(errorMessage(e)) }) : patch(confirm.item, { status: 'dismissed' })} />}
   </Page>;
 }
