@@ -47,7 +47,7 @@ function Message({ event, job, tz, focused = false, onDeleted }: { event: InboxE
     {job?.status === 'failed' && <View style={{ gap: 9 }}><Text style={s.error}>{job.error || 'This message could not be understood.'}</Text><Button label={retry.isPending ? 'Retrying…' : 'Try understanding again'} quiet disabled={retry.isPending} onPress={() => { setError(''); retry.mutate({ id: event.id }, { onSuccess: () => { void qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() }); void qc.invalidateQueries({ queryKey: getListEventsQueryKey() }); }, onError: e => setError(errorMessage(e)) }); }} />{!!error && <Text style={s.error}>{error}</Text>}</View>}
     <View style={s.between}>
       <View style={[s.row, { flex: 1, minWidth: 0, gap: 6 }]}>
-        {!event.deletedAt && <IconButton name="more-horizontal" label="Message actions" onPress={() => guard(() => setMenu(true))} />}
+        {!event.deletedAt && <IconButton name="more-vertical" label="Message actions" onPress={() => guard(() => setMenu(true))} />}
         <Text style={[s.muted, { flex: 1, fontSize: 10 }]} numberOfLines={1}>{event.webhookName}{event.audioSize != null ? ` · ${Math.round(event.audioSize / 1024)} KB` : ''}</Text>
       </View>
       <Pressable accessibilityRole="button" accessibilityState={{ expanded: payload }} onPress={() => guard(() => setPayload(v => !v))} style={{ minHeight: 36, justifyContent: 'center' }}><Text style={s.muted}>{payload ? 'Hide payload −' : 'Payload +'}</Text></Pressable>
