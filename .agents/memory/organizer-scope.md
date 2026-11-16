@@ -38,6 +38,11 @@ independent multi-action extraction, while preserving original transcript/audio.
 **How to apply:** Extract only explicit instructions or definite commitments with
 transcript-local action and object context. Preserve the user's substantive prompt
 and examples; do not infer unspecified referents such as “Send this to production”.
+Do not cap extraction to one task or combine distinct deliverables into a summary.
+Task count and each task's scope come from the recording. Shared action/object
+context can support separate tasks for independently named shows or dates.
+**Why:** The user reiterated that the number of tasks must match the actual
+content after a multi-show recording produced no tasks.
 
 Use UTC for reminder instants and localized display. Detect the owner's timezone,
 save it, and provide a settings override.

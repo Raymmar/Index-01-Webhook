@@ -182,6 +182,30 @@ export async function check() {
     ambiguous.localDueAt = "2026-11-01T01:30";
     assert.equal(resolveDue(ambiguous, new Date(), "America/Los_Angeles").needsReview, true);
     const input = { recordedAt: new Date("2026-11-15T16:58:00Z"), timezone: "America/Los_Angeles", provider: "replit", model: "gpt-5-mini" };
+    const sharedInstruction = "Prepare lower thirds for Tuesday's live stream, Wednesday's office hours, and Friday's showcase; make these separate tasks.";
+    const showTasks = [
+      ["Prepare lower thirds for Tuesday live stream", "2026-11-17T08:58", "Tuesday"],
+      ["Prepare lower thirds for Wednesday office hours", "2026-11-18T08:58", "Wednesday"],
+      ["Prepare lower thirds for Friday showcase", "2026-11-20T08:58", "Friday"],
+    ];
+    globalThis.aiItems = showTasks.map(([title, localDueAt, originalTimeText]) => ({
+      title, sourceAction: sharedInstruction, localDueAt, originalTimeText,
+      minutesFromRecording: null, needsReview: false,
+    }));
+    const separateShows = await extractActions({ ...input, transcript: sharedInstruction });
+    assert.equal(separateShows.length, 3);
+    assert.deepEqual(separateShows.map(task => task.title), showTasks.map(([title]) => title));
+    assert.deepEqual(separateShows.map(task => task.dueAt.toISOString()), [
+      "2026-11-17T16:58:00.000Z", "2026-11-18T16:58:00.000Z", "2026-11-20T16:58:00.000Z",
+    ]);
+    const manyInstructions = Array.from({ length: 30 }, (_, i) => "Buy supply " + i + ".");
+    globalThis.aiItems = manyInstructions.map(title => ({
+      title, sourceAction: title, localDueAt: null, originalTimeText: null,
+      minutesFromRecording: null, needsReview: false,
+    }));
+    assert.equal((await extractActions({ ...input, transcript: manyInstructions.join(" ") })).length, 30);
+    delete globalThis.aiItems;
+    console.log("PASS: shared-context tasks keep independent deadlines; extraction has no per-message item cap");
     assert.deepEqual(await extractActions({ ...input, transcript: "Index webhook test event" }), []);
     assert.deepEqual(await extractActions({ ...input, transcript: "I like warm colors. Maybe someday a new dashboard could be interesting. It is Tuesday at nine." }), []);
     const dated = await extractActions({ ...input, transcript: "Remind me tomorrow to call Sam." });
@@ -304,6 +328,9 @@ export async function check() {
         builder.onLoad({ filter: /^ai$/, namespace: "fixture" }, () => ({
           contents: `
           const create = async request => {
+            if (request.response_format.json_schema.schema.properties.items.maxItems !== undefined) throw new Error("Task count must not be capped");
+            const prompt = request.messages[0].content;
+            if (/exactly ONE annotation|summarize them together/i.test(prompt)) throw new Error("Single-task instruction regression");
             if (globalThis.aiGate) await globalThis.aiGate();
             if (globalThis.aiError) throw globalThis.aiError;
             const text = request.messages[1].content;
