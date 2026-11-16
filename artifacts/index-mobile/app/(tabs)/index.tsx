@@ -5,7 +5,7 @@ import { addDays, format, startOfWeek } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Feather } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { useGetOrganizer, useGetSettings, useUpdateItem, useDeleteItem, usePinItem, getGetOrganizerQueryKey, getListEventsQueryKey, type Organizer, type ActionItem, type ItemUpdate } from '@workspace/api-client-react';
+import { useGetOrganizer, useGetSettings, useUpdateItem, usePinItem, getGetOrganizerQueryKey, getListEventsQueryKey, type Organizer, type ActionItem, type ItemUpdate } from '@workspace/api-client-react';
 import { Page, Copy, Skeleton, Failure, Empty, IconButton, Button, Confirm, Sheet, s, c, errorMessage } from '@/components/ui';
 import { ItemEditor } from '@/components/item-editor';
 import { deviceZone, useLive } from '@/lib/session';
@@ -13,6 +13,8 @@ import { useHorizontalSwipe } from '@/hooks/use-horizontal-swipe';
 import { SwipeTaskRow } from '@/components/swipe-task-row';
 import { compareTasks } from '@/lib/task-order';
 import { useUnpinItem } from '@workspace/api-client-react';
+import { useTaskUndo } from '@/hooks/use-task-undo';
+import { TaskUndoMessages } from '@/components/task-undo-messages';
 
 type TaskStatus = 'open' | 'completed' | 'dismissed';
 const statusLabels: Record<TaskStatus, string> = { open: 'Open', completed: 'Completed', dismissed: 'Dismissed' };
@@ -50,10 +52,9 @@ export default function Dashboard() {
   const [editor, setEditor] = useState<ActionItem | 'new' | null>(null);
   const [editorTasks, setEditorTasks] = useState<ActionItem[]>([]);
   const [menu, setMenu] = useState<ActionItem | null>(null);
-  const [confirm, setConfirm] = useState<{ item: ActionItem; kind: 'note' | 'dismiss' } | null>(null);
+  const [confirm, setConfirm] = useState<{ item: ActionItem; kind: 'note' | 'delete' } | null>(null);
   const [error, setError] = useState('');
   const update = useUpdateItem();
-  const del = useDeleteItem();
   const pin = usePinItem();
   const unpin = useUnpinItem();
   const pending = useRef(new Set<string>());
@@ -62,6 +63,19 @@ export default function Dashboard() {
   const [pendingIds, setPendingIds] = useState(new Set<string>());
   const qc = useQueryClient();
   const invalidate = () => { void qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() }); void qc.invalidateQueries({ queryKey: getListEventsQueryKey() }); };
+  const undo = useTaskUndo(invalidate, errorMessage);
+  async function removeTask(item: ActionItem) {
+    setError('');
+    try {
+      await undo.remove(item);
+      await qc.cancelQueries({ queryKey: getGetOrganizerQueryKey() });
+      qc.setQueryData<Organizer>(getGetOrganizerQueryKey(), previous => previous && ({
+        ...previous, items: previous.items.filter(row => row.id !== item.id),
+      }));
+      setConfirm(null);
+      invalidate();
+    } catch (e) { setError(errorMessage(e)); }
+  }
   async function taskAction(item: ActionItem, kind: 'pin' | 'delete' | 'unpin') {
     if (kind === 'pin' && pendingPins.current.has(item.id)) { queuedPins.current.add(item.id); return; }
     if (pending.current.has(item.id) || update.isPending) return;
@@ -108,7 +122,7 @@ export default function Dashboard() {
     setDate(null);
   }
   const calendarSwipe = useHorizontalSwipe(changeWeek);
-  return <Page compact title="Dashboard" action={<View style={[s.row, { gap: 4 }]}><View style={[s.row, { gap: 5 }]}><View style={{ height: 5, width: 5, borderRadius: 3, backgroundColor: live === 'live' ? c.accent : c.mutedForeground }} /><Text style={[s.muted, { fontSize: 10 }]}>{live === 'live' ? 'Live' : live === 'paused' ? 'Paused' : 'Connecting'}</Text></View><IconButton name="plus" label="New task" onPress={() => setEditor('new')} /></View>}>
+  return <View style={{ flex: 1 }}><Page compact title="Dashboard" action={<View style={[s.row, { gap: 4 }]}><View style={[s.row, { gap: 5 }]}><View style={{ height: 5, width: 5, borderRadius: 3, backgroundColor: live === 'live' ? c.accent : c.mutedForeground }} /><Text style={[s.muted, { fontSize: 10 }]}>{live === 'live' ? 'Live' : live === 'paused' ? 'Paused' : 'Connecting'}</Text></View><IconButton name="plus" label="New task" onPress={() => setEditor('new')} /></View>}>
     <View testID="swipe-week-calendar" {...calendarSwipe.panHandlers} style={[s.card, { padding: 4, gap: 2 }]}>
       <View style={[s.between, { gap: 4 }]}><IconButton name="chevron-left" label="Previous week" onPress={() => { setWeek(w => w - 1); setDate(null); }} /><Text style={s.muted}>{format(first, 'MMM d')} – {format(days[6], 'MMM d')}</Text><IconButton name="chevron-right" label="Next week" onPress={() => { setWeek(w => w + 1); setDate(null); }} /></View>
       <View style={{ flexDirection: 'row' }}>{days.map(day => {
@@ -143,8 +157,9 @@ export default function Dashboard() {
       <Button label={menu.status === 'dismissed' ? 'Restore task' : 'Dismiss task'} quiet disabled={update.isPending} onPress={() => menu.status === 'dismissed' ? patch(menu, { status: 'open' }) : void taskAction(menu, 'delete')} />
       <Text style={s.muted}>Dismissed tasks can be restored from the Dismissed filter.</Text>
       <Button label="Make a note" quiet onPress={() => { setConfirm({ item: menu, kind: 'note' }); setMenu(null); }} />
+      <Button label="Delete task" danger disabled={pendingIds.has(menu.id) || update.isPending} onPress={() => { setConfirm({ item: menu, kind: 'delete' }); setMenu(null); }} />
       {!!error && <Text style={s.error}>{error}</Text>}
     </View></Sheet>}
-    {!!confirm && <Confirm title={confirm.kind === 'note' ? 'Make a note' : 'Dismiss task'} message={confirm.kind === 'note' ? 'Remove this task’s action and due date. The original message and audio remain in your inbox.' : 'Move this task out of your open list. You can restore it later.'} pending={update.isPending || del.isPending} error={error || undefined} onClose={() => { setConfirm(null); setError(''); }} onConfirm={() => confirm.kind === 'note' ? del.mutate({ id: confirm.item.id }, { onSuccess: () => { invalidate(); setConfirm(null); }, onError: e => setError(errorMessage(e)) }) : patch(confirm.item, { status: 'dismissed' })} />}
-  </Page>;
+    {!!confirm && <Confirm title={confirm.kind === 'note' ? 'Make a note' : 'Delete task'} message="Remove only this task. The original message, audio, and other tasks remain unchanged. Undo is available for 15 seconds." pending={update.isPending || undo.deleting} error={error || undefined} onClose={() => { setConfirm(null); setError(''); }} onConfirm={() => void removeTask(confirm.item)} />}
+  </Page><TaskUndoMessages undo={undo} /></View>;
 }

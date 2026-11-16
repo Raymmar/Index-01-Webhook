@@ -634,6 +634,80 @@ export const usePinItem = <TError = ErrorType<void>,
       return useMutation(getPinItemMutationOptions(options), queryClient);
     }
 
+export const getRestoreItemUrl = (id: string,) => {
+
+
+
+
+  return `/api/items/${id}/restore`
+}
+
+/**
+ * @summary Undo a soft deletion within 15 seconds; preserve task fields and source
+ */
+export const restoreItem = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<ActionItem> => {
+
+  return customFetch<ActionItem>(getRestoreItemUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRestoreItemMutationKey = () => ['restoreItem'] as const;
+
+export const getRestoreItemMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restoreItem>>, TError,RestoreItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof restoreItem>>, TError,RestoreItemMutationVariables, TContext> => {
+
+const mutationKey = getRestoreItemMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof restoreItem>>, RestoreItemMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  restoreItem(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RestoreItemMutationResult = NonNullable<Awaited<ReturnType<typeof restoreItem>>>
+
+    export type RestoreItemMutationError = ErrorType<void>
+    export type RestoreItemMutationVariables = {id: string}
+
+    /**
+ * @summary Undo a soft deletion within 15 seconds; preserve task fields and source
+ */
+export const useRestoreItem = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restoreItem>>, TError,RestoreItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof restoreItem>>,
+        TError,
+        RestoreItemMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRestoreItemMutationOptions(options), queryClient);
+    }
+
 export const getUpdateItemUrl = (id: string,) => {
 
 

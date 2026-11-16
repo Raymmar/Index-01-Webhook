@@ -2,8 +2,8 @@ import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { randomUUID } from "node:crypto";
 import { db, appSettingsTable, preferencesTable, jobsTable, eventsTable, actionsTable } from "@workspace/db";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
-import { UpdateSettingsBody, CreateItemBody, UpdateItemBody, UpdateItemParams, DeleteItemParams, UnderstandEventParams, PinItemParams } from "@workspace/api-zod";
+import { and, desc, eq, isNull, isNotNull, sql } from "drizzle-orm";
+import { UpdateSettingsBody, CreateItemBody, UpdateItemBody, UpdateItemParams, DeleteItemParams, RestoreItemParams, UnderstandEventParams, PinItemParams } from "@workspace/api-zod";
 import { accountFor, validTimezone, parseInstant } from "../lib/account";
 import { managedModels, directModels } from "../lib/ai-models";
 import { publicAction } from "../lib/unified-items";
@@ -148,6 +148,30 @@ router.patch("/items/:id", async (req, res): Promise<void> => {
   if (!item) { res.status(404).json({ error: "Item not found" }); return; }
   await db.execute(sql`SELECT pg_notify('ring_inbox_changed', ${res.locals.ownerId})`);
   res.json(publicAction(item!));
+});
+router.post("/items/:id/restore", async (req, res): Promise<void> => {
+  const params = RestoreItemParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Invalid item" }); return; }
+  const result = await db.transaction(async tx => {
+    // Lock the exact action so expiry and simultaneous restores are checked atomically.
+    const [current] = await tx.select().from(actionsTable).where(and(
+      eq(actionsTable.id, params.data.id), eq(actionsTable.ownerId, res.locals.ownerId),
+      isNotNull(actionsTable.removedAt),
+    )).for("update");
+    if (!current) return { status: 404 as const };
+    if (Date.now() - current.removedAt!.getTime() >= 15_000) return { status: 410 as const };
+    const [item] = await tx.update(actionsTable).set({ removedAt: null, editedAt: new Date() })
+      .where(and(eq(actionsTable.id, current.id), eq(actionsTable.ownerId, res.locals.ownerId))).returning();
+    const [source] = await tx.select({ deletedAt: eventsTable.deletedAt }).from(eventsTable)
+      .where(eq(eventsTable.id, item.sourceEventId));
+    await tx.execute(sql`SELECT pg_notify('ring_inbox_changed', ${res.locals.ownerId})`);
+    return { status: 200 as const, item: { ...publicAction(item), sourceDeleted: !!source?.deletedAt } };
+  });
+  if (result.status !== 200) {
+    res.status(result.status).json({ error: result.status === 410 ? "Undo period expired" : "Removed task not found" });
+    return;
+  }
+  res.json(result.item);
 });
 router.delete("/items/:id", async (req, res): Promise<void> => {
   const params = DeleteItemParams.safeParse(req.params);

@@ -157,6 +157,32 @@ export const PinItemResponse = zod.object({
 })
 
 
+/**
+ * @summary Undo a soft deletion within 15 seconds; preserve task fields and source
+ */
+
+
+
+export const RestoreItemParams = zod.object({
+  "id": zod.coerce.string().min(1)
+})
+
+export const RestoreItemResponse = zod.object({
+  "id": zod.string(),
+  "sourceEventId": zod.string().describe('Original inbox message shared by independently identified child actions'),
+  "sourceDeleted": zod.boolean().optional(),
+  "kind": zod.enum(['task']),
+  "title": zod.string(),
+  "dueAt": zod.string().nullable(),
+  "timezone": zod.string(),
+  "status": zod.enum(['open', 'completed', 'dismissed']),
+  "needsReview": zod.boolean(),
+  "originalTimeText": zod.string().nullable(),
+  "pinnedAt": zod.string().nullable().describe('Server-owned pin recency'),
+  "createdAt": zod.string()
+})
+
+
 export const UpdateItemParams = zod.object({
   "id": zod.coerce.string()
 })
