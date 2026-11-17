@@ -14,6 +14,9 @@ export const SettingsAiProvider = {
 } as const;
 
 export interface Settings {
+  skipTaskDismissConfirmation?: boolean;
+  skipTaskDeleteConfirmation?: boolean;
+  skipMessageDeleteConfirmation?: boolean;
   isOwner: boolean;
   allowed: boolean;
   allowSignups: boolean;
@@ -35,6 +38,9 @@ export const SettingsUpdateAiProvider = {
 } as const;
 
 export interface SettingsUpdate {
+  skipTaskDismissConfirmation?: boolean;
+  skipTaskDeleteConfirmation?: boolean;
+  skipMessageDeleteConfirmation?: boolean;
   /**
      * @minLength 1
      * @maxLength 100

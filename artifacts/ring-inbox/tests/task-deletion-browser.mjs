@@ -20,6 +20,7 @@ const source = `
   import {InboxDrawerContext} from './src/hooks/use-inbox-drawer';
   import {Toaster} from './src/components/ui/toaster';
   import Dashboard from './src/pages/dashboard';
+  import {EventCard} from './src/pages/inbox';
   const client=new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}});
   function Harness(){
     const [visible,setVisible]=useState(true),[owner,setOwner]=useState('one');
@@ -28,6 +29,7 @@ const source = `
       <button onClick={()=>setOwner('two')}>Change owner</button>
       <TaskDeletionProvider key={owner}><InboxDrawerContext.Provider value={{openInbox(){}}}>
         {visible && <Dashboard/>}
+        {['message-one','message-two'].map(id=><EventCard key={id} e={{id,kind:'text',transcription:id,webhookName:'Test',receivedAt:'2026-11-16T10:00:00Z',payload:{}}} items={[]} highlight={false} embedded={true} localPending={false}/>)}
       </InboxDrawerContext.Provider></TaskDeletionProvider><Toaster/>
     </QueryClientProvider>
   }
@@ -49,12 +51,21 @@ let tasks = ["one", "two", "three", "four", "five", "six"].map(id => ({
   createdAt: "2026-11-16T10:00:00Z",
 }));
 const deleted = new Map(), requests = [];
+const preferences = { timezone: "UTC", skipTaskDismissConfirmation: false, skipTaskDeleteConfirmation: false, skipMessageDeleteConfirmation: false };
 let deleteFails = false, restoreStatus = 200, delayRestore = false;
 const server = createServer(async (req, res) => {
   if (req.url.startsWith("/api/")) {
     const method = req.method;
     requests.push({ url: req.url, method });
     res.setHeader("content-type", "application/json");
+    if (req.url.includes("/settings")) {
+      if (method === "PATCH") {
+        let body = ""; for await (const part of req) body += part;
+        Object.assign(preferences, JSON.parse(body));
+      }
+      res.end(JSON.stringify(preferences)); return;
+    }
+    if (req.url.startsWith("/api/events/") && method === "DELETE") { res.writeHead(204); res.end(); return; }
     if (req.url.startsWith("/api/items/")) {
       const id = req.url.split("/")[3];
       if (method === "DELETE") {
@@ -108,6 +119,11 @@ try {
     throw error;
   });
   // Dismissal remains PATCH, not deletion, and works from the closed list.
+  await page.getByTestId("button-menu-six").click();
+  await page.getByTestId("menu-dismiss-six").click();
+  await page.getByTestId("checkbox-skip-dismiss-confirmation").check();
+  await page.getByTestId("button-cancel-confirm").click();
+  assert.equal(preferences.skipTaskDismissConfirmation, false, "Cancel must not remember a choice");
   await menu("six", "dismiss");
   await row("six").waitFor({ state: "detached" });
   assert.equal(await notice("six").count(), 0);
@@ -119,9 +135,12 @@ try {
   await row("six").waitFor();
   // Menu failure leaves the row and exposes an error.
   deleteFails = true; await menu("one", "delete");
-  await page.getByText("Could not delete. Try again.", { exact: true }).waitFor();
+  await page.getByTestId("button-confirm").waitFor();
+  await page.waitForFunction(() => document.body.textContent.includes("Could not save your choice or finish the action"));
   assert.equal(await row("one").count(), 1); assert.equal(await notice("one").count(), 0);
-  deleteFails = false; await menu("one", "delete");
+  deleteFails = false;
+  // Failed actions keep the dialog open for retry.
+  await page.getByTestId("button-confirm").click();
   await undo("one").waitFor(); await row("one").waitFor({ state: "detached" });
   assert.equal(await row("two").count(), 1);
   assert.equal(await page.getByTestId("stat-messages").textContent(), "1");
@@ -137,6 +156,8 @@ try {
     }));
     event("pointerdown", 250); event("pointerup", 100);
   });
+  await page.getByRole("alertdialog").waitFor();
+  await page.getByTestId("button-confirm").click();
   await undo("two").waitFor(); await row("two").waitFor({ state: "detached" });
   assert.equal(await page.locator('[data-testid^="task-deletion-"]').count(), 2);
   restoreStatus = 500;
@@ -159,7 +180,36 @@ try {
   await notice("three").waitFor({ state: "detached" });
   assert.equal(await undo("three").count(), 0);
   assert.equal(await page.locator('[data-testid^="task-deletion-"]').count(), 0);
-  assert.equal(requests.filter(r => r.method === "DELETE" && !r.url.startsWith("/api/items/")).length, 0);
+  // The remembered choice is stored by the server, not browser storage.
+  await page.getByTestId("button-menu-four").click();
+  await page.getByTestId("menu-delete-four").click();
+  await page.getByTestId("checkbox-skip-dismiss-confirmation").check();
+  await page.getByTestId("button-confirm").click();
+  await row("four").waitFor({ state: "detached" });
+  assert.equal(preferences.skipTaskDeleteConfirmation, true);
+  const second = await browser.newPage();
+  await second.goto(`http://127.0.0.1:${server.address().port}`);
+  await second.getByTestId("button-menu-five").click();
+  await second.getByTestId("menu-delete-five").click();
+  await second.getByTestId("row-item-five").waitFor({ state: "detached" });
+  assert.equal(await second.getByRole("alertdialog").count(), 0, "Fresh device must honor saved preference");
+  assert.equal(preferences.skipTaskDismissConfirmation, false, "Preferences are independent");
+  await page.getByTestId("button-message-actions-message-one").click();
+  await page.getByTestId("button-delete-message-message-one").click();
+  await page.getByTestId("checkbox-skip-message-delete-confirmation").check();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete message", exact: true }).click();
+  await page.getByRole("alertdialog").waitFor({ state: "detached" });
+  assert.equal(preferences.skipMessageDeleteConfirmation, true);
+  // Simulate the same settings invalidation performed by SSE through a reload
+  // in a separate browser context, with no shared localStorage.
+  await second.reload();
+  await second.getByTestId("button-message-actions-message-two").click();
+  const messageDeleted = second.waitForResponse(response => response.url().endsWith("/api/events/message-two") && response.request().method() === "DELETE");
+  await second.getByTestId("button-delete-message-message-two").click();
+  await messageDeleted;
+  assert.equal(await second.getByRole("alertdialog").count(), 0);
+  await second.close();
+  assert.equal(requests.filter(r => r.method === "DELETE" && !r.url.startsWith("/api/items/")).length, 2);
   await page.getByRole("button", { name: "Change owner" }).click();
   assert.equal(await page.locator('[data-testid^="task-deletion-"]').count(), 0);
   assert.deepEqual(errors, []);

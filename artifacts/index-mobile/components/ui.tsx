@@ -1,4 +1,5 @@
-import { forwardRef, useEffect, useRef, type ElementRef, type ReactNode } from 'react';
+import { forwardRef, useEffect, useRef, useState, type ElementRef, type ReactNode } from 'react';
+import { useConfirmationPreferences, type ConfirmationPreference } from '@workspace/api-client-react';
 import { Animated, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View, type GestureResponderHandlers, type TextInputProps, type TextProps, type ViewProps } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -54,7 +55,20 @@ export function Sheet({ visible, title, onClose, children, panHandlers }: { visi
   const insets = useSafeAreaInsets();
   return <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}><View style={s.screen}><KeyboardAwareScrollViewCompat {...panHandlers} directionalLockEnabled bottomOffset={30} contentContainerStyle={[s.content, { paddingTop: 22 + (Platform.OS === 'android' ? insets.top : Platform.OS === 'web' ? 67 : 0), paddingBottom: 32 + insets.bottom }]}><View style={s.between}><Text style={s.subheading}>{title}</Text><IconButton name="x" label="Close" onPress={onClose} /></View>{children}</KeyboardAwareScrollViewCompat></View></Modal>;
 }
-export function Confirm({ title, message, onConfirm, onClose, pending, error }: { title: string; message: string; onConfirm: () => void; onClose: () => void; pending?: boolean; error?: unknown }) {
-  return <Sheet visible title={title} onClose={() => { if (!pending) onClose(); }}><Copy>{message}</Copy>{!!error && <Text style={s.error}>{errorMessage(error)}</Text>}<Button label={pending ? 'Saving…' : title} danger disabled={pending} onPress={onConfirm} /><Button label="Cancel" quiet disabled={pending} onPress={onClose} /></Sheet>;
+export function Confirm({ title, message, onConfirm, onClose, pending, error, preference }: { title: string; message: string; onConfirm: () => void | Promise<void>; onClose: () => void; pending?: boolean; error?: unknown; preference?: ConfirmationPreference }) {
+  const [skip, setSkip] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const confirmations = useConfirmationPreferences();
+  const saving = pending || confirmations.pending;
+  async function submit() {
+    setSaveError('');
+    try {
+      if (skip && preference) await confirmations.remember(preference);
+      await onConfirm();
+    } catch (e) { setSaveError(errorMessage(e)); }
+  }
+  return <Sheet visible title={title} onClose={() => { if (!saving) onClose(); }}><Copy>{message}</Copy>
+    {preference && <Pressable testID="checkbox-skip-confirmation" accessibilityRole="checkbox" accessibilityState={{ checked: skip }} disabled={saving} onPress={() => setSkip(value => !value)} style={[s.row, { minHeight: 44 }]}><Feather name={skip ? 'check-square' : 'square'} size={20} color={c.foreground} /><Copy>Don't show this again</Copy></Pressable>}
+    {!!(saveError || error) && <Text style={s.error}>{saveError || errorMessage(error)}</Text>}<Button label={saving ? 'Saving…' : title} danger disabled={saving} onPress={() => void submit()} /><Button label="Cancel" quiet disabled={saving} onPress={onClose} /></Sheet>;
 }
 export function Chips<T extends string>({ values, value, onChange }: { values: readonly T[]; value: T; onChange: (v: T) => void }) { return <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>{values.map(v => <Pressable key={v} testID={`filter-${v}`} accessibilityRole="button" accessibilityState={{ selected: v === value }} onPress={() => onChange(v)} style={[s.chip, { backgroundColor: v === value ? c.secondary : 'transparent' }]}><Copy style={{ fontSize: 12, textTransform: 'capitalize', color: v === value ? c.foreground : c.mutedForeground }}>{v}</Copy></Pressable>)}</View>; }

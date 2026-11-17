@@ -20,6 +20,9 @@ router.use(async (req, res, next) => {
 function settings(account: Awaited<ReturnType<typeof accountFor>>) {
   return {
     isOwner: account.isOwner, allowed: account.allowed, timezone: account.timezone,
+    skipTaskDismissConfirmation: account.skipTaskDismissConfirmation,
+    skipTaskDeleteConfirmation: account.skipTaskDeleteConfirmation,
+    skipMessageDeleteConfirmation: account.skipMessageDeleteConfirmation,
     allowSignups: account.app.allowSignups, aiProvider: account.app.aiProvider, aiModel: account.app.aiModel,
     directKeyConfigured: Boolean(process.env.OPENAI_API_KEY),
     managedConfigured: Boolean(process.env.AI_INTEGRATIONS_OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL),
@@ -46,7 +49,13 @@ router.patch("/settings", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Choose a supported Replit model from the selector." }); return;
   }
   await db.transaction(async (tx) => {
-    if (data.timezone) await tx.update(preferencesTable).set({ timezone: data.timezone }).where(eq(preferencesTable.ownerId, res.locals.ownerId));
+    const personal = {
+      ...(data.timezone !== undefined ? { timezone: data.timezone } : {}),
+      ...(data.skipTaskDismissConfirmation !== undefined ? { skipTaskDismissConfirmation: data.skipTaskDismissConfirmation } : {}),
+      ...(data.skipTaskDeleteConfirmation !== undefined ? { skipTaskDeleteConfirmation: data.skipTaskDeleteConfirmation } : {}),
+      ...(data.skipMessageDeleteConfirmation !== undefined ? { skipMessageDeleteConfirmation: data.skipMessageDeleteConfirmation } : {}),
+    };
+    if (Object.keys(personal).length) await tx.update(preferencesTable).set(personal).where(eq(preferencesTable.ownerId, res.locals.ownerId));
     if (adminChange) await tx.update(appSettingsTable).set({
       ...(data.allowSignups !== undefined ? { allowSignups: data.allowSignups } : {}),
       ...(data.aiProvider ? { aiProvider: data.aiProvider } : {}),

@@ -11,6 +11,9 @@ export const appSettingsTable = pgTable("app_settings", {
 export const preferencesTable = pgTable("user_preferences", {
   ownerId: text("owner_id").primaryKey(),
   timezone: text("timezone"),
+  skipTaskDismissConfirmation: boolean("skip_task_dismiss_confirmation").notNull().default(false),
+  skipTaskDeleteConfirmation: boolean("skip_task_delete_confirmation").notNull().default(false),
+  skipMessageDeleteConfirmation: boolean("skip_message_delete_confirmation").notNull().default(false),
 });
 export const jobsTable = pgTable("understanding_jobs", {
   eventId: text("event_id").primaryKey().references(() => eventsTable.id),

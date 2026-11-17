@@ -7,3 +7,4 @@
 - [Inbox performance tradeoffs](inbox-performance.md) — estimated-height containment broke deep-link landing; prefer measured reductions in unchanged-card work.
 - [Shared context identity](shared-context-packages.md) — equal package versions can still produce separate contexts; verify production bundle identity before changing auth.
 - [Task text sizing](task-text-sizing.md) — measure browser task text without collapsing the focused field; caret state can distort height and shift the containing sheet.
+- [Confirmation preferences](confirmation-preferences.md) — remembered dismissal and deletion choices must follow the account across web and mobile.

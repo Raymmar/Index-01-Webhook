@@ -10,7 +10,12 @@ export async function accountFor(userId: string) {
   const allowed = isOwner || app.allowSignups;
   if (allowed) await db.insert(preferencesTable).values({ ownerId: userId }).onConflictDoNothing();
   const [preferences] = await db.select().from(preferencesTable).where(eq(preferencesTable.ownerId, userId));
-  return { app, isOwner, allowed, timezone: preferences?.timezone ?? null };
+  return {
+    app, isOwner, allowed, timezone: preferences?.timezone ?? null,
+    skipTaskDismissConfirmation: preferences?.skipTaskDismissConfirmation ?? false,
+    skipTaskDeleteConfirmation: preferences?.skipTaskDeleteConfirmation ?? false,
+    skipMessageDeleteConfirmation: preferences?.skipMessageDeleteConfirmation ?? false,
+  };
 }
 
 export function validTimezone(value: string) {

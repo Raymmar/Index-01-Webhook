@@ -283,6 +283,9 @@ components:
       type: object
       required: [isOwner, allowed, allowSignups, timezone, aiProvider, aiModel, directKeyConfigured, managedConfigured, availableModels]
       properties:
+        skipTaskDismissConfirmation: { type: boolean }
+        skipTaskDeleteConfirmation: { type: boolean }
+        skipMessageDeleteConfirmation: { type: boolean }
         isOwner: { type: boolean }
         allowed: { type: boolean }
         allowSignups: { type: boolean }
@@ -297,6 +300,9 @@ components:
     SettingsUpdate:
       type: object
       properties:
+        skipTaskDismissConfirmation: { type: boolean }
+        skipTaskDeleteConfirmation: { type: boolean }
+        skipMessageDeleteConfirmation: { type: boolean }
         timezone: { type: string, minLength: 1, maxLength: 100 }
         allowSignups: { type: boolean }
         aiProvider: { type: string, enum: [replit, openai] }

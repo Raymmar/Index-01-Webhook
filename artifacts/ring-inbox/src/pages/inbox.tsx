@@ -7,18 +7,17 @@ import { useGetOrganizer, getGetOrganizerQueryKey, useUnderstandEvent, type Inbo
 import { Skeleton } from "@/components/ui/skeleton";
 import { prioritizeEvents } from "@/lib/feed-order";
 import { useInboxFeed } from "@/hooks/use-inbox-feed";
-import { useToast } from "@/hooks/use-toast";
 import { FeedScrollAnchor } from "@/components/feed-scroll-anchor";
 import { ActionItemRow } from "./items";
 import { SwipeDelete } from "@/components/swipe-delete";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { useDeleteEvent, getListEventsQueryKey, getGetEventQueryKey, type EventPage } from "@workspace/api-client-react";
+import { useConfirmationPreferences } from "@workspace/api-client-react";
 
 function ts(s: string) { return format(new Date(s), "MMM d, h:mm a"); }
 function size(n: number) { return n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${(n / 1024).toFixed(1)} KB`; }
 const EMPTY_ITEMS: ActionItem[] = [];
-const skipMessageDeleteKey = "index:skip-message-delete-confirmation";
 
 function Organize({ e, items, job, pending, error, onOrganize }: { e: InboxEvent; items: ActionItem[]; job?: ProcessingJob; pending: boolean; error: boolean; onOrganize: () => void }) {
   const busy = pending || job?.status === "pending" || job?.status === "processing";
@@ -40,21 +39,19 @@ function Organize({ e, items, job, pending, error, onOrganize }: { e: InboxEvent
 export const EventCard = memo(function EventCard({ e, items, job, highlight, embedded, localPending }: { e: InboxEvent; items: ActionItem[]; job?: ProcessingJob; highlight: boolean; embedded: boolean; localPending: boolean }) {
   const qc = useQueryClient();
   const deletion = useDeleteEvent();
-  const { toast } = useToast();
   const [skipDelete, setSkipDelete] = useState(false);
+  const confirmations = useConfirmationPreferences();
+  const [preferenceError, setPreferenceError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const deleting = useRef(false);
   function requestDelete() {
     if (deleting.current) return;
     deletion.reset();
+    setPreferenceError("");
     setSkipDelete(false);
-    try {
-      if (localStorage.getItem(skipMessageDeleteKey) === "true") {
-        void remove().catch(() => setConfirmDelete(true));
-        return;
-      }
-    } catch {
-      // Keep confirmation when browser storage is unavailable.
+    if (confirmations.skips("skipMessageDeleteConfirmation")) {
+      void remove().catch(() => setConfirmDelete(true));
+      return;
     }
     setConfirmDelete(true);
   }
@@ -110,7 +107,7 @@ export const EventCard = memo(function EventCard({ e, items, job, highlight, emb
         </button>
       </footer>
       <pre id={`${embedded ? "incoming-" : ""}payload-${e.id}`} hidden={!open} aria-label="Event payload" className="mt-2 max-h-80 overflow-auto rounded-md bg-primary p-3 font-mono text-[12px] leading-relaxed text-primary-foreground">{open ? JSON.stringify(e.payload, null, 2) : null}</pre>
-      <AlertDialog open={confirmDelete} onOpenChange={value => { if (!deleting.current) setConfirmDelete(value); }}>
+      <AlertDialog open={confirmDelete} onOpenChange={value => { if (!deleting.current && !confirmations.pending) setConfirmDelete(value); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this message?</AlertDialogTitle>
@@ -123,15 +120,16 @@ export const EventCard = memo(function EventCard({ e, items, job, highlight, emb
             Don't show this again
           </label>
           {deletion.isError && <p role="alert" className="text-sm text-destructive">Could not delete. Your message is still here. Try again.</p>}
+          {preferenceError && <p role="alert" className="text-sm text-destructive">{preferenceError}</p>}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletion.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction disabled={deletion.isPending} className="bg-destructive text-destructive-foreground" onClick={event => {
+            <AlertDialogCancel disabled={deletion.isPending || confirmations.pending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={deletion.isPending || confirmations.pending} className="bg-destructive text-destructive-foreground" onClick={event => {
               event.preventDefault();
-              if (skipDelete) {
-                try { localStorage.setItem(skipMessageDeleteKey, "true"); }
-                catch { toast({ description: "Your browser couldn't remember this preference." }); }
-              }
-              void remove().catch(() => {});
+              setPreferenceError("");
+              void (async () => {
+                if (skipDelete) await confirmations.remember("skipMessageDeleteConfirmation");
+                await remove();
+              })().catch(() => setPreferenceError("Could not save your choice or delete the message. Please try again."));
             }}>{deletion.isPending ? "Deleting…" : "Delete message"}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

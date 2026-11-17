@@ -8,6 +8,9 @@
 import type { SettingsUpdateAiProvider } from './settingsUpdateAiProvider';
 
 export interface SettingsUpdate {
+  skipTaskDismissConfirmation?: boolean;
+  skipTaskDeleteConfirmation?: boolean;
+  skipMessageDeleteConfirmation?: boolean;
   /**
      * @minLength 1
      * @maxLength 100

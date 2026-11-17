@@ -14,9 +14,9 @@ import { browserZone, formatDue, toLocalInput, tryLocalInput } from "@/lib/tz";
 import { compareActionItems } from "@/lib/action-order";
 import { TaskTitleField } from "@/components/task-title-field";
 import { useTaskDeletion } from "@/components/task-deletion-provider";
+import { useConfirmationPreferences } from "@workspace/api-client-react";
 
 const field = "rounded-md border border-input bg-card px-2.5 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
-const skipDismissKey = "index:skip-task-dismiss-confirmation";
 
 function useInvalidate() {
   const qc = useQueryClient();
@@ -40,6 +40,8 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
   const [dateErr, setDateErr] = useState("");
   const [confirm, setConfirm] = useState<"dismiss" | "delete" | null>(null);
   const [skipDismiss, setSkipDismiss] = useState(false);
+  const confirmations = useConfirmationPreferences();
+  const [confirmError, setConfirmError] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
   const skipSave = useRef(false);
   useEffect(() => { if (!editingTitle) setTitle(item.title); }, [item.title, editingTitle]);
@@ -81,16 +83,29 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
   }
 
   function requestDismiss() {
-    try {
-      if (localStorage.getItem(skipDismissKey) === "true") {
-        dismissTask();
-        return;
-      }
-    } catch {
-      // If browser storage is unavailable, keep the confirmation.
-    }
+    setConfirmError("");
+    if (confirmations.skips("skipTaskDismissConfirmation")) { dismissTask(); return; }
     setSkipDismiss(false);
     setConfirm("dismiss");
+  }
+
+  async function requestDelete() {
+    setConfirmError("");
+    if (confirmations.skips("skipTaskDeleteConfirmation")) { await removeTask(); return; }
+    setSkipDismiss(false);
+    setConfirm("delete");
+  }
+
+  async function confirmAction() {
+    setConfirmError("");
+    try {
+      if (skipDismiss) await confirmations.remember(confirm === "delete" ? "skipTaskDeleteConfirmation" : "skipTaskDismissConfirmation");
+      if (confirm === "delete") await removeTask();
+      else dismissTask();
+      setConfirm(null);
+    } catch {
+      setConfirmError("Could not save your choice or finish the action. Please try again.");
+    }
   }
 
   function saveDate() {
@@ -103,7 +118,7 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
   }
 
   return (
-    <li data-testid={`row-item-${item.id}`}><SwipeDelete disabled={update.isPending || deleting} onDelete={removeTask}><div inert={deleting} className={`group flex items-start gap-3 px-3 py-2.5 ${update.isPending || deleting ? "opacity-70" : ""}`}>
+    <li data-testid={`row-item-${item.id}`}><SwipeDelete disabled={update.isPending || deleting} onDelete={requestDelete}><div inert={deleting} className={`group flex items-start gap-3 px-3 py-2.5 ${update.isPending || deleting ? "opacity-70" : ""}`}>
       <button type="button" aria-label={done ? "Reopen" : "Complete"} data-testid={`button-complete-${item.id}`} disabled={update.isPending}
         onClick={() => item.status === "open"
           ? patch({ status: "completed" }, { label: "Marked complete.", data: { status: "open" } })
@@ -146,34 +161,25 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
             ? <DropdownMenuItem onSelect={() => patch({ status: "open" })} data-testid={`menu-restore-${item.id}`}><CornerUpLeft className="mr-2 h-4 w-4" />Restore</DropdownMenuItem>
             : <DropdownMenuItem onSelect={requestDismiss} data-testid={`menu-dismiss-${item.id}`}><X className="mr-2 h-4 w-4" />Dismiss</DropdownMenuItem>}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => setConfirm("delete")} data-testid={`menu-delete-${item.id}`}><Trash2 className="mr-2 h-4 w-4" />Remove task</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => { void requestDelete().catch(() => {}); }} data-testid={`menu-delete-${item.id}`}><Trash2 className="mr-2 h-4 w-4" />Remove task</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <AlertDialog open={!!confirm} onOpenChange={(o) => { if (!o) setConfirm(null); }}>
+      <AlertDialog open={!!confirm} onOpenChange={(o) => { if (!o && !confirmations.pending && !deleting && !update.isPending) setConfirm(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="font-display text-2xl font-normal">{confirm === "delete" ? "Remove this task?" : "Dismiss this task?"}</AlertDialogTitle>
             <AlertDialogDescription>{confirm === "delete" ? "Only this task is removed. Other tasks, the original message, and its audio stay unchanged. Undo is available for 15 seconds." : "It moves out of your open list. You can restore it later from Completed & dismissed."}</AlertDialogDescription>
           </AlertDialogHeader>
-          {confirm === "dismiss" && <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={skipDismiss} onChange={(e) => setSkipDismiss(e.target.checked)}
               data-testid="checkbox-skip-dismiss-confirmation" className="h-4 w-4 accent-primary" />
             Don't show this again
-          </label>}
+          </label>
+          {confirmError && <p role="alert" className="text-sm text-destructive">{confirmError}</p>}
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-confirm">Cancel</AlertDialogCancel>
-            <AlertDialogAction disabled={deleting || update.isPending} data-testid="button-confirm" className={confirm === "delete" ? "bg-destructive text-destructive-foreground" : ""}
-              onClick={() => {
-                if (confirm === "delete") void removeTask().catch(() => {});
-                else {
-                  if (skipDismiss) {
-                    try { localStorage.setItem(skipDismissKey, "true"); }
-                    catch { toast({ description: "Your browser couldn't remember this preference." }); }
-                  }
-                  dismissTask();
-                }
-                setConfirm(null);
-              }}>{confirm === "delete" ? "Remove task" : "Dismiss"}</AlertDialogAction>
+            <AlertDialogCancel disabled={confirmations.pending || deleting || update.isPending} data-testid="button-cancel-confirm">Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={deleting || update.isPending || confirmations.pending} data-testid="button-confirm" className={confirm === "delete" ? "bg-destructive text-destructive-foreground" : ""}
+              onClick={event => { event.preventDefault(); void confirmAction(); }}>{confirm === "delete" ? "Remove task" : "Dismiss"}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

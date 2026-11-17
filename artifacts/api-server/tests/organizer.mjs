@@ -83,6 +83,21 @@ export async function check() {
     assert.equal((await api("/events", "GET", "other")).status, 403);
     assert.equal((await api("/settings", "PATCH", "owner", { timezone: "Invalid/Zone" })).status, 400);
     assert.equal((await api("/settings", "PATCH", "owner", { timezone: "America/Los_Angeles", allowSignups: true })).status, 200);
+    // Personal confirmation preferences persist across sessions, remain isolated,
+    // and notify the account's other connected clients.
+    for (const key of ["skipTaskDismissConfirmation", "skipTaskDeleteConfirmation", "skipMessageDeleteConfirmation"]) {
+      assert.equal((await (await api("/settings")).json())[key], false);
+      assert.equal((await notifiedMutation("/settings", "PATCH", { [key]: true })).status, 200);
+      assert.equal((await (await api("/settings")).json())[key], true);
+      assert.equal((await (await api("/settings", "GET", "other")).json())[key], false);
+    }
+    assert.equal((await api("/settings", "PATCH", "other", { skipTaskDeleteConfirmation: true })).status, 200);
+    assert.equal((await api("/settings", "PATCH", "owner", { skipTaskDeleteConfirmation: "true" })).status, 400);
+    assert.equal((await notifiedMutation("/settings", "PATCH", { skipTaskDeleteConfirmation: false })).status, 200);
+    const preferences = await (await api("/settings")).json();
+    assert.equal(preferences.skipTaskDeleteConfirmation, false);
+    assert.equal(preferences.skipTaskDismissConfirmation, true);
+    assert.equal(preferences.skipMessageDeleteConfirmation, true);
     assert.equal((await (await api("/settings", "GET", "other")).json()).allowed, true);
     assert.equal((await api("/settings", "PATCH", "other", { allowSignups: false })).status, 403);
     assert.equal((await api("/settings", "PATCH", "other", { timezone: "Europe/London" })).status, 200);

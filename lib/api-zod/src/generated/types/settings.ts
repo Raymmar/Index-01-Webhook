@@ -8,6 +8,9 @@
 import type { SettingsAiProvider } from './settingsAiProvider';
 
 export interface Settings {
+  skipTaskDismissConfirmation?: boolean;
+  skipTaskDeleteConfirmation?: boolean;
+  skipMessageDeleteConfirmation?: boolean;
   isOwner: boolean;
   allowed: boolean;
   allowSignups: boolean;

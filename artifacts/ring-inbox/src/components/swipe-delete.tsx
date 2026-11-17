@@ -40,7 +40,11 @@ export function SwipeDelete({ children, onDelete, disabled = false }: { children
     }}
     onPointerCancel={() => { start.current = null; setOffset(0); }}
     onLostPointerCapture={e => { if (e.target === e.currentTarget) { start.current = null; setOffset(0); } }}
-    onClickCapture={e => { if (Date.now() < suppress.current) { e.preventDefault(); e.stopPropagation(); } }}>
+    onClickCapture={e => {
+      // Dialog portals bubble through React ancestors but are not part of the
+      // swiped card. Never suppress their confirm/cancel buttons.
+      if (e.currentTarget.contains(e.target as Node) && Date.now() < suppress.current) { e.preventDefault(); e.stopPropagation(); }
+    }}>
     {offset < 0 && <div className="absolute inset-0 flex items-center justify-end bg-secondary px-4 text-sm text-destructive">{offset <= -80 ? "Release to delete" : "Delete"}</div>}
     <div style={{ transform: `translateX(${offset}px)` }} className="relative bg-card">{children}</div>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}

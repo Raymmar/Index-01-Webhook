@@ -7,6 +7,7 @@ import { Feather } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGetOrganizer, useGetSettings, useUpdateItem, usePinItem, getGetOrganizerQueryKey, getListEventsQueryKey, type Organizer, type ActionItem, type ItemUpdate } from '@workspace/api-client-react';
 import { Page, Copy, Skeleton, Failure, Empty, IconButton, Button, Confirm, Sheet, s, c, errorMessage } from '@/components/ui';
+import { useConfirmationPreferences } from '@workspace/api-client-react';
 import { ItemEditor } from '@/components/item-editor';
 import { deviceZone, useLive } from '@/lib/session';
 import { useHorizontalSwipe } from '@/hooks/use-horizontal-swipe';
@@ -52,7 +53,16 @@ export default function Dashboard() {
   const [editor, setEditor] = useState<ActionItem | 'new' | null>(null);
   const [editorTasks, setEditorTasks] = useState<ActionItem[]>([]);
   const [menu, setMenu] = useState<ActionItem | null>(null);
-  const [confirm, setConfirm] = useState<{ item: ActionItem; kind: 'note' | 'delete' } | null>(null);
+  const [confirm, setConfirm] = useState<{ item: ActionItem; kind: 'note' | 'delete' | 'dismiss' } | null>(null);
+  const confirmations = useConfirmationPreferences();
+  function requestTaskAction(item: ActionItem, kind: 'note' | 'delete' | 'dismiss') {
+    setMenu(null); setError('');
+    const preference = kind === 'dismiss' ? 'skipTaskDismissConfirmation' : 'skipTaskDeleteConfirmation';
+    if (confirmations.skips(preference)) {
+      if (kind === 'dismiss') void taskAction(item, 'delete');
+      else void removeTask(item);
+    } else setConfirm({ item, kind });
+  }
   const [error, setError] = useState('');
   const update = useUpdateItem();
   const pin = usePinItem();
@@ -91,6 +101,7 @@ export default function Dashboard() {
         ...previous, items: previous.items.map(row => row.id === item.id ? { ...row, ...saved } : row),
       }));
       setMenu(null);
+      setConfirm(null);
     } catch (e) { setError(errorMessage(e)); }
     finally {
       pending.current.delete(item.id);
@@ -137,7 +148,7 @@ export default function Dashboard() {
     <Text style={[s.muted, { fontSize: 11 }]}>{date ? `${format(new Date(`${date}T12:00:00`), 'EEE, MMM d')} · ` : ''}{visible.length} {status} {visible.length === 1 ? 'task' : 'tasks'}</Text>
     {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
     {q.isLoading ? <Skeleton /> : q.isError ? <Failure error={q.error} retry={() => void q.refetch()} /> : !visible.length ? <Empty title={status === 'open' ? 'A little breathing room.' : 'Nothing here yet.'} text={date ? 'No tasks scheduled for this day.' : status === 'open' ? 'Speak to your ring, or add a task.' : `Your ${status} tasks will appear here.`} icon="check-circle" /> :
-      <View style={[s.card, { padding: 0, gap: 0, overflow: 'hidden' }]}>{visible.map((item, i) => <SwipeTaskRow key={item.id} id={item.id} disabled={pendingIds.has(item.id) || update.isPending} allowPendingPin={pendingPins.current.has(item.id)} onPin={() => void taskAction(item, 'pin')} onDelete={() => void taskAction(item, 'delete')}>{guard => <View style={{ padding: 14, borderTopWidth: i ? 1 : 0, borderTopColor: c.border }}>
+      <View style={[s.card, { padding: 0, gap: 0, overflow: 'hidden' }]}>{visible.map((item, i) => <SwipeTaskRow key={item.id} id={item.id} disabled={pendingIds.has(item.id) || update.isPending} allowPendingPin={pendingPins.current.has(item.id)} onPin={() => void taskAction(item, 'pin')} onDelete={() => requestTaskAction(item, 'dismiss')}>{guard => <View style={{ padding: 14, borderTopWidth: i ? 1 : 0, borderTopColor: c.border }}>
         {!!item.pinnedAt && <Pressable accessibilityRole="button" accessibilityLabel={`Unpin ${item.title}`} disabled={pendingIds.has(item.id)} onPress={() => guard(() => void taskAction(item, 'unpin'))} style={{ minHeight: 44, paddingLeft: 51, flexDirection: 'row', alignItems: 'center', gap: 5 }}><Feather name="map-pin" size={12} color={c.accent} /><Text style={[s.muted, { color: c.accent }]}>Pinned</Text></Pressable>}
         {item.sourceDeleted && <Text style={[s.muted, { paddingLeft: 51 }]}>Original content deleted</Text>}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 7 }}>
@@ -154,12 +165,12 @@ export default function Dashboard() {
       {!!menu.pinnedAt && <Button label="Unpin task" quiet disabled={pendingIds.has(menu.id) || update.isPending} onPress={() => void taskAction(menu, 'unpin')} />}
       <Button label="Edit task" quiet onPress={() => { openEditor(menu); setMenu(null); }} />
       {menu.sourceDeleted ? <Text style={s.muted}>Original content deleted</Text> : <Button label="Original message" quiet onPress={() => { router.navigate({ pathname: '/inbox', params: { focus: menu.sourceEventId } }); setMenu(null); }} />}
-      <Button label={menu.status === 'dismissed' ? 'Restore task' : 'Dismiss task'} quiet disabled={update.isPending} onPress={() => menu.status === 'dismissed' ? patch(menu, { status: 'open' }) : void taskAction(menu, 'delete')} />
+      <Button label={menu.status === 'dismissed' ? 'Restore task' : 'Dismiss task'} quiet disabled={update.isPending} onPress={() => menu.status === 'dismissed' ? patch(menu, { status: 'open' }) : requestTaskAction(menu, 'dismiss')} />
       <Text style={s.muted}>Dismissed tasks can be restored from the Dismissed filter.</Text>
-      <Button label="Make a note" quiet onPress={() => { setConfirm({ item: menu, kind: 'note' }); setMenu(null); }} />
-      <Button label="Delete task" danger disabled={pendingIds.has(menu.id) || update.isPending} onPress={() => { setConfirm({ item: menu, kind: 'delete' }); setMenu(null); }} />
+      <Button label="Make a note" quiet onPress={() => requestTaskAction(menu, 'note')} />
+      <Button label="Delete task" danger disabled={pendingIds.has(menu.id) || update.isPending} onPress={() => requestTaskAction(menu, 'delete')} />
       {!!error && <Text style={s.error}>{error}</Text>}
     </View></Sheet>}
-    {!!confirm && <Confirm title={confirm.kind === 'note' ? 'Make a note' : 'Delete task'} message="Remove only this task. The original message, audio, and other tasks remain unchanged. Undo is available for 15 seconds." pending={update.isPending || undo.deleting} error={error || undefined} onClose={() => { setConfirm(null); setError(''); }} onConfirm={() => void removeTask(confirm.item)} />}
+    {!!confirm && <Confirm preference={confirm.kind === 'dismiss' ? 'skipTaskDismissConfirmation' : 'skipTaskDeleteConfirmation'} title={confirm.kind === 'dismiss' ? 'Dismiss task' : confirm.kind === 'note' ? 'Make a note' : 'Delete task'} message={confirm.kind === 'dismiss' ? 'It moves out of your open list. You can restore it later from Dismissed.' : 'Remove only this task. The original message, audio, and other tasks remain unchanged. Undo is available for 15 seconds.'} pending={update.isPending || undo.deleting} error={error || undefined} onClose={() => { setConfirm(null); setError(''); }} onConfirm={() => confirm.kind === 'dismiss' ? taskAction(confirm.item, 'delete') : removeTask(confirm.item)} />}
   </Page><TaskUndoMessages undo={undo} /></View>;
 }

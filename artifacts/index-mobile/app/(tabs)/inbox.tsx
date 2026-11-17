@@ -10,6 +10,7 @@ import { Recording } from '@/components/recording';
 import { useInboxPages, useLive, deviceZone } from '@/lib/session';
 import { useDeleteEvent, getGetEventQueryKey } from '@workspace/api-client-react';
 import { Confirm } from '@/components/ui';
+import { useConfirmationPreferences } from '@workspace/api-client-react';
 import { SwipeTaskRow } from '@/components/swipe-task-row';
 
 function Message({ event, job, tz, focused = false, onDeleted }: { event: InboxEvent; job?: ProcessingJob; tz: string; focused?: boolean; onDeleted?: () => void }) {
@@ -22,7 +23,12 @@ function Message({ event, job, tz, focused = false, onDeleted }: { event: InboxE
   const [deleted, setDeleted] = useState(false);
   const [menu, setMenu] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  function requestDelete() { setError(''); setMenu(false); setConfirmDelete(true); }
+  const confirmations = useConfirmationPreferences();
+  function requestDelete() {
+    setError(''); setMenu(false);
+    if (confirmations.skips('skipMessageDeleteConfirmation')) void remove();
+    else setConfirmDelete(true);
+  }
   async function remove() {
     if (deleting.current) return;
     deleting.current = true; setError('');
@@ -34,7 +40,7 @@ function Message({ event, job, tz, focused = false, onDeleted }: { event: InboxE
         qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() }),
         qc.invalidateQueries({ queryKey: getGetEventQueryKey(event.id) }),
       ]);
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { setError(errorMessage(e)); setConfirmDelete(true); }
     finally { deleting.current = false; }
   }
   const processing = job?.status === 'processing' || job?.status === 'pending';
@@ -55,7 +61,7 @@ function Message({ event, job, tz, focused = false, onDeleted }: { event: InboxE
     {payload && <View style={{ backgroundColor: c.secondary, padding: 12, borderRadius: 6 }}><Text selectable style={{ color: c.foreground, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 11, lineHeight: 18 }}>{JSON.stringify(event.payload, null, 2)}</Text><Text style={[s.muted, { marginTop: 12, fontSize: 10 }]}>Received {formatInTimeZone(event.receivedAt, tz, 'PPpp')} · {event.id}</Text></View>}
   </View>}</SwipeTaskRow>
     {menu && <Sheet visible title="Message actions" onClose={() => setMenu(false)}><Button label="Delete message" danger onPress={requestDelete} /></Sheet>}
-    {confirmDelete && <Confirm title="Delete message" message="The original message and audio will be hidden. Linked tasks remain and will show that the original content was deleted." pending={deletion.isPending} error={error || undefined} onClose={() => setConfirmDelete(false)} onConfirm={() => void remove()} />}
+    {confirmDelete && <Confirm preference="skipMessageDeleteConfirmation" title="Delete message" message="The original message and audio will be hidden. Linked tasks remain and will show that the original content was deleted." pending={deletion.isPending} error={error || undefined} onClose={() => setConfirmDelete(false)} onConfirm={remove} />}
   </>;
 }
 

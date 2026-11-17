@@ -9,6 +9,9 @@ import * as zod from 'zod';
 
 
 export const GetSettingsResponse = zod.object({
+  "skipTaskDismissConfirmation": zod.boolean().optional(),
+  "skipTaskDeleteConfirmation": zod.boolean().optional(),
+  "skipMessageDeleteConfirmation": zod.boolean().optional(),
   "isOwner": zod.boolean(),
   "allowed": zod.boolean(),
   "allowSignups": zod.boolean(),
@@ -28,6 +31,9 @@ export const updateSettingsBodyAiModelMax = 100;
 
 
 export const UpdateSettingsBody = zod.object({
+  "skipTaskDismissConfirmation": zod.boolean().optional(),
+  "skipTaskDeleteConfirmation": zod.boolean().optional(),
+  "skipMessageDeleteConfirmation": zod.boolean().optional(),
   "timezone": zod.string().min(1).max(updateSettingsBodyTimezoneMax).optional(),
   "allowSignups": zod.boolean().optional(),
   "aiProvider": zod.enum(['replit', 'openai']).optional(),
@@ -35,6 +41,9 @@ export const UpdateSettingsBody = zod.object({
 })
 
 export const UpdateSettingsResponse = zod.object({
+  "skipTaskDismissConfirmation": zod.boolean().optional(),
+  "skipTaskDeleteConfirmation": zod.boolean().optional(),
+  "skipMessageDeleteConfirmation": zod.boolean().optional(),
   "isOwner": zod.boolean(),
   "allowed": zod.boolean(),
   "allowSignups": zod.boolean(),
