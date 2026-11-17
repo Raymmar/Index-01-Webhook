@@ -42,9 +42,7 @@ export function TaskDeletionMessages({ deletion }: { deletion: TaskDeletion }) {
   return <section aria-label="Task deletion messages" className="pointer-events-none fixed inset-x-3 bottom-3 z-50 ml-auto max-h-[45dvh] max-w-md space-y-2 overflow-y-auto">
     {notices.map(notice => <div key={notice.id} data-testid={`task-deletion-${notice.id}`} className="pointer-events-auto rounded-lg border border-border bg-card p-3 text-sm text-card-foreground shadow-sm">
       <p role="status" aria-atomic="true">
-        {notice.state === "restored" ? `Restored “${notice.title}”.`
-          : notice.state === "expired" ? `Removed “${notice.title}”. Undo is no longer available.`
-          : notice.state === "restoring" ? `Restoring “${notice.title}”…`
+        {notice.state === "restoring" ? `Restoring “${notice.title}”…`
           : `Removed “${notice.title}”. Undo is available for 15 seconds from deletion.`}
       </p>
       {notice.error && <p role="alert" className="mt-1 text-destructive">{notice.error}</p>}

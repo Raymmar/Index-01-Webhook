@@ -3,7 +3,7 @@ export const TASK_UNDO_MS = 15_000;
 export type DeletedTask = { id: string; title: string };
 export type DeletionNotice = DeletedTask & {
   expiresAt: number;
-  state: "ready" | "restoring" | "restored" | "expired";
+  state: "ready" | "restoring";
   error?: string;
 };
 type DeletionApi = {
@@ -35,8 +35,7 @@ export class TaskDeletion {
   }
   expire = () => {
     if (this.notices.some(row => row.state === "ready" && this.now() >= row.expiresAt)) {
-      this.publish(this.notices.map(row => row.state === "ready" && this.now() >= row.expiresAt
-        ? { ...row, state: "expired", error: undefined } : row));
+      this.publish(this.notices.filter(row => row.state !== "ready" || this.now() < row.expiresAt));
     }
   };
   dismiss = (id: string) => {
@@ -49,10 +48,10 @@ export class TaskDeletion {
     const expiresAt = this.now() + TASK_UNDO_MS;
     try {
       await this.api.remove(item.id);
-      this.publish([...this.notices.filter(row => row.id !== item.id), {
+      this.publish([...this.notices.filter(row => row.id !== item.id), ...(this.now() < expiresAt ? [{
         id: item.id, title: item.title, expiresAt,
-        state: this.now() < expiresAt ? "ready" : "expired",
-      }]);
+        state: "ready" as const,
+      }] : [])]);
     } finally {
       this.busy.delete(item.id);
       this.api.changed();
@@ -66,13 +65,14 @@ export class TaskDeletion {
     this.update(id, { state: "restoring", error: undefined });
     try {
       await this.api.restore(id);
-      this.update(id, { state: "restored" });
+      this.publish(this.notices.filter(row => row.id !== id));
     } catch (error) {
       const status = (error as { status?: number } | null)?.status;
       const expired = status === 404 || status === 410 || this.now() >= notice.expiresAt;
-      this.update(id, {
-        state: expired ? "expired" : "ready",
-        error: expired ? "This task can no longer be restored." : "Could not restore. Try Undo again before the window closes.",
+      if (expired) this.publish(this.notices.filter(row => row.id !== id));
+      else this.update(id, {
+        state: "ready",
+        error: "Could not restore. Try Undo again before the window closes.",
       });
     } finally {
       this.busy.delete(id);

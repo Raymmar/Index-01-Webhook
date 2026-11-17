@@ -27,7 +27,7 @@ test("deletion targets only the exact task and consecutive notices remain indepe
   assert.equal(s.deletion.notices.length, 2);
   await s.deletion.undo("one");
   assert.deepEqual(s.restored, ["one"]);
-  assert.deepEqual(s.deletion.notices.map(n => n.state), ["restored", "ready"]);
+  assert.deepEqual(s.deletion.notices.map(n => n.id), ["two"]);
   assert.equal(s.changed, 3);
 });
 test("failed deletion creates no misleading Undo notice", async () => {
@@ -39,7 +39,7 @@ test("failed deletion creates no misleading Undo notice", async () => {
 test("local expiry is strict at the deadline, even before the timer catches up", async () => {
   const s = setup(); await s.deletion.remove(task("one"));
   s.advance(TASK_UNDO_MS); await s.deletion.undo("one");
-  assert.equal(s.deletion.notices[0].state, "expired");
+  assert.deepEqual(s.deletion.notices, []);
   assert.deepEqual(s.restored, []);
 });
 test("transient restore failure allows retry without extending expiry", async () => {
@@ -50,12 +50,12 @@ test("transient restore failure allows retry without extending expiry", async ()
   assert.match(s.deletion.notices[0].error, /Try Undo again/);
   assert.equal(s.deletion.notices[0].expiresAt, deadline);
   s.restoreError(undefined); await s.deletion.undo("one");
-  assert.equal(s.deletion.notices[0].state, "restored");
+  assert.deepEqual(s.deletion.notices, []);
 });
 for (const status of [404, 410]) test(`server ${status} permanently disables Undo`, async () => {
   const s = setup(); await s.deletion.remove(task("one")); s.restoreError({ status });
   await s.deletion.undo("one"); await s.deletion.undo("one");
-  assert.equal(s.deletion.notices[0].state, "expired");
+  assert.deepEqual(s.deletion.notices, []);
   assert.equal(s.restored.length, 1);
 });
 test("duplicate delete and restore clicks send one request while pending", async () => {
@@ -79,13 +79,13 @@ test("slow deletion response cannot extend the server deadline", async () => {
     restore: async () => assert.fail("must not restore"), changed() {},
   });
   await deletion.remove(task("one"));
-  assert.equal(deletion.notices[0].state, "expired");
+  assert.deepEqual(deletion.notices, []);
 });
 test("expiry publishes state and closing a notice never changes server data", async () => {
   const s = setup(); let updates = 0;
   const unsubscribe = s.deletion.subscribe(() => updates++);
   await s.deletion.remove(task("one")); s.advance(TASK_UNDO_MS); s.deletion.expire();
-  assert.equal(s.deletion.snapshot()[0].state, "expired");
+  assert.deepEqual(s.deletion.snapshot(), []);
   s.deletion.dismiss("one"); unsubscribe();
   assert.equal(updates, 3);
   assert.deepEqual(s.deletion.snapshot(), []);
