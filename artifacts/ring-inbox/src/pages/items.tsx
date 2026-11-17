@@ -16,6 +16,7 @@ import { TaskTitleField } from "@/components/task-title-field";
 import { useTaskDeletion } from "@/components/task-deletion-provider";
 
 const field = "rounded-md border border-input bg-card px-2.5 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const skipDismissKey = "index:skip-task-dismiss-confirmation";
 
 function useInvalidate() {
   const qc = useQueryClient();
@@ -38,6 +39,7 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
   const [date, setDate] = useState(toLocalInput(item.dueAt, tz));
   const [dateErr, setDateErr] = useState("");
   const [confirm, setConfirm] = useState<"dismiss" | "delete" | null>(null);
+  const [skipDismiss, setSkipDismiss] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const skipSave = useRef(false);
   useEffect(() => { if (!editingTitle) setTitle(item.title); }, [item.title, editingTitle]);
@@ -72,6 +74,23 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
     const t = title.trim();
     if (!t) { setTitle(item.title); return; }
     if (t !== item.title) patch({ title: t }); else setTitle(item.title);
+  }
+
+  function dismissTask() {
+    patch({ status: "dismissed" }, { label: "Dismissed.", data: { status: item.status } });
+  }
+
+  function requestDismiss() {
+    try {
+      if (localStorage.getItem(skipDismissKey) === "true") {
+        dismissTask();
+        return;
+      }
+    } catch {
+      // If browser storage is unavailable, keep the confirmation.
+    }
+    setSkipDismiss(false);
+    setConfirm("dismiss");
   }
 
   function saveDate() {
@@ -125,7 +144,7 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
         <DropdownMenuContent align="end" className="border border-border">
           {item.status === "dismissed"
             ? <DropdownMenuItem onSelect={() => patch({ status: "open" })} data-testid={`menu-restore-${item.id}`}><CornerUpLeft className="mr-2 h-4 w-4" />Restore</DropdownMenuItem>
-            : <DropdownMenuItem onSelect={() => setConfirm("dismiss")} data-testid={`menu-dismiss-${item.id}`}><X className="mr-2 h-4 w-4" />Dismiss</DropdownMenuItem>}
+            : <DropdownMenuItem onSelect={requestDismiss} data-testid={`menu-dismiss-${item.id}`}><X className="mr-2 h-4 w-4" />Dismiss</DropdownMenuItem>}
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => setConfirm("delete")} data-testid={`menu-delete-${item.id}`}><Trash2 className="mr-2 h-4 w-4" />Remove task</DropdownMenuItem>
         </DropdownMenuContent>
@@ -136,12 +155,23 @@ export function ActionItemRow({ item, tz }: { item: ActionItem; tz: string }) {
             <AlertDialogTitle className="font-display text-2xl font-normal">{confirm === "delete" ? "Remove this task?" : "Dismiss this task?"}</AlertDialogTitle>
             <AlertDialogDescription>{confirm === "delete" ? "Only this task is removed. Other tasks, the original message, and its audio stay unchanged. Undo is available for 15 seconds." : "It moves out of your open list. You can restore it later from Completed & dismissed."}</AlertDialogDescription>
           </AlertDialogHeader>
+          {confirm === "dismiss" && <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={skipDismiss} onChange={(e) => setSkipDismiss(e.target.checked)}
+              data-testid="checkbox-skip-dismiss-confirmation" className="h-4 w-4 accent-primary" />
+            Don't show this again
+          </label>}
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancel-confirm">Cancel</AlertDialogCancel>
             <AlertDialogAction disabled={deleting || update.isPending} data-testid="button-confirm" className={confirm === "delete" ? "bg-destructive text-destructive-foreground" : ""}
               onClick={() => {
                 if (confirm === "delete") void removeTask().catch(() => {});
-                else patch({ status: "dismissed" }, { label: "Dismissed.", data: { status: "open" } });
+                else {
+                  if (skipDismiss) {
+                    try { localStorage.setItem(skipDismissKey, "true"); }
+                    catch { toast({ description: "Your browser couldn't remember this preference." }); }
+                  }
+                  dismissTask();
+                }
                 setConfirm(null);
               }}>{confirm === "delete" ? "Remove task" : "Dismiss"}</AlertDialogAction>
           </AlertDialogFooter>

@@ -7,6 +7,7 @@ import { useGetOrganizer, getGetOrganizerQueryKey, useUnderstandEvent, type Inbo
 import { Skeleton } from "@/components/ui/skeleton";
 import { prioritizeEvents } from "@/lib/feed-order";
 import { useInboxFeed } from "@/hooks/use-inbox-feed";
+import { useToast } from "@/hooks/use-toast";
 import { FeedScrollAnchor } from "@/components/feed-scroll-anchor";
 import { ActionItemRow } from "./items";
 import { SwipeDelete } from "@/components/swipe-delete";
@@ -17,6 +18,7 @@ import { useDeleteEvent, getListEventsQueryKey, getGetEventQueryKey, type EventP
 function ts(s: string) { return format(new Date(s), "MMM d, h:mm a"); }
 function size(n: number) { return n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${(n / 1024).toFixed(1)} KB`; }
 const EMPTY_ITEMS: ActionItem[] = [];
+const skipMessageDeleteKey = "index:skip-message-delete-confirmation";
 
 function Organize({ e, items, job, pending, error, onOrganize }: { e: InboxEvent; items: ActionItem[]; job?: ProcessingJob; pending: boolean; error: boolean; onOrganize: () => void }) {
   const busy = pending || job?.status === "pending" || job?.status === "processing";
@@ -38,10 +40,22 @@ function Organize({ e, items, job, pending, error, onOrganize }: { e: InboxEvent
 export const EventCard = memo(function EventCard({ e, items, job, highlight, embedded, localPending }: { e: InboxEvent; items: ActionItem[]; job?: ProcessingJob; highlight: boolean; embedded: boolean; localPending: boolean }) {
   const qc = useQueryClient();
   const deletion = useDeleteEvent();
+  const { toast } = useToast();
+  const [skipDelete, setSkipDelete] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const deleting = useRef(false);
   function requestDelete() {
+    if (deleting.current) return;
     deletion.reset();
+    setSkipDelete(false);
+    try {
+      if (localStorage.getItem(skipMessageDeleteKey) === "true") {
+        void remove().catch(() => setConfirmDelete(true));
+        return;
+      }
+    } catch {
+      // Keep confirmation when browser storage is unavailable.
+    }
     setConfirmDelete(true);
   }
   async function remove() {
@@ -102,10 +116,23 @@ export const EventCard = memo(function EventCard({ e, items, job, highlight, emb
             <AlertDialogTitle>Delete this message?</AlertDialogTitle>
             <AlertDialogDescription>The original message and audio will be hidden. Tasks and other objects created from it will remain, with a notice that the original content was deleted.</AlertDialogDescription>
           </AlertDialogHeader>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={skipDelete} disabled={deletion.isPending}
+              onChange={event => setSkipDelete(event.target.checked)}
+              data-testid="checkbox-skip-message-delete-confirmation" className="h-4 w-4 accent-primary" />
+            Don't show this again
+          </label>
           {deletion.isError && <p role="alert" className="text-sm text-destructive">Could not delete. Your message is still here. Try again.</p>}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deletion.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction disabled={deletion.isPending} className="bg-destructive text-destructive-foreground" onClick={event => { event.preventDefault(); void remove().catch(() => {}); }}>{deletion.isPending ? "Deleting…" : "Delete message"}</AlertDialogAction>
+            <AlertDialogAction disabled={deletion.isPending} className="bg-destructive text-destructive-foreground" onClick={event => {
+              event.preventDefault();
+              if (skipDelete) {
+                try { localStorage.setItem(skipMessageDeleteKey, "true"); }
+                catch { toast({ description: "Your browser couldn't remember this preference." }); }
+              }
+              void remove().catch(() => {});
+            }}>{deletion.isPending ? "Deleting…" : "Delete message"}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
