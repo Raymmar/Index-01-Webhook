@@ -110,6 +110,16 @@ different context bundles and triggers, and avoid a new project/knowledge-graph
 system unless needed. These are product requirements under discussion, not
 approval for destructive automatic merging or unrestricted autonomous changes.
 
+Reports should be fixed, persistent snapshots of a batch or lookback period;
+overviews should be persistent, evolving higher-level objects with saved versions
+so their changes can be audited. Reports feed overviews above unchanged initial
+task extraction. The user envisions named or pinned priority overviews and
+user feedback to guide recurring synthesis.
+**Why:** The user distinguished reports from overviews when discussing the
+long-term thinking-partner loop.
+**How to apply:** Treat this as product direction under discussion, not permission
+to implement new objects, default schedules, or autonomous recursive loops.
+
 Keep this simple: prioritize reliable core behavior before adding a more
 powerful assistant, user-defined keyword rules, contacts, or dictated email drafts.
 **Why:** The user explicitly rejected unnecessary complexity while describing a
