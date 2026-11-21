@@ -92,7 +92,7 @@ await new Promise(r=>server.once('listening',r));
 const browser=await chromium.launch({executablePath:'/repl/tools/bin/chromium',args:['--no-sandbox']});
 const errors=[];
 async function open(platform) {
-  const page=await browser.newPage({viewport:{width:platform==='mobile'?400:1000,height:850}});
+  const page=await browser.newPage({viewport:{width:platform==='mobile'?375:1000,height:850},hasTouch:platform==='mobile',isMobile:platform==='mobile'});
   page.on('pageerror',e=>{errors.push(e.message);console.error(platform,e.message);});
   await page.goto('http://127.0.0.1:'+server.address().port+'/'+platform);
   await page.getByRole('button',{name:'Message actions',exact:true}).waitFor();
@@ -104,7 +104,14 @@ async function menu(page,platform,scope){
   await page.getByRole(platform==='web'?'menuitem':'button',{name:'Delete '+scope,exact:true}).click();
 }
 const confirmButton=(page,scope)=>page.getByRole('button',{name:'Delete '+scope,exact:true});
-async function settled(page,text){await page.waitForFunction(text=>document.querySelector('[data-testid="counts"]').textContent===text,text);}
+async function settled(page,text){
+  await page.waitForFunction(text=>document.querySelector('[data-testid="counts"]').textContent===text,text);
+  if(new URL(page.url()).pathname==='/mobile') {
+    assert.equal(await page.getByRole('dialog').count(),0);
+    assert.equal(await page.getByRole('button',{name:'Undo',exact:true}).count(),0);
+    assert.equal(await page.getByText(/Deleted “|Undo available|Restoring…/).count(),0);
+  }
+}
 try{
   for(const platform of ['web','mobile']){
     reset(0);
@@ -154,6 +161,36 @@ try{
     assert.ok(saves.every(s=>s.skipMessageDeleteConfirmation&&s.skipTaskDeleteConfirmation&&!('skipTaskDismissConfirmation' in s)));
     await page.close();
     console.log('PASS '+platform+': zero-task disablement, all four consent combinations, cancel, all scopes, missing settings, failed saves/deletes, counts and Notes refresh');
+  }
+  // Swipe deletion of an original uses only the message preference, not task consent.
+  for(const skip of [false,true]){
+    reset(3,skip,!skip);
+    const page=await open('mobile');
+    const box=await page.getByTestId('swipe-task-message-source').boundingBox();
+    const x=box.x+box.width-24,y=box.y+45;
+    const cdp=await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+    for(const part of [.2,.6,1])await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x-box.width*.6*part,y}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    if(!skip){
+      await confirmButton(page,'note').waitFor();assert.deepEqual(deletions,[]);
+      await confirmButton(page,'note').click();
+    }
+    await settled(page,'3:0:0');assert.deepEqual(deletions,['note']);assert.deepEqual(saves,[]);
+    await page.close();
+  }
+  // Skipped confirmation failures must still surface a visible retry, for every scope.
+  for(const scope of ['note','tasks','all']){
+    reset(3,true,true);failDelete=true;
+    const page=await open('mobile');
+    await menu(page,'mobile',scope);
+    await page.getByRole('dialog').getByRole('alert').getByText('Deletion failed',{exact:true}).waitFor();
+    assert.deepEqual(deletions,[scope]);assert.equal(events.length,1);assert.equal(tasks.length,3);
+    failDelete=false;
+    await confirmButton(page,scope).click();
+    await settled(page,scope==='note'?'3:0:0':scope==='tasks'?'0:1:1':'0:0:0');
+    assert.deepEqual(deletions,[scope,scope]);assert.deepEqual(saves,[]);
+    await page.close();
   }
   // A choice saved by one platform is consumed by a fresh client on the other.
   for(const [from,to] of [['web','mobile'],['mobile','web']]){

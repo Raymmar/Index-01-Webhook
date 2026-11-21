@@ -6,7 +6,7 @@ Run from the workspace root:
 pnpm --filter @workspace/index-mobile typecheck
 node artifacts/index-mobile/tests/swipe-task-row.mjs
 node artifacts/index-mobile/tests/dashboard-swipes.mjs
-node artifacts/index-mobile/tests/task-undo.mjs
+node artifacts/index-mobile/tests/quiet-deletion.mjs
 NODE_ENV=production node artifacts/api-server/tests/task-paragraphs.mjs
 ```
 
@@ -46,11 +46,14 @@ API routes, schema, palette and deletion scope are unchanged.
   coalescing to the latest state; failed requests, including a server write
   followed by a failed response; queued-intent cleanup and retry; badges and
   ordering after refetch; exact-half delete cancellation, above-half confirmation,
-  cancel, successful deletion and Undo. Only the surrounding UI, session and
+  cancel and quiet successful deletion. Only the surrounding UI, session and
   calendar/editor shell are stubbed. No application authentication is bypassed.
-- **Undo hook/message regression:** delete failure, independent removals,
-  restore failure/retry, duplicate taps, server expiry, suspended-app expiry,
-  accessible messages and refresh callbacks.
+- **Quiet deletion regression:** real Dashboard/LinkedTasks, confirmation dialogs,
+  generated hooks and cache; enabled/skipped account confirmation choices,
+  failure/retry even when skipped, consecutive deletes with long titles, no
+  success notices, independent dismissal preferences, scrolling and navigation.
+  Real message confirmations and all source scopes are covered separately by
+  `scoped-deletion.mjs`, including skipped-confirmation failure/retry.
 - **Real organizer routes and isolated PostgreSQL schema:** pin/repin recency,
   concurrent pins, repeated unpin/pin with fresh reads, unrelated edits retaining
   pins, owner scoping, task removal/restore/expiry, source redaction and retained

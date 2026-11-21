@@ -15,8 +15,7 @@ import { SwipeTaskRow } from '@/components/swipe-task-row';
 import { compareTasks } from '@/lib/task-order';
 import { matchesTask } from '@workspace/api-client-react';
 import { useTaskPins } from '@/hooks/use-task-pins';
-import { useTaskUndo } from '@/hooks/use-task-undo';
-import { TaskUndoMessages } from '@/components/task-undo-messages';
+import { useTaskDeletion } from '@/hooks/use-task-deletion';
 
 type TaskStatus = 'open' | 'completed' | 'dismissed';
 const statusLabels: Record<TaskStatus, string> = { open: 'Open', completed: 'Completed', dismissed: 'Dismissed' };
@@ -71,19 +70,19 @@ export default function Dashboard() {
   const [pendingIds, setPendingIds] = useState(new Set<string>());
   const qc = useQueryClient();
   const invalidate = () => { void qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() }); void qc.invalidateQueries({ queryKey: getListEventsQueryKey() }); };
-  const undo = useTaskUndo(invalidate, errorMessage);
+  const deletion = useTaskDeletion(invalidate);
   const isPending = (id: string) => pendingIds.has(id) || pins.pending(id);
   async function removeTask(item: ActionItem) {
     setError('');
     try {
-      await undo.remove(item);
+      await deletion.remove(item);
       await qc.cancelQueries({ queryKey: getGetOrganizerQueryKey() });
       qc.setQueryData<Organizer>(getGetOrganizerQueryKey(), previous => previous && ({
         ...previous, items: previous.items.filter(row => row.id !== item.id),
       }));
       setConfirm(null);
       invalidate();
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { setError(errorMessage(e)); setConfirm({ item, kind: 'delete' }); }
   }
   async function taskAction(item: ActionItem, kind: 'pin' | 'delete' | 'unpin') {
     if (pending.current.has(item.id) || pins.pending(item.id) || update.isPending) return;
@@ -155,7 +154,7 @@ export default function Dashboard() {
     </View>
     {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
     {q.isLoading ? <Skeleton /> : q.isError ? <Failure error={q.error} retry={() => void q.refetch()} /> : !visible.length ? <Empty title={status === 'open' ? 'A little breathing room.' : 'Nothing here yet.'} text={date ? 'No tasks scheduled for this day.' : status === 'open' ? 'Speak to your ring, or add a task.' : `Your ${status} tasks will appear here.`} icon="check-circle" /> :
-      <View style={[s.card, { padding: 0, gap: 0, overflow: 'hidden' }]}>{visible.map((item, i) => <SwipeTaskRow key={item.id} id={item.id} pinned={pins.intended(item)} disabled={pendingIds.has(item.id) || pins.pending(item.id) || update.isPending || undo.deleting} allowPendingPin={pins.acceptsToggle(item.id) && !update.isPending && !undo.deleting} onPin={() => { setError(''); void pins.toggle(item); }} onDelete={() => requestTaskAction(item, 'delete')}>{guard => <View style={{ padding: 14, borderTopWidth: i ? 1 : 0, borderTopColor: c.border }}>
+      <View style={[s.card, { padding: 0, gap: 0, overflow: 'hidden' }]}>{visible.map((item, i) => <SwipeTaskRow key={item.id} id={item.id} pinned={pins.intended(item)} disabled={pendingIds.has(item.id) || pins.pending(item.id) || update.isPending || deletion.deleting} allowPendingPin={pins.acceptsToggle(item.id) && !update.isPending && !deletion.deleting} onPin={() => { setError(''); void pins.toggle(item); }} onDelete={() => requestTaskAction(item, 'delete')}>{guard => <View style={{ padding: 14, borderTopWidth: i ? 1 : 0, borderTopColor: c.border }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 7 }}>
         <View style={{ flex: 1, minWidth: 0 }}>
         {!!item.pinnedAt && <Pressable accessibilityRole="button" accessibilityLabel={`Unpin ${item.title}`} disabled={isPending(item.id)} onPress={() => guard(() => void taskAction(item, 'unpin'))} style={{ minHeight: 44, paddingLeft: 51, flexDirection: 'row', alignItems: 'center', gap: 5 }}><Feather name="map-pin" size={12} color={c.accent} /><Text style={[s.muted, { color: c.accent }]}>Pinned</Text></Pressable>}
@@ -182,6 +181,6 @@ export default function Dashboard() {
       <Button label="Delete task" danger disabled={isPending(menu.id) || update.isPending} onPress={() => requestTaskAction(menu, 'delete')} />
       {!!error && <Text style={s.error}>{error}</Text>}
     </View></Sheet>}
-    {!!confirm && <Confirm preference={confirm.kind === 'dismiss' ? 'skipTaskDismissConfirmation' : 'skipTaskDeleteConfirmation'} title={confirm.kind === 'dismiss' ? 'Dismiss task' : confirm.kind === 'note' ? 'Make a note' : 'Delete task'} message={confirm.kind === 'dismiss' ? 'It moves out of your open list. You can restore it later from Dismissed.' : 'Remove only this task. The original message, audio, and other tasks remain unchanged. Undo is available for 15 seconds.'} pending={update.isPending || undo.deleting} error={error || undefined} onClose={() => { setConfirm(null); setError(''); }} onConfirm={() => confirm.kind === 'dismiss' ? taskAction(confirm.item, 'delete') : removeTask(confirm.item)} />}
-  </Page><TaskUndoMessages undo={undo} /></View>;
+    {!!confirm && <Confirm preference={confirm.kind === 'dismiss' ? 'skipTaskDismissConfirmation' : 'skipTaskDeleteConfirmation'} title={confirm.kind === 'dismiss' ? 'Dismiss task' : confirm.kind === 'note' ? 'Make a note' : 'Delete task'} message={confirm.kind === 'dismiss' ? 'It moves out of your open list. You can restore it later from Dismissed.' : 'Remove only this task. The original message, audio, and other tasks remain unchanged.'} pending={update.isPending || deletion.deleting} error={error || undefined} onClose={() => { setConfirm(null); setError(''); }} onConfirm={() => confirm.kind === 'dismiss' ? taskAction(confirm.item, 'delete') : removeTask(confirm.item)} />}
+  </Page></View>;
 }

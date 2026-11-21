@@ -142,8 +142,9 @@ try{
   assert.equal(await row('a').count(),1);
   await swipe('a',-1);
   await page.getByRole('button',{name:'Confirm delete'}).click();
-  await page.getByTestId('undo-task-a').waitFor();assert.equal(await row('a').count(),0);
-  await page.getByTestId('undo-task-a').click();await row('a').waitFor();
+  await row('a').waitFor({state:'detached'});
+  assert.equal(await page.locator('[data-testid^="task-undo-message"],[data-testid^="undo-task-"]').count(),0);
+  await refresh();assert.equal(await row('a').count(),0);
   assert.deepEqual(errors,[]);
-  console.log('PASS: actual Dashboard touch toggle, explicit repin/unpin, delayed/coalesced pending intents, failures/reconciliation/retry, badge/order refetch persistence, strict-half confirmation and delete/Undo');
+  console.log('PASS: actual Dashboard touch toggle, explicit repin/unpin, delayed/coalesced pending intents, failures/reconciliation/retry, badge/order refetch persistence, strict-half confirmation and quiet deletion');
 }finally{await browser.close();await new Promise(r=>server.close(r));}

@@ -71,8 +71,8 @@ try {
   await page.getByRole('button', { name: 'Delete task', exact: true }).click();
   await page.getByRole('button', { name: 'Confirm Delete task' }).click();
   await page.getByTestId('linked-task-two').waitFor({ state: 'detached' });
-  await page.getByTestId('undo-linked-task-two').click();
-  await page.getByTestId('linked-task-two').waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Undo', exact: true }).count(), 0);
+  assert.equal(await page.getByText(/^Deleted “/).count(), 0);
   // Same cache invalidation used by SSE: additions and removals update the list.
   items = [{ ...base, id: 'new', title: 'New server task' }];
   await page.evaluate(() => window.refresh());
@@ -82,5 +82,5 @@ try {
   await page.evaluate(() => window.refresh());
   await page.getByTestId('linked-tasks-note').waitFor({ state: 'detached' });
   assert.deepEqual(errors, []);
-  console.log('PASS: source grouping, editor entry, completion, dismissal, deletion, undo, live cache refresh, empty notes');
+  console.log('PASS: source grouping, editor entry, completion, dismissal, quiet deletion, live cache refresh, empty notes');
 } finally { await browser.close(); await new Promise(r => server.close(r)); }
