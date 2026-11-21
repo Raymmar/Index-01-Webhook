@@ -79,6 +79,19 @@ separation between ingestion, AI understanding, and future connectors.
 web/mobile on shared domain primitives and API contracts. Treat these future
 capabilities as direction, not authorization to implement them.
 
+The user wants two workflow types: individual task extraction and batch/timed
+review, each driven by editable prompts rather than one hardcoded recursive loop.
+Review should connect rapid sequences of thoughts, reconcile existing tasks,
+and maintain a rolling overview of topics, projects, and current focus.
+**Why:** The product is a voice-note thinking partner between meetings, not only
+a task inbox or long-form meeting summarizer. Repeated mentions can refine an
+existing task instead of creating another, and non-actionable thoughts still
+matter to the overview.
+**How to apply:** Reuse messages and tasks (scheduled tasks remain tasks), select
+different context bundles and triggers, and avoid a new project/knowledge-graph
+system unless needed. These are product requirements under discussion, not
+approval for destructive automatic merging or unrestricted autonomous changes.
+
 Keep this simple: prioritize reliable core behavior before adding a more
 powerful assistant, user-defined keyword rules, contacts, or dictated email drafts.
 **Why:** The user explicitly rejected unnecessary complexity while describing a
