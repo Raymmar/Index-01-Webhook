@@ -145,7 +145,13 @@ export default function Dashboard() {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 1, flexShrink: 1, minWidth: 0 }}>{(['all', 'scheduled', 'unscheduled'] as const).map(kind => <Pressable key={kind} testID={`filter-${kind}`} accessibilityRole="button" accessibilityState={{ selected: filter === kind }} onPress={() => { setFilter(kind); if (kind === 'unscheduled') setDate(null); }} style={{ minHeight: 44, paddingHorizontal: 5, justifyContent: 'center', flexShrink: 1 }}><Text numberOfLines={1} style={[s.muted, { fontSize: 11, lineHeight: 22, textTransform: 'capitalize', color: filter === kind ? c.foreground : c.mutedForeground, fontFamily: filter === kind ? 'Geist_500Medium' : 'Geist_400Regular', borderBottomWidth: 2, borderBottomColor: filter === kind ? c.accent : 'transparent' }]}>{kind}</Text></Pressable>)}</View>
       <StatusDropdown value={status} onChange={setStatus} />
     </View>
-    <Text style={[s.muted, { fontSize: 11 }]}>{date ? `${format(new Date(`${date}T12:00:00`), 'EEE, MMM d')} · ` : ''}{visible.length} {status} {visible.length === 1 ? 'task' : 'tasks'}</Text>
+    <View style={[s.between, { minHeight: date ? 44 : 18 }]}>
+      {date ? <Pressable testID="button-show-all-tasks" accessibilityRole="button" accessibilityLabel="Show all days" onPress={() => setDate(null)} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 5, paddingRight: 12 }}>
+        <Feather name="arrow-left" size={14} color={c.mutedForeground} />
+        <Text style={[s.muted, { fontSize: 11 }]}>Show all</Text>
+      </Pressable> : <View />}
+      <Text testID="dashboard-task-count" style={[s.muted, { fontSize: 11, textAlign: 'right', flexShrink: 1 }]}>{visible.length} {status} {visible.length === 1 ? 'task' : 'tasks'}</Text>
+    </View>
     {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
     {q.isLoading ? <Skeleton /> : q.isError ? <Failure error={q.error} retry={() => void q.refetch()} /> : !visible.length ? <Empty title={status === 'open' ? 'A little breathing room.' : 'Nothing here yet.'} text={date ? 'No tasks scheduled for this day.' : status === 'open' ? 'Speak to your ring, or add a task.' : `Your ${status} tasks will appear here.`} icon="check-circle" /> :
       <View style={[s.card, { padding: 0, gap: 0, overflow: 'hidden' }]}>{visible.map((item, i) => <SwipeTaskRow key={item.id} id={item.id} disabled={pendingIds.has(item.id) || update.isPending || undo.deleting} allowPendingPin={pendingPins.current.has(item.id)} onPin={() => void taskAction(item, 'pin')} onDelete={() => requestTaskAction(item, 'delete')}>{guard => <View style={{ padding: 14, borderTopWidth: i ? 1 : 0, borderTopColor: c.border }}>
