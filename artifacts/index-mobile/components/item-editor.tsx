@@ -9,15 +9,22 @@ import { Recording } from './recording';
 import { useHorizontalSwipe } from '@/hooks/use-horizontal-swipe';
 import { TaskTitleField } from './task-title-field';
 
-function TaskRecording({ eventId }: { eventId: string }) {
+function TaskSource({ eventId }: { eventId: string }) {
   const source = useGetEvent(eventId);
-  if (source.isLoading) return <Text style={s.muted}>Loading original recording…</Text>;
+  if (source.isLoading) return <Text style={s.muted}>Loading original content…</Text>;
   if (source.isError) return <Failure error={source.error} retry={() => void source.refetch()} />;
   if (source.data?.deletedAt) return <Text style={s.muted}>Original content deleted</Text>;
-  if (!source.data?.audioUrl) return null;
-  return <View style={{ gap: 10 }}>
-    <Text style={s.label}>Original recording</Text>
-    <Recording url={source.data.audioUrl} />
+  const transcript = source.data?.transcription;
+  return <View style={{ gap: 20 }}>
+    {!!source.data?.audioUrl && <View style={{ gap: 10 }}>
+      <Text style={s.label}>Original recording</Text>
+      <Recording url={source.data.audioUrl} />
+    </View>}
+    <View style={{ gap: 10 }}>
+      <Text style={s.label}>Original transcript</Text>
+      {transcript?.trim() ? <Copy selectable style={{ fontSize: 16, lineHeight: 26 }}>{transcript}</Copy>
+        : <Text style={s.muted}>No transcript was included.</Text>}
+    </View>
   </View>;
 }
 
@@ -110,6 +117,8 @@ export function ItemEditor({ item: initialItem, tasks = [], tz, onClose }: { ite
     </View>
     <Text style={s.muted}>{tz.replaceAll('_', ' ')}</Text>{!!error && <Text style={s.error}>{error}</Text>}
     <View onTouchStart={swipe.blockSwipe}><Button label={busy ? 'Saving…' : item ? 'Save task' : 'Add task'} disabled={busy || !!pendingNavigation || !title.trim()} onPress={() => save()} /></View>
-    {item && <View onTouchStart={swipe.blockSwipe}><TaskRecording key={item.id} eventId={item.sourceEventId} /></View>}
+    {item && <View onTouchStart={swipe.blockSwipe}>{item.sourceDeleted
+      ? <Text style={s.muted}>Original content deleted</Text>
+      : <TaskSource key={item.id} eventId={item.sourceEventId} />}</View>}
   </Sheet>;
 }
