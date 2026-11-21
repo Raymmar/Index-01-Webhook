@@ -65,7 +65,7 @@ export function LinkedTasks({ eventId, tz }: { eventId: string; tz: string }) {
         <Text style={s.muted}>{item.dueAt ? formatInTimeZone(item.dueAt, tz, 'MMM d · h:mm a') : 'No date'}{item.status !== 'open' ? ` · ${item.status === 'completed' ? 'Completed' : 'Dismissed'}` : ''}</Text>
         {item.needsReview && <Text style={[s.muted, { color: c.accent }]}>Check time{item.originalTimeText ? `: “${item.originalTimeText}”` : ''}</Text>}
       </Pressable>
-      <IconButton name="more-vertical" label={`Actions for ${item.title}`} disabled={busy} onPress={() => { setError(''); setMenu(item); }} />
+      <IconButton name="more-vertical" size={18} label={`Actions for ${item.title}`} disabled={busy} onPress={() => { setError(''); setMenu(item); }} />
     </View>)}
     {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
     {notices.map(notice => <View key={notice.item.id} style={{ gap: 6, paddingVertical: 8 }}>

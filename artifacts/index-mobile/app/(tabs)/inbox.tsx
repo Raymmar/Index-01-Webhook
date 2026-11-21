@@ -53,15 +53,20 @@ export function Message({ event, job, tz, focused = false, onDeleted }: { event:
   const processing = job?.status === 'processing' || job?.status === 'pending';
   const label = job?.status === 'pending' ? 'Queued' : job?.status === 'processing' ? 'Processing' : job?.status === 'failed' ? 'Understanding failed' : event.kind === 'recording' ? 'Voice note' : 'Message';
   if (deleted) return null;
-  return <><SwipeTaskRow id={`message-${event.id}`} pinEnabled={false} disabled={deletion.isPending || confirmDelete || !!event.deletedAt} onPin={() => {}} onDelete={requestDelete}>{guard => <View style={[s.card, { backgroundColor: processing ? c.processing : c.card, borderColor: focused ? c.accent : c.border, gap: 16 }]}>
-    <View style={s.between}><View style={[s.row, { gap: 7 }]}>{processing && <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: c.accent }} />}<Text style={[s.label, { color: processing ? c.accent : job?.status === 'failed' ? c.destructive : c.mutedForeground }]}>{label}</Text></View><Text style={[s.muted, { fontSize: 10 }]}>{formatInTimeZone(event.recordedAt ?? event.receivedAt, tz, 'MMM d · h:mm a')}</Text></View>
+  return <><SwipeTaskRow id={`message-${event.id}`} pinEnabled={false} disabled={deletion.isPending || confirmDelete || !!event.deletedAt} onPin={() => {}} onDelete={requestDelete}>{guard => <View style={[s.card, { backgroundColor: processing ? c.processing : c.card, borderColor: focused ? c.accent : c.border, paddingTop: 14, paddingRight: 14, gap: 16 }]}>
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 7 }}>
+      <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+        <View style={[s.row, { gap: 7 }]}>{processing && <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: c.accent, flexShrink: 0 }} />}<Text style={[s.label, { flexShrink: 1, color: processing ? c.accent : job?.status === 'failed' ? c.destructive : c.mutedForeground }]}>{label}</Text></View>
+        <Text style={[s.muted, { fontSize: 10 }]}>{formatInTimeZone(event.recordedAt ?? event.receivedAt, tz, 'MMM d · h:mm a')}</Text>
+      </View>
+      {!event.deletedAt && <IconButton name="more-vertical" size={18} label="Message actions" onPress={() => guard(() => setMenu(true))} />}
+    </View>
     {event.deletedAt ? <Copy>Original content deleted</Copy> : event.transcription ? <Copy selectable style={{ fontSize: 16, lineHeight: 26 }}>{event.transcription}</Copy> : <Text style={s.muted}>{event.kind === 'recording' ? 'No transcript was included.' : 'JSON event received.'}</Text>}
     {!!event.audioUrl && <View onTouchStart={e => e.stopPropagation()}><Recording url={event.audioUrl} /></View>}
     <LinkedTasks eventId={event.id} tz={tz} />
     {job?.status === 'failed' && <View style={{ gap: 9 }}><Text style={s.error}>{job.error || 'This message could not be understood.'}</Text><Button label={retry.isPending ? 'Retrying…' : 'Try understanding again'} quiet disabled={retry.isPending} onPress={() => { setError(''); retry.mutate({ id: event.id }, { onSuccess: () => { void qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() }); void qc.invalidateQueries({ queryKey: getListEventsQueryKey() }); }, onError: e => setError(errorMessage(e)) }); }} />{!!error && <Text style={s.error}>{error}</Text>}</View>}
     <View style={s.between}>
       <View style={[s.row, { flex: 1, minWidth: 0, gap: 6 }]}>
-        {!event.deletedAt && <IconButton name="more-vertical" label="Message actions" onPress={() => guard(() => setMenu(true))} />}
         <Text style={[s.muted, { flex: 1, fontSize: 10 }]} numberOfLines={1}>{event.webhookName}{event.audioSize != null ? ` · ${Math.round(event.audioSize / 1024)} KB` : ''}</Text>
       </View>
       <Pressable accessibilityRole="button" accessibilityState={{ expanded: payload }} onPress={() => guard(() => setPayload(v => !v))} style={{ minHeight: 36, justifyContent: 'center' }}><Text style={s.muted}>{payload ? 'Hide payload −' : 'Payload +'}</Text></Pressable>
