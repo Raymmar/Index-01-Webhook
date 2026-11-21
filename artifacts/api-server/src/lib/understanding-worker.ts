@@ -13,6 +13,7 @@ export async function processNextJob() {
       .innerJoin(preferencesTable, eq(preferencesTable.ownerId, jobsTable.ownerId))
       .innerJoin(appSettingsTable, eq(appSettingsTable.id, 1))
       .where(and(
+        eq(jobsTable.processor, "task-extraction"), eq(jobsTable.processorVersion, 1),
         or(eq(appSettingsTable.allowSignups, true), eq(appSettingsTable.ownerId, jobsTable.ownerId)),
         sql`${preferencesTable.timezone} IS NOT NULL`,
         lte(jobsTable.availableAt, new Date()),
@@ -27,6 +28,7 @@ export async function processNextJob() {
       return null;
     }
     await tx.update(jobsTable).set({
+      provider: app.aiProvider, model: app.aiModel,
       status: "processing", leaseId, attempts: candidate.job.attempts + 1,
       availableAt: new Date(Date.now() + 5 * 60_000), error: null,
     }).where(eq(jobsTable.eventId, candidate.job.eventId));
@@ -90,7 +92,7 @@ export function startUnderstandingWorker() {
       // A crashed final attempt must not remain stuck in processing forever.
       await db.transaction(async tx => {
         const expired = await tx.update(jobsTable).set({ status: "failed", leaseId: null, error: "Processing interrupted. Retry this note." })
-          .where(and(eq(jobsTable.status, "processing"), sql`${jobsTable.attempts} >= 3`, lte(jobsTable.availableAt, new Date())))
+          .where(and(eq(jobsTable.processor, "task-extraction"), eq(jobsTable.processorVersion, 1), eq(jobsTable.status, "processing"), sql`${jobsTable.attempts} >= 3`, lte(jobsTable.availableAt, new Date())))
           .returning({ ownerId: jobsTable.ownerId });
         for (const owner of new Set(expired.map(row => row.ownerId))) {
           await tx.execute(sql`SELECT pg_notify('ring_inbox_changed', ${owner})`);
@@ -105,6 +107,7 @@ export function startUnderstandingWorker() {
         .innerJoin(preferencesTable, eq(preferencesTable.ownerId, jobsTable.ownerId))
         .innerJoin(appSettingsTable, eq(appSettingsTable.id, 1))
         .where(and(
+          eq(jobsTable.processor, "task-extraction"), eq(jobsTable.processorVersion, 1),
           sql`${preferencesTable.timezone} IS NOT NULL`,
           or(eq(appSettingsTable.allowSignups, true), eq(appSettingsTable.ownerId, jobsTable.ownerId)),
           or(eq(jobsTable.status, "processing"), and(eq(jobsTable.status, "pending"), lt(jobsTable.attempts, 3))),

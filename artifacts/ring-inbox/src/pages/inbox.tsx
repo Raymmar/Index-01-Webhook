@@ -13,6 +13,7 @@ import { SwipeDelete } from "@/components/swipe-delete";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { useDeleteSource, getListEventsQueryKey, getGetEventQueryKey, sourceDeletionPreferences, sourceDeletionLabel, sourceDeletionDescription, type SourceDeletionScope } from "@workspace/api-client-react";
+import { groupTasksByMessage } from "@workspace/api-client-react";
 import { useConfirmationPreferences } from "@workspace/api-client-react";
 
 function ts(s: string) { return format(new Date(s), "MMM d, h:mm a"); }
@@ -154,15 +155,7 @@ export function InboxFeed({ embedded = false, selectedNote = null }: { embedded?
   const sentinel = useRef<HTMLDivElement>(null);
   const nextCursor = q.data?.nextCursor;
   const all = q.data?.items ?? [];
-  const byEvent = useMemo(() => {
-    const m = new Map<string, ActionItem[]>();
-    for (const i of organizer.data?.items ?? []) if (i.sourceEventId) {
-      const group = m.get(i.sourceEventId);
-      if (group) group.push(i);
-      else m.set(i.sourceEventId, [i]);
-    }
-    return m;
-  }, [organizer.data?.items]);
+  const byEvent = useMemo(() => groupTasksByMessage(organizer.data?.items ?? []), [organizer.data?.items]);
   const jobs = useMemo(() => new Map((organizer.data?.jobs ?? []).map((j) => [j.eventId, j])), [organizer.data?.jobs]);
   const pendingIds = useMutationState({
     filters: { mutationKey: ["understandEvent"], status: "pending" },

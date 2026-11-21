@@ -7,8 +7,14 @@
  */
 import type { InboxEventKind } from './inboxEventKind';
 import type { InboxEventPayload } from './inboxEventPayload';
+import type { MessageAttachment } from './messageAttachment';
+import type { MessageSource } from './messageSource';
 
 export interface InboxEvent {
+  source?: MessageSource;
+  /** @nullable */
+  text?: string | null;
+  attachments?: MessageAttachment[];
   /** @nullable */
   deletedAt?: string | null;
   id: string;

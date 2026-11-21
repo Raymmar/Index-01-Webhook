@@ -5,6 +5,57 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type MessageInputMetadata = { [key: string]: unknown };
+
+export interface MessageInput {
+  /**
+     * @minLength 1
+     * @maxLength 100000
+     */
+  text: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     * @pattern ^[a-zA-Z0-9._-]+$
+     */
+  sourceType: string;
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  sourceConnection: string;
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  externalId?: string;
+  occurredAt?: string;
+  metadata?: MessageInputMetadata;
+}
+
+export interface MessageSource {
+  type: string;
+  /** @nullable */
+  connectionId: string | null;
+  /** @nullable */
+  externalId: string | null;
+}
+
+export type MessageAttachmentKind = typeof MessageAttachmentKind[keyof typeof MessageAttachmentKind];
+
+
+export const MessageAttachmentKind = {
+  audio: 'audio',
+} as const;
+
+export interface MessageAttachment {
+  kind: MessageAttachmentKind;
+  url: string;
+  contentType: string;
+  /** @nullable */
+  size: number | null;
+}
+
 /**
  * Only the selected source and its related tasks
  */
@@ -169,6 +220,12 @@ export const ProcessingJobStatus = {
 } as const;
 
 export interface ProcessingJob {
+  processor?: string;
+  processorVersion?: number;
+  /** @nullable */
+  provider?: string | null;
+  /** @nullable */
+  model?: string | null;
   eventId: string;
   status: ProcessingJobStatus;
   /** @nullable */
@@ -217,6 +274,10 @@ export const InboxEventKind = {
 export type InboxEventPayload = { [key: string]: unknown };
 
 export interface InboxEvent {
+  source?: MessageSource;
+  /** @nullable */
+  text?: string | null;
+  attachments?: MessageAttachment[];
   /** @nullable */
   deletedAt?: string | null;
   id: string;

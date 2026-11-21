@@ -1,12 +1,14 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { randomUUID } from "node:crypto";
-import { db, appSettingsTable, preferencesTable, jobsTable, eventsTable, actionsTable } from "@workspace/db";
+import { db, appSettingsTable, preferencesTable, jobsTable, eventsTable, actionsTable, messageOutboxTable } from "@workspace/db";
 import { and, desc, eq, isNull, isNotNull, sql } from "drizzle-orm";
 import { UpdateSettingsBody, CreateItemBody, UpdateItemBody, UpdateItemParams, DeleteItemParams, RestoreItemParams, UnderstandEventParams, PinItemParams } from "@workspace/api-zod";
 import { accountFor, validTimezone, parseInstant } from "../lib/account";
 import { managedModels, directModels } from "../lib/ai-models";
 import { publicAction } from "../lib/unified-items";
+import { ingestMessage, DeliveryConflict } from "../lib/message-ingestion";
+import { CreateMessageBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 router.use(async (req, res, next) => {
@@ -69,9 +71,34 @@ router.patch("/settings", async (req, res): Promise<void> => {
 });
 router.get("/organizer", async (_req, res) => {
   const items = await db.select({ action: actionsTable, deletedAt: eventsTable.deletedAt }).from(actionsTable).innerJoin(eventsTable, eq(actionsTable.sourceEventId, eventsTable.id)).where(and(eq(actionsTable.ownerId, res.locals.ownerId), isNull(actionsTable.removedAt))).orderBy(desc(actionsTable.createdAt), desc(actionsTable.id));
-  const jobs = await db.select({ eventId: jobsTable.eventId, status: jobsTable.status, error: jobsTable.error }).from(jobsTable).where(eq(jobsTable.ownerId, res.locals.ownerId));
+  const jobs = await db.select({ eventId: jobsTable.eventId, status: jobsTable.status, error: jobsTable.error, processor: jobsTable.processor, processorVersion: jobsTable.processorVersion, provider: jobsTable.provider, model: jobsTable.model }).from(jobsTable).where(eq(jobsTable.ownerId, res.locals.ownerId));
+  const pending = await db.select({ eventId: messageOutboxTable.eventId, error: messageOutboxTable.error })
+    .from(messageOutboxTable).innerJoin(eventsTable, eq(eventsTable.id, messageOutboxTable.eventId))
+    .where(and(eq(messageOutboxTable.ownerId, res.locals.ownerId), isNull(messageOutboxTable.dispatchedAt),
+      isNull(eventsTable.deletedAt), isNull(eventsTable.actionsInitializedAt), sql`length(trim(coalesce(${eventsTable.transcription}, ''))) > 0`));
+  const jobIds = new Set(jobs.map(job => job.eventId));
+  for (const row of pending) if (!jobIds.has(row.eventId)) jobs.push({
+    ...row, status: "pending", processor: "task-extraction", processorVersion: 1, provider: null, model: null,
+  });
   const [messages] = await db.select({ total: sql<number>`count(*)::int` }).from(eventsTable).where(and(eq(eventsTable.ownerId, res.locals.ownerId), isNull(eventsTable.deletedAt)));
   res.json({ items: items.map(({ action, deletedAt }) => ({ ...publicAction(action), sourceDeleted: !!deletedAt })), jobs, messageCount: messages.total });
+});
+router.post("/messages", async (req, res): Promise<void> => {
+  const parsed = CreateMessageBody.safeParse(req.body);
+  if (!parsed.success || !parsed.data.text.trim()) { res.status(400).json({ error: "Invalid message" }); return; }
+  const input = parsed.data;
+  const occurredAt = input.occurredAt ?? null;
+  try {
+    const receipt = await db.transaction(tx => ingestMessage(tx, {
+      ownerId: res.locals.ownerId, sourceType: input.sourceType,
+      sourceConnection: input.sourceConnection, externalId: input.externalId,
+      text: input.text, occurredAt, payload: input.metadata ?? {}, kind: "json",
+    }));
+    res.status(201).json({ id: receipt.id, received: true });
+  } catch (error) {
+    if (error instanceof DeliveryConflict) { res.status(409).json({ error: error.message }); return; }
+    throw error;
+  }
 });
 router.post("/events/:id/understand", async (req, res): Promise<void> => {
   const params = UnderstandEventParams.safeParse(req.params);
@@ -97,11 +124,9 @@ router.post("/items", async (req, res): Promise<void> => {
   let dueAt;
   try { dueAt = parseInstant(body.data.dueAt); } catch { res.status(400).json({ error: "Invalid date" }); return; }
   const item = await db.transaction(async tx => {
-    const sourceEventId = randomUUID();
-    await tx.insert(eventsTable).values({
-      id: sourceEventId, ownerId: res.locals.ownerId, kind: "json",
-      transcription: body.data.title.trim(), payload: { source: "manual" },
-      actionsInitializedAt: new Date(), unifiedAt: new Date(), editedAt: new Date(),
+    const { id: sourceEventId } = await ingestMessage(tx, {
+      ownerId: res.locals.ownerId, kind: "json", sourceType: "manual", sourceConnection: "manual",
+      text: body.data.title.trim(), occurredAt: null, payload: { source: "manual" }, initialized: true,
     });
     const [created] = await tx.insert(actionsTable).values({
       id: randomUUID(), sourceEventId, ownerId: res.locals.ownerId,

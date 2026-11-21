@@ -6,9 +6,7 @@ import type { useTaskUndo } from '../hooks/use-task-undo';
 
 type Undo = ReturnType<typeof useTaskUndo>;
 function UndoMessage({ notice, undo }: { notice: Undo['notices'][number]; undo: Undo }) {
-  const text = notice.state === 'restored' ? `Restored “${notice.item.title}”.`
-    : notice.state === 'expired' ? `Undo expired for “${notice.item.title}”.`
-    : notice.state === 'restoring' ? `Restoring “${notice.item.title}”…`
+  const text = notice.state === 'restoring' ? `Restoring “${notice.item.title}”…`
     : `Deleted “${notice.item.title}”. Undo available for 15 seconds.`;
   useEffect(() => {
     if (Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(notice.error || text);

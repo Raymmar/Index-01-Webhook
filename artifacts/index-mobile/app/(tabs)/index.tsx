@@ -13,6 +13,7 @@ import { deviceZone, useLive } from '@/lib/session';
 import { useHorizontalSwipe } from '@/hooks/use-horizontal-swipe';
 import { SwipeTaskRow } from '@/components/swipe-task-row';
 import { compareTasks } from '@/lib/task-order';
+import { matchesTask } from '@workspace/api-client-react';
 import { useTaskPins } from '@/hooks/use-task-pins';
 import { useTaskUndo } from '@/hooks/use-task-undo';
 import { TaskUndoMessages } from '@/components/task-undo-messages';
@@ -123,7 +124,7 @@ export default function Dashboard() {
   const first = addDays(startOfWeek(today, { weekStartsOn: 1 }), week * 7);
   const days = Array.from({ length: 7 }, (_, i) => addDays(first, i));
   const dayOf = (value: string) => formatInTimeZone(value, tz, 'yyyy-MM-dd');
-  const visible = items.filter(i => i.status === status && (filter === 'all' || (filter === 'scheduled' ? !!i.dueAt : !i.dueAt)) && (!date || (!!i.dueAt && dayOf(i.dueAt) === date))).sort(compareTasks);
+  const visible = items.filter(i => matchesTask(i, status, filter) && (!date || (!!i.dueAt && dayOf(i.dueAt) === date))).sort(compareTasks);
   function openEditor(item: ActionItem) {
     setEditorTasks([...visible]);
     setEditor(item);

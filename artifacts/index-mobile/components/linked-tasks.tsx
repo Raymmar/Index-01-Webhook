@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import {
-  useGetOrganizer, useUpdateItem, useConfirmationPreferences,
+  useGetOrganizer, useUpdateItem, useConfirmationPreferences, tasksForMessage,
   getGetOrganizerQueryKey, getListEventsQueryKey,
   type ActionItem, type Organizer,
 } from '@workspace/api-client-react';
@@ -28,7 +28,7 @@ export function LinkedTasks({ eventId, tz }: { eventId: string; tz: string }) {
     void qc.invalidateQueries({ queryKey: getListEventsQueryKey() });
   };
   const undo = useTaskUndo(refresh, errorMessage);
-  const tasks = (organizer.data?.items ?? []).filter(item => item.sourceEventId === eventId).sort(compareTasks);
+  const tasks = tasksForMessage(organizer.data?.items ?? [], eventId);
   const busy = update.isPending || undo.deleting;
 
   async function change(item: ActionItem, action: 'open' | 'completed' | 'dismissed' | 'delete') {

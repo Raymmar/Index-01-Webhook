@@ -77,6 +77,10 @@ export const GetOrganizerResponse = zod.object({
   "createdAt": zod.string()
 })),
   "jobs": zod.array(zod.object({
+  "processor": zod.string().optional(),
+  "processorVersion": zod.number().int().optional(),
+  "provider": zod.string().nullish(),
+  "model": zod.string().nullish(),
   "eventId": zod.string(),
   "status": zod.enum(['pending', 'processing', 'completed', 'failed']),
   "error": zod.string().nullable()
@@ -315,6 +319,18 @@ export const ListEventsQueryParams = zod.object({
 
 export const ListEventsResponse = zod.object({
   "items": zod.array(zod.object({
+  "source": zod.object({
+  "type": zod.string(),
+  "connectionId": zod.string().nullable(),
+  "externalId": zod.string().nullable()
+}).optional(),
+  "text": zod.string().nullish(),
+  "attachments": zod.array(zod.object({
+  "kind": zod.enum(['audio']),
+  "url": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int().nullable()
+})).optional(),
   "deletedAt": zod.string().nullish(),
   "id": zod.string(),
   "webhookId": zod.string().nullable(),
@@ -370,6 +386,18 @@ export const GetEventParams = zod.object({
 })
 
 export const GetEventResponse = zod.object({
+  "source": zod.object({
+  "type": zod.string(),
+  "connectionId": zod.string().nullable(),
+  "externalId": zod.string().nullable()
+}).optional(),
+  "text": zod.string().nullish(),
+  "attachments": zod.array(zod.object({
+  "kind": zod.enum(['audio']),
+  "url": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int().nullable()
+})).optional(),
   "deletedAt": zod.string().nullish(),
   "id": zod.string(),
   "webhookId": zod.string().nullable(),
@@ -391,8 +419,43 @@ export const GetEventAudioParams = zod.object({
 export const GetEventAudioResponse = zod.unknown()
 
 
+export const createMessageBodyTextMax = 100000;
+
+export const createMessageBodySourceTypeMax = 80;
+
+
+export const createMessageBodySourceTypeRegExp = new RegExp('^[a-zA-Z0-9._-]+$');
+export const createMessageBodySourceConnectionMax = 256;
+
+export const createMessageBodyExternalIdMax = 256;
+
+
+
+export const CreateMessageBody = zod.object({
+  "text": zod.string().min(1).max(createMessageBodyTextMax),
+  "sourceType": zod.string().min(1).max(createMessageBodySourceTypeMax).regex(createMessageBodySourceTypeRegExp),
+  "sourceConnection": zod.string().min(1).max(createMessageBodySourceConnectionMax),
+  "externalId": zod.string().min(1).max(createMessageBodyExternalIdMax).optional(),
+  "occurredAt": zod.coerce.date().optional(),
+  "metadata": zod.record(zod.string(), zod.unknown()).optional()
+})
+
+export const CreateMessageResponse = zod.object({
+  "id": zod.string(),
+  "received": zod.boolean()
+})
+
+
 export const ReceiveWebhookParams = zod.object({
   "id": zod.coerce.string()
+})
+
+export const receiveWebhookHeaderIdempotencyKeyMax = 256;
+
+
+
+export const ReceiveWebhookHeader = zod.object({
+  "Idempotency-Key": zod.string().min(1).max(receiveWebhookHeaderIdempotencyKeyMax).optional().describe('Stable delivery identifier, scoped to this webhook')
 })
 
 export const ReceiveWebhookBody = zod.record(zod.string(), zod.unknown())

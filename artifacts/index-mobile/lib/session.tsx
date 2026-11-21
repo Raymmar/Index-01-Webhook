@@ -4,6 +4,7 @@ import { useAuth } from '@clerk/expo';
 import { useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { fetch as streamFetch } from 'expo/fetch';
 import { withStreamDeadline } from './stream-deadline';
+import { refreshInbox } from '@workspace/api-client-react';
 import { setAuthTokenGetter, listEvents, getListEventsQueryKey, getGetOrganizerQueryKey, getGetSettingsQueryKey, getListWebhooksQueryKey } from '@workspace/api-client-react';
 
 export const origin = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
@@ -41,12 +42,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     let generation = 0;
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
     const refresh = () => {
-      void qc.invalidateQueries({ predicate: query => String(query.queryKey[0]).startsWith('/api/events/') });
-      void qc.invalidateQueries({ queryKey: getListEventsQueryKey() });
-      void qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() });
-      void qc.invalidateQueries({ queryKey: getGetSettingsQueryKey() });
-      void qc.invalidateQueries({ queryKey: getListWebhooksQueryKey() });
-      void qc.invalidateQueries({ predicate: query => typeof query.queryKey[0] === 'string' && query.queryKey[0].startsWith('/api/events/') });
+      void refreshInbox(qc);
     };
     const stop = () => { generation++; controller?.abort(); void reader?.cancel().catch(() => {}); if (timer) clearTimeout(timer); };
     async function connect() {

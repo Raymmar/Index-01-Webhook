@@ -273,11 +273,28 @@ paths:
           content:
             audio/mp4:
               schema: { type: string, format: binary }
+  /messages:
+    post:
+      operationId: createMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MessageInput" }
+      responses:
+        "201":
+          description: Original message durably received; processing is asynchronous
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Receipt" }
+        "409":
+          description: Delivery identifier was already used with different content
   /receive/{id}:
     post:
       operationId: receiveWebhook
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: Idempotency-Key, in: header, schema: { type: string, minLength: 1, maxLength: 256 }, description: "Stable delivery identifier, scoped to this webhook" }
       security: [{ webhookToken: [] }]
       requestBody:
         required: true
@@ -296,6 +313,31 @@ components:
   securitySchemes:
     webhookToken: { type: http, scheme: bearer }
   schemas:
+    MessageInput:
+      type: object
+      required: [text, sourceType, sourceConnection]
+      properties:
+        text: { type: string, minLength: 1, maxLength: 100000 }
+        sourceType: { type: string, minLength: 1, maxLength: 80, pattern: "^[a-zA-Z0-9._-]+$" }
+        sourceConnection: { type: string, minLength: 1, maxLength: 256 }
+        externalId: { type: string, minLength: 1, maxLength: 256 }
+        occurredAt: { type: string, format: date-time }
+        metadata: { type: object, additionalProperties: true }
+    MessageSource:
+      type: object
+      required: [type, connectionId, externalId]
+      properties:
+        type: { type: string }
+        connectionId: { type: [string, "null"] }
+        externalId: { type: [string, "null"] }
+    MessageAttachment:
+      type: object
+      required: [kind, url, contentType, size]
+      properties:
+        kind: { type: string, enum: [audio] }
+        url: { type: string }
+        contentType: { type: string }
+        size: { type: [integer, "null"] }
     SourceDeletion:
       type: object
       required: [scope]
@@ -363,6 +405,10 @@ components:
       type: object
       required: [eventId, status, error]
       properties:
+        processor: { type: string }
+        processorVersion: { type: integer }
+        provider: { type: [string, "null"] }
+        model: { type: [string, "null"] }
         eventId: { type: string }
         status: { type: string, enum: [pending, processing, completed, failed] }
         error: { type: [string, "null"] }
@@ -403,6 +449,11 @@ components:
       type: object
       required: [id, webhookId, webhookName, receivedAt, recordedAt, kind, transcription, audioUrl, audioSize, payload]
       properties:
+        source: { $ref: "#/components/schemas/MessageSource" }
+        text: { type: [string, "null"] }
+        attachments:
+          type: array
+          items: { $ref: "#/components/schemas/MessageAttachment" }
         deletedAt: { type: [string, "null"] }
         id: { type: string }
         webhookId: { type: [string, "null"] }

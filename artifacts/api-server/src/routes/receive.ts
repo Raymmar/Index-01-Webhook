@@ -1,11 +1,12 @@
 import express, { Router, type IRouter } from "express";
-import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import multer from "multer";
 import { rateLimit } from "express-rate-limit";
-import { db, eventsTable, webhooksTable, jobsTable, appSettingsTable } from "@workspace/db";
+import { db, webhooksTable, appSettingsTable } from "@workspace/db";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { ReceiveWebhookParams, ReceiveWebhookBody } from "@workspace/api-zod";
 import { audioFile, saveAudio } from "../lib/recording-storage";
+import { ingestMessage, DeliveryConflict } from "../lib/message-ingestion";
 
 export const hashToken = (value: string) => createHash("sha256").update(value).digest("hex");
 const router: IRouter = Router();
@@ -14,18 +15,6 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024, files: 1, fields: 20, fieldSize: 512 * 1024, parts: 21 },
 });
 const limiter = rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
-
-// Discard credential-like keys from the inspector. Never capture request headers.
-function redact(value: unknown, depth = 0): unknown {
-  if (depth > 20) return "[depth limit]";
-  if (Array.isArray(value)) return value.map((item) => redact(item, depth + 1));
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [
-      key, /authorization|cookie|password|secret|token|api.?key/i.test(key) ? "[redacted]" : redact(item, depth + 1),
-    ]));
-  }
-  return value;
-}
 
 router.post("/receive/:id", limiter, async (req, res, next): Promise<void> => {
   const params = ReceiveWebhookParams.safeParse(req.params);
@@ -67,44 +56,50 @@ router.post("/receive/:id", limiter, async (req, res, next): Promise<void> => {
     }
     recordedAt = new Date(time);
   }
-  const id = randomUUID();
-  const receivedAt = new Date();
+  const suppliedKey = req.get("Idempotency-Key") ?? body.deliveryId;
+  if (suppliedKey !== undefined && (typeof suppliedKey !== "string" || !suppliedKey.trim() || suppliedKey.length > 256)) {
+    res.status(400).json({ error: "Delivery identifier must be 1–256 characters" }); return;
+  }
+  const audioHash = file ? createHash("sha256").update(file.buffer).digest("hex") : null;
+  // No transcript-only deduplication. Legacy recordings need an actual recording
+  // timestamp and identical audio bytes to identify a redelivery safely.
+  const externalId = typeof suppliedKey === "string" ? `id:${suppliedKey}`
+    : recordedAt && audioHash ? `recording:${recordedAt.toISOString()}:${audioHash}` : null;
   const audioPath = file ? await saveAudio(file.buffer) : null;
   try {
     const accepted = await db.transaction(async (tx) => {
       // Recheck credentials while holding the row lock. A request uploading audio
       // when its webhook is revoked must not insert an event after revocation.
-      const [active] = await tx.update(webhooksTable).set({
-        lastReceivedAt: receivedAt, eventCount: sql`${webhooksTable.eventCount} + 1`,
-      }).where(and(
+      const [active] = await tx.select().from(webhooksTable).where(and(
         eq(webhooksTable.id, hook.id), isNull(webhooksTable.revokedAt), eq(webhooksTable.tokenHash, hook.tokenHash),
-      )).returning({ id: webhooksTable.id });
-      if (!active) return false;
-      await tx.insert(eventsTable).values({
-        id, ownerId: hook.ownerId, webhookId: hook.id, receivedAt, recordedAt,
+      )).for("update");
+      if (!active) return null;
+      const receipt = await ingestMessage(tx, {
+        ownerId: hook.ownerId, webhookId: hook.id, sourceType: "pebble",
+        sourceConnection: hook.id, externalId, occurredAt: recordedAt,
         kind: multipart ? "recording" : "json",
-        transcription: typeof body.transcription === "string" ? body.transcription : null,
-        audioPath, audioSize: file?.size ?? null,
-        payload: redact(body) as Record<string, unknown>, unifiedAt: new Date(),
+        text: typeof body.transcription === "string" ? body.transcription : null,
+        audio: audioPath && file && audioHash ? { path: audioPath, size: file.size, hash: audioHash } : undefined,
+        payload: body,
       });
-      if (typeof body.transcription === "string" && body.transcription.trim()) {
-        await tx.insert(jobsTable).values({ eventId: id, ownerId: hook.ownerId }).onConflictDoNothing();
-      }
-      // Delivered only after commit, so SSE readers can immediately fetch it.
-      // Contains only the account identifier, never transcript or credentials.
-      await tx.execute(sql`SELECT pg_notify('ring_inbox_changed', ${hook.ownerId})`);
-      return true;
+      if (receipt.inserted) await tx.update(webhooksTable).set({
+        lastReceivedAt: receipt.receivedAt, eventCount: sql`${webhooksTable.eventCount} + 1`,
+      }).where(eq(webhooksTable.id, hook.id));
+      return receipt;
     });
-    if (!accepted) {
+    if (!accepted || !accepted.inserted) {
       if (audioPath) await audioFile(audioPath).delete().catch(() => req.log.warn("Could not remove a revoked webhook audio upload"));
+    }
+    if (!accepted) {
       res.status(401).json({ error: "Invalid webhook credentials" });
       return;
     }
+    res.status(201).json({ id: accepted.id, received: true });
   } catch (error) {
     if (audioPath) await audioFile(audioPath).delete().catch(() => req.log.warn("Could not remove an uncommitted audio upload"));
+    if (error instanceof DeliveryConflict) { res.status(409).json({ error: error.message }); return; }
     throw error;
   }
-  res.status(201).json({ id, received: true });
 });
 
 export default router;

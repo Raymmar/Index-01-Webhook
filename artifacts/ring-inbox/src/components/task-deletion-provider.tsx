@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useSyncExternalStore, t
 import { useQueryClient } from "@tanstack/react-query";
 import { useDeleteItem, useRestoreItem, getGetOrganizerQueryKey, getListEventsQueryKey } from "@workspace/api-client-react";
 import { TaskDeletion } from "@/lib/task-deletion";
+import { refreshInbox } from "@workspace/api-client-react";
 
 const Context = createContext<TaskDeletion | null>(null);
 export function useTaskDeletion() {
@@ -18,8 +19,7 @@ export function TaskDeletionProvider({ children }: { children: ReactNode }) {
     remove: id => remove.mutateAsync({ id }),
     restore: id => restore.mutateAsync({ id }),
     changed: () => {
-      void queryClient.invalidateQueries({ queryKey: getGetOrganizerQueryKey() });
-      void queryClient.invalidateQueries({ queryKey: getListEventsQueryKey() });
+      void refreshInbox(queryClient);
     },
   }));
   return <Context.Provider value={deletion}>{children}<TaskDeletionMessages deletion={deletion} /></Context.Provider>;
@@ -29,15 +29,16 @@ export function TaskDeletionMessages({ deletion }: { deletion: TaskDeletion }) {
   const notices = useSyncExternalStore(deletion.subscribe, deletion.snapshot);
   useEffect(() => {
     const expire = () => deletion.expire();
-    const timer = window.setInterval(expire, 250);
+    const next = Math.min(...notices.filter(row => row.state === "ready").map(row => row.expiresAt));
+    const timer = Number.isFinite(next) ? window.setTimeout(expire, Math.max(0, next - Date.now())) : undefined;
     window.addEventListener("focus", expire);
     document.addEventListener("visibilitychange", expire);
     return () => {
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
       window.removeEventListener("focus", expire);
       document.removeEventListener("visibilitychange", expire);
     };
-  }, [deletion]);
+  }, [deletion, notices]);
   const button = "shrink-0 rounded-md px-3 py-2 text-sm hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
   return <section aria-label="Task deletion messages" className="pointer-events-none fixed inset-x-3 bottom-3 z-50 ml-auto max-h-[45dvh] max-w-md space-y-2 overflow-y-auto">
     {notices.map(notice => <div key={notice.id} data-testid={`task-deletion-${notice.id}`} className="pointer-events-auto rounded-lg border border-border bg-card p-3 text-sm text-card-foreground shadow-sm">

@@ -8,6 +8,7 @@ import { ActionItemRow, Composer } from "./items";
 import { Skeleton } from "@/components/ui/skeleton";
 import { browserZone } from "@/lib/tz";
 import { compareActionItems } from "@/lib/action-order";
+import { matchesTask } from "@workspace/api-client-react";
 import { useInboxDrawer } from "@/hooks/use-inbox-drawer";
 
 const button = "rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -45,7 +46,7 @@ export default function Dashboard() {
   const dayOf = (instant: string) => formatInTimeZone(new Date(instant), tz, "yyyy-MM-dd");
   const visible = items.filter(i =>
     (closed ? i.status !== "open" : i.status === "open") &&
-    (filter === "all" || (filter === "scheduled" ? !!i.dueAt : !i.dueAt)) &&
+    matchesTask(i, i.status, filter) &&
     (!date || (i.dueAt && dayOf(i.dueAt) === date))
   ).sort(compareActionItems);
   const reset = () => { setDate(null); setWeek(0); setClosed(false); setFilter("all"); };

@@ -16,6 +16,10 @@ export const preferencesTable = pgTable("user_preferences", {
   skipMessageDeleteConfirmation: boolean("skip_message_delete_confirmation").notNull().default(false),
 });
 export const jobsTable = pgTable("understanding_jobs", {
+  processor: text("processor").notNull().default("task-extraction"),
+  processorVersion: integer("processor_version").notNull().default(1),
+  model: text("model"),
+  provider: text("provider"),
   eventId: text("event_id").primaryKey().references(() => eventsTable.id),
   ownerId: text("owner_id").notNull(),
   status: text("status").notNull().default("pending"),

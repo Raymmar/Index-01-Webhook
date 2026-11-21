@@ -13,7 +13,7 @@ const admin = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const temp = await mkdtemp(join(tmpdir(), "organizer-"));
 try {
   await admin.query(`CREATE SCHEMA ${schemaName}`);
-  for (const table of ["webhooks", "inbox_events", "app_settings", "user_preferences", "understanding_jobs", "action_items", "active_actions"]) {
+  for (const table of ["webhooks", "inbox_events", "app_settings", "user_preferences", "understanding_jobs", "action_items", "active_actions", "message_outbox"]) {
     await admin.query(`CREATE TABLE ${schemaName}.${table} (LIKE public.${table} INCLUDING ALL)`);
   }
   const outfile = join(temp, "check.cjs");
@@ -22,15 +22,17 @@ try {
       contents: `
 import assert from "node:assert/strict";
 import express from "express";
-import { db, pool, appSettingsTable, eventsTable, jobsTable, itemsTable, actionsTable } from "@workspace/db";
+import { db, pool, appSettingsTable, eventsTable, jobsTable, itemsTable, actionsTable, messageOutboxTable } from "@workspace/db";
 import organizer from "./src/routes/organizer";
 import inbox from "./src/routes/inbox";
 import receive from "./src/routes/receive";
 import { accountFor } from "./src/lib/account";
 import { processNextJob, startUnderstandingWorker } from "./src/lib/understanding-worker";
+import { dispatchNextMessage, startMessageDispatcher } from "./src/lib/message-dispatcher";
 import { resolveDue, extractActions } from "./src/lib/understanding";
 import { migrateUnifiedItems } from "./src/lib/unified-items";
 import { processingFailure } from "./src/lib/ai-models";
+import { audioFile } from "./src/lib/recording-storage";
 import { eq, sql } from "drizzle-orm";
 export async function check() {
   const app = express();
@@ -124,6 +126,8 @@ export async function check() {
     const receipt = await delivery.json();
     await db.update(eventsTable).set({ receivedAt: new Date("2026-11-15T16:58:00Z") }).where(eq(eventsTable.id, receipt.id));
     assert.equal((await api("/events/" + receipt.id + "/understand", "POST", "other")).status, 404);
+    assert.equal((await db.select().from(jobsTable)).length, 0, "receipt does not create AI jobs");
+    await dispatchNextMessage();
     await Promise.all([processNextJob(), processNextJob()]);
     let data = await (await api("/organizer")).json();
     assert.equal(data.messageCount, 1);
@@ -406,7 +410,109 @@ export async function check() {
       assert.ok(completed, "Committed jobs must wake the worker without a five-second polling delay");
       console.log("PASS: real PostgreSQL notification wakes the AI worker and completes queued work");
     } finally { stopWorker(); }
+    // Receipt and dispatch are independent, durable and source/owner scoped.
+    await db.delete(jobsTable);
+    await db.delete(messageOutboxTable);
+    await api("/settings", "PATCH", "owner", {allowSignups:true});
+    const messageInput = { text: "Call Sam tomorrow", sourceType: "assistant", sourceConnection: "device-one", externalId: "delivery-one",
+      occurredAt: "2026-11-15T16:58:00Z", metadata: { authorization: "never-store-me", label: "fixture" } };
+    assert.equal((await api("/messages", "POST", "", messageInput)).status, 401);
+    const deliveries = await Promise.all(Array.from({length: 4}, () => api("/messages", "POST", "owner", messageInput)));
+    assert.ok(deliveries.every(response => response.status === 201));
+    const delivered = await Promise.all(deliveries.map(response => response.json()));
+    assert.equal(new Set(delivered.map(row => row.id)).size, 1);
+    const sourceId = delivered[0].id;
+    assert.equal((await db.select().from(jobsTable)).length, 0);
+    assert.equal((await db.select().from(messageOutboxTable)).length, 1);
+    const sourceView = await (await api("/events/" + sourceId)).json();
+    assert.equal(sourceView.text, messageInput.text);
+    assert.equal(sourceView.source.type, "assistant");
+    assert.equal(sourceView.source.externalId, "delivery-one");
+    assert.equal(sourceView.payload.authorization, "[redacted]");
+    assert.deepEqual(sourceView.attachments, []);
+    assert.equal((await api("/events/" + sourceId, "GET", "other")).status, 404);
+    assert.equal((await api("/messages", "POST", "owner", {...messageInput, text: "Different content"})).status, 409);
+    // Fail AI queue writes only: ingest stays successful and dispatch retries persist.
+    await pool.query("ALTER TABLE understanding_jobs ADD CONSTRAINT reject_dispatch_fixture CHECK (event_id <> '" + sourceId + "')");
+    await dispatchNextMessage();
+    let handoff = (await db.select().from(messageOutboxTable))[0];
+    assert.equal(handoff.dispatchedAt, null);
+    assert.equal(handoff.attempts, 1);
+    assert.ok(handoff.error);
+    assert.equal((await api("/events/" + sourceId)).status, 200);
+    assert.equal((await (await api("/organizer")).json()).jobs.find(j => j.eventId === sourceId).status, "pending");
+    await pool.query("ALTER TABLE understanding_jobs DROP CONSTRAINT reject_dispatch_fixture");
+    await db.update(messageOutboxTable).set({availableAt:new Date(0)});
+    await Promise.all([dispatchNextMessage(), dispatchNextMessage()]);
+    assert.equal((await db.select().from(jobsTable)).length, 1);
+    assert.ok((await db.select().from(messageOutboxTable))[0].dispatchedAt);
+    await processNextJob();
+    assert.equal((await db.select().from(jobsTable))[0].processor, "task-extraction");
+    assert.ok((await db.select().from(jobsTable))[0].model);
+    // A retried delivery after deleting the original must never resurrect it.
+    assert.equal((await api("/events/" + sourceId + "/deletion", "POST", "owner", {scope:"note"})).status, 204);
+    assert.equal((await (await api("/messages", "POST", "owner", messageInput)).json()).id, sourceId);
+    assert.ok((await (await api("/events/" + sourceId)).json()).deletedAt);
+    const other = await (await api("/messages", "POST", "other", messageInput)).json();
+    assert.notEqual(other.id, sourceId);
+    const secondConnection = await (await api("/messages", "POST", "owner", {...messageInput, sourceConnection:"device-two"})).json();
+    assert.notEqual(secondConnection.id, sourceId);
+    const noId = {...messageInput}; delete noId.externalId;
+    const repeatA = await (await api("/messages", "POST", "owner", noId)).json();
+    const repeatB = await (await api("/messages", "POST", "owner", noId)).json();
+    assert.notEqual(repeatA.id, repeatB.id, "equal text alone is never deduplicated");
+    const webhookHeaders = {"content-type":"application/json", authorization:hook.headerValue, "Idempotency-Key":"stable-fixture"};
+    const sendHook = body => fetch(base + hook.webhook.path.slice(4), {method:"POST", headers:webhookHeaders, body:JSON.stringify(body)});
+    const h1 = await (await sendHook({transcription:"A new thought"})).json();
+    const h2 = await (await sendHook({transcription:"A new thought"})).json();
+    assert.equal(h1.id, h2.id);
+    assert.equal((await sendHook({transcription:"A different thought"})).status, 409);
+    const h3 = await sendHook({transcription:"A new thought"});
+    assert.equal(h3.status, 201, "conflict did not poison later retries");
+    console.log("PASS: normalized messages, concurrent deduplication, safe conflict handling, owner/source isolation and durable dispatch failure recovery");
+    // Exercise real private storage with a small ISO-BMFF header fixture, not a
+    // playback-quality recording. Round-trip bytes and clean up every upload.
+    const audioBytes = Buffer.from("00000018667479704d344120000000004d3441206d703432", "hex");
+    const recording = async time => {
+      const form = new FormData();
+      form.append("audio", new Blob([audioBytes], {type:"audio/mp4"}), "fixture.m4a");
+      form.append("recordedAt", String(time));
+      return fetch(base + hook.webhook.path.slice(4), {method:"POST",headers:{authorization:hook.headerValue},body:form});
+    };
+    const audioOneResponse = await recording(1790000000000);
+    assert.equal(audioOneResponse.status, 201);
+    const audioOne = await audioOneResponse.json();
+    const audioTwo = await (await recording(1790000000000)).json();
+    assert.equal(audioOne.id, audioTwo.id);
+    const laterRecording = await (await recording(1790000001000)).json();
+    assert.notEqual(laterRecording.id, audioOne.id, "different recording time preserves a legitimate new recording");
+    const recordingView = await (await api("/events/" + audioOne.id)).json();
+    assert.equal(recordingView.source.type, "pebble");
+    assert.equal(recordingView.attachments[0].url, recordingView.audioUrl);
+    const readback = await api("/events/" + audioOne.id + "/audio");
+    assert.equal(readback.status, 200);
+    assert.deepEqual(Buffer.from(await readback.arrayBuffer()), audioBytes);
+    console.log("PASS: multipart private audio upload/readback and timestamp-plus-audio deduplication");
+    // Start after receipt to prove restart catch-up, then send another live event.
+    const stopDispatch = startMessageDispatcher();
+    const stopUnderstanding = startUnderstandingWorker();
+    try {
+      const live = await (await api("/messages", "POST", "owner", {...messageInput, externalId:"live-wakeup", text:"Index webhook test event"})).json();
+      const deadline = Date.now() + 4000;
+      let complete = false;
+      while (Date.now() < deadline) {
+        const rows = await db.select().from(jobsTable).where(eq(jobsTable.eventId, live.id));
+        if (rows[0]?.status === "completed") { complete = true; break; }
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+      assert.ok(complete, "receipt, dispatch and extraction complete without polling delay");
+      assert.ok((await db.select().from(messageOutboxTable)).every(row => row.dispatchedAt));
+      console.log("PASS: startup backlog plus live receipt dispatch and processing through PostgreSQL notifications");
+    } finally { stopDispatch(); stopUnderstanding(); await new Promise(resolve => setTimeout(resolve, 100)); }
   } finally {
+    for (const event of await db.select().from(eventsTable)) {
+      if (event.audioPath) await audioFile(event.audioPath).delete().catch(() => {});
+    }
     await listener.query("UNLISTEN ring_inbox_changed");
     listener.release();
     await new Promise(resolve => server.close(resolve));

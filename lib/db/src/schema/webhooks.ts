@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, jsonb, index, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, jsonb, index, uniqueIndex, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
 export const webhooksTable = pgTable("webhooks", {
@@ -16,6 +16,10 @@ export const eventsTable = pgTable("inbox_events", {
   id: text("id").primaryKey(),
   ownerId: text("owner_id").notNull(),
   webhookId: text("webhook_id").references(() => webhooksTable.id),
+  sourceType: text("source_type").notNull().default("legacy"),
+  sourceConnection: text("source_connection"),
+  sourceExternalId: text("source_external_id"),
+  ingestionHash: text("ingestion_hash"),
   receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
   recordedAt: timestamp("recorded_at", { withTimezone: true }),
   kind: text("kind").notNull(),
@@ -34,7 +38,10 @@ export const eventsTable = pgTable("inbox_events", {
   editedAt: timestamp("edited_at", { withTimezone: true }),
   actionsInitializedAt: timestamp("actions_initialized_at", { withTimezone: true }),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
-}, (t) => [index("events_owner_received_idx").on(t.ownerId, t.receivedAt, t.id)]);
+}, (t) => [
+  index("events_owner_received_idx").on(t.ownerId, t.receivedAt, t.id),
+  uniqueIndex("events_source_delivery_idx").on(t.ownerId, t.sourceType, t.sourceConnection, t.sourceExternalId),
+]);
 
 export const insertWebhookSchema = createInsertSchema(webhooksTable);
 export const insertEventSchema = createInsertSchema(eventsTable);

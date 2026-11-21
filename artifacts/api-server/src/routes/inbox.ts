@@ -7,6 +7,7 @@ import { CreateWebhookBody, CreateWebhookResponse, ListWebhooksResponse, ListEve
 import { hashToken } from "./receive";
 import { audioFile } from "../lib/recording-storage";
 import { openInboxStream } from "../lib/inbox-stream";
+import { publicMessage } from "../lib/public-message";
 import { DeleteSourceBody, DeleteSourceParams } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -99,12 +100,7 @@ router.get("/events", async (req, res): Promise<void> => {
       ) : undefined,
     ))
     .orderBy(desc(eventsTable.receivedAt), desc(eventsTable.id)).limit(pageSize + 1);
-  const items = rows.slice(0, pageSize).map(({ event, webhookName }) => ({
-    id: event.id, webhookId: event.webhookId, webhookName: webhookName ?? "Manual", receivedAt: event.receivedAt.toISOString(),
-    recordedAt: event.recordedAt?.toISOString() ?? null, kind: event.kind,
-    transcription: event.transcription, audioSize: event.audioSize,
-    audioUrl: event.audioPath ? `/api/events/${event.id}/audio` : null, payload: event.payload,
-  }));
+  const items = rows.slice(0, pageSize).map(({ event, webhookName }) => publicMessage(event, webhookName));
   const last = items.at(-1);
   res.json(ListEventsResponse.parse({ items, nextCursor: rows.length > pageSize && last ? `${rows[pageSize - 1]!.cursorTime}|${last.id}` : null }));
 });
@@ -157,13 +153,7 @@ router.get("/events/:id", async (req, res): Promise<void> => {
     .where(and(eq(eventsTable.id, params.data.id), eq(eventsTable.ownerId, res.locals.ownerId)));
   if (!row) { res.status(404).json({ error: "Message not found" }); return; }
   const { event, webhookName } = row;
-  res.json(GetEventResponse.parse({
-    id: event.id, webhookId: event.webhookId, webhookName: webhookName ?? "Manual",
-    receivedAt: event.receivedAt.toISOString(), recordedAt: event.recordedAt?.toISOString() ?? null,
-    deletedAt: event.deletedAt?.toISOString() ?? null,
-    kind: event.kind, transcription: event.deletedAt ? null : event.transcription, audioSize: event.deletedAt ? null : event.audioSize,
-    audioUrl: !event.deletedAt && event.audioPath ? `/api/events/${event.id}/audio` : null, payload: event.deletedAt ? {} : event.payload,
-  }));
+  res.json(GetEventResponse.parse(publicMessage(event, webhookName)));
 });
 
 router.get("/events/:id/audio", async (req, res): Promise<void> => {

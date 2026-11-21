@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { refreshInbox } from "@workspace/api-client-react";
 import { getListEventsQueryKey, getListWebhooksQueryKey, getGetOrganizerQueryKey, getGetSettingsQueryKey } from "@workspace/api-client-react";
 
 /** Mount once, in the signed-in shell. */
@@ -12,11 +13,7 @@ export function useInboxStream(enabled = true) {
     const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     const stream = new EventSource(`${base}/api/events/stream`, { withCredentials: true });
     const refresh = () => {
-      void queryClient.invalidateQueries({ queryKey: getListEventsQueryKey() });
-      void queryClient.invalidateQueries({ queryKey: getListWebhooksQueryKey() });
-      void queryClient.invalidateQueries({ queryKey: getGetOrganizerQueryKey() });
-      void queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() });
-      void queryClient.invalidateQueries({ predicate: query => typeof query.queryKey[0] === "string" && query.queryKey[0].startsWith("/api/events/") });
+      void refreshInbox(queryClient);
     };
     stream.addEventListener("ready", () => { setStatus("live"); refresh(); });
     stream.addEventListener("inbox-changed", refresh);

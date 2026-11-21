@@ -8,6 +8,12 @@
 import type { ProcessingJobStatus } from './processingJobStatus';
 
 export interface ProcessingJob {
+  processor?: string;
+  processorVersion?: number;
+  /** @nullable */
+  provider?: string | null;
+  /** @nullable */
+  model?: string | null;
   eventId: string;
   status: ProcessingJobStatus;
   /** @nullable */
