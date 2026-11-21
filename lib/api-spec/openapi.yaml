@@ -273,6 +273,28 @@ paths:
           content:
             audio/mp4:
               schema: { type: string, format: binary }
+  /prompts:
+    get:
+      operationId: getPrompts
+      responses:
+        "200":
+          description: This account's editable extraction skill
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PromptSettings" }
+    put:
+      operationId: updatePrompts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PromptInstructions" }
+      responses:
+        "200":
+          description: Saved extraction skill
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PromptSettings" }
   /messages:
     post:
       operationId: createMessage
@@ -313,6 +335,21 @@ components:
   securitySchemes:
     webhookToken: { type: http, scheme: bearer }
   schemas:
+    PromptInstructions:
+      type: object
+      required: [taskRules, dateRules, titleStyle, personalContext]
+      properties:
+        taskRules: { type: string, maxLength: 6000 }
+        dateRules: { type: string, maxLength: 6000 }
+        titleStyle: { type: string, maxLength: 6000 }
+        personalContext: { type: string, maxLength: 6000 }
+    PromptSettings:
+      type: object
+      required: [instructions, defaults, skill]
+      properties:
+        instructions: { $ref: "#/components/schemas/PromptInstructions" }
+        defaults: { $ref: "#/components/schemas/PromptInstructions" }
+        skill: { type: string }
     MessageInput:
       type: object
       required: [text, sourceType, sourceConnection]

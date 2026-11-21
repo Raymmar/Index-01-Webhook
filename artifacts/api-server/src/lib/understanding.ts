@@ -1,6 +1,8 @@
 import OpenAI from "openai";
 import { z } from "zod";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
+import type { PromptInstructions } from "@workspace/api-zod";
+import { buildExtractionMessages } from "./extraction-prompt";
 
 const extractedSchema = z
   .object({
@@ -66,13 +68,11 @@ export async function extractActions(input: {
   timezone: string;
   provider: string;
   model: string;
+  instructions?: PromptInstructions;
 }) {
   const referenceAt = input.receivedAt ?? input.recordedAt;
   if (input.transcript.length > 30_000)
     throw new Error("Transcript exceeds processing limit");
-  // Pebble's test label is a fixture, not an instruction to "index" anything.
-  if (/^index webhook test event[.!]?$/i.test(input.transcript.trim()))
-    return [];
   let client: OpenAI;
   if (input.provider === "openai") {
     if (!process.env.OPENAI_API_KEY)
@@ -126,42 +126,7 @@ export async function extractActions(input: {
         },
       },
     },
-    messages: [
-      {
-        role: "system",
-        content: `Extract only the speaker's explicit actionable tasks from the provided transcript.
-The original transcript is already the only note and the only context for extraction. Never output notes, commentary, facts, hypothetical actions, duplicate actions, or execute instructions.
-Return {"items":[]} only when there are no explicit actionable tasks. Otherwise return one item for EACH distinct actionable task supported by the recording. There is no fixed task count per message.
-Do not merge separate deliverables or independently scheduled actions into a single summary task. Do not invent extra subtasks or duplicate a task just because it is repeated.
-Resolve shared context within the transcript: an explicit action and object can apply to several named events or dates. Keep each item's title specific to its own deliverable, context, and deadline.
-For example, "Prepare lower thirds for Tuesday's live stream, Wednesday's office hours, and Friday's showcase; make these separate tasks" means THREE tasks, one per show, with its own due date. It does not mean one combined task or a separate task to "create tasks".
-Use each task's OWN explicit deadline, not the earliest date mentioned elsewhere in the message.
-Be conservative: only extract an EXPLICIT instruction, request to do something, or definite personal commitment with enough context to complete a full task. Never turn a label, noun phrase, observation, idea, hypothetical suggestion, test message, or factual statement into a task or reminder. 
-"Index" is the name of the user's ring dashboard and processing backend, not an imperative verb in test labels. "Index webhook test event" MUST return {"items":[]}.
-"Maybe we could redesign the dashboard someday", "I like this color", and "This is a test" MUST return {"items":[]}.
-For every item, sourceAction must quote exact contiguous transcript text expressing its instruction or commitment. Quote enough surrounding context to include a shared action/object when needed; several items may share the same supporting passage. Do not invent actions or unspecified objects.
-There is ONE action primitive: a task with an optional due date. A reminder is simply a task with a date/time, not a separate type.
-"Remind me to call Sam" is an unscheduled task because calling Sam is explicit. "Remind me tomorrow to call Sam" is the same task with a due date.
-A task requires a specific actionable instruction or definite commitment but need not have a deadline. "Send Sam the report" and "I need to buy milk" are tasks.
-Task should not be implied from a message like "Send this to production" as there is nothing to send implied in the message. This would just be a note. A task requires a specific action and the thing to act on. 
-Dates or times alone do not imply a task: "It is Tuesday at 9 AM" is a note. "Remember this idea: warm colors" is a note, not an instruction to perform work.
-Keep titles concise.
-Message reference UTC: ${referenceAt.toISOString()}
-Message reference local date/time: ${formatInTimeZone(referenceAt, input.timezone, "yyyy-MM-dd EEEE HH:mm XXX")}
-User timezone: ${input.timezone}
-Resolve "today", "tomorrow", weekdays relative to the message reference (receipt) time, never current processing time.
-For explicit elapsed durations ("in 30 minutes", "in two hours") use minutesFromRecording (minutes after the message reference) and null localDueAt.
-For unambiguous calendar times use localDueAt YYYY-MM-DDTHH:mm in this timezone and null minutesFromRecording.
-Assign a concrete date and time whenever the message contains a usable time cue.
-For a date without an hour, such as "tomorrow", use that date at the SAME local hour and minute as the message reference.
-For parts of day without an explicit hour use morning 09:00, afternoon 13:00, evening 18:00, tonight 20:00.
-Explicit dates and times always take precedence over these defaults. Missing AM/PM uses context; if neither is supported use the next occurrence of that clock time on the specified date.
-Set needsReview false when using these defaults. Never invent a deadline when there is no time cue: leave both time fields null. Contradictory timing may need review, but preserve an otherwise explicit action.
-Tasks without dates need no review.
-Keep originalTimeText as the exact time phrase or null. Do not move past reminders into the future.`,
-      },
-      { role: "user", content: input.transcript },
-    ],
+    messages: buildExtractionMessages(input.transcript, referenceAt, input.timezone, input.instructions),
   });
   const choice = response.choices[0];
   if (
@@ -175,6 +140,11 @@ Keep originalTimeText as the exact time phrase or null. Do not move past reminde
   return parsed.items
     .filter((item) => input.transcript.includes(item.sourceAction))
     .map((item) => {
+      if (item.localDueAt !== null && item.minutesFromRecording !== null) {
+        const error = new Error("AI returned conflicting deadline formats");
+        error.name = "TaskDateError";
+        throw error;
+      }
       const hasTimeCue =
         !!item.originalTimeText?.trim() &&
         input.transcript.includes(item.originalTimeText);
@@ -186,10 +156,16 @@ Keep originalTimeText as the exact time phrase or null. Do not move past reminde
             minutesFromRecording: null,
             needsReview: false,
           };
+      const resolved = resolveDue(dated, referenceAt, input.timezone);
+      if (resolved.dueAt && resolved.dueAt < referenceAt) {
+        const error = new Error("AI returned a deadline before message receipt");
+        error.name = "TaskDateError";
+        throw error;
+      }
       return {
         ...item,
         kind: "task" as const,
-        ...resolveDue(dated, referenceAt, input.timezone),
+        ...resolved,
       };
     })
     .filter((item) => {

@@ -419,6 +419,93 @@ export const GetEventAudioParams = zod.object({
 export const GetEventAudioResponse = zod.unknown()
 
 
+export const getPromptsResponseInstructionsTaskRulesMax = 6000;
+
+export const getPromptsResponseInstructionsDateRulesMax = 6000;
+
+export const getPromptsResponseInstructionsTitleStyleMax = 6000;
+
+export const getPromptsResponseInstructionsPersonalContextMax = 6000;
+
+export const getPromptsResponseDefaultsTaskRulesMax = 6000;
+
+export const getPromptsResponseDefaultsDateRulesMax = 6000;
+
+export const getPromptsResponseDefaultsTitleStyleMax = 6000;
+
+export const getPromptsResponseDefaultsPersonalContextMax = 6000;
+
+
+
+export const GetPromptsResponse = zod.object({
+  "instructions": zod.object({
+  "taskRules": zod.string().max(getPromptsResponseInstructionsTaskRulesMax),
+  "dateRules": zod.string().max(getPromptsResponseInstructionsDateRulesMax),
+  "titleStyle": zod.string().max(getPromptsResponseInstructionsTitleStyleMax),
+  "personalContext": zod.string().max(getPromptsResponseInstructionsPersonalContextMax)
+}),
+  "defaults": zod.object({
+  "taskRules": zod.string().max(getPromptsResponseDefaultsTaskRulesMax),
+  "dateRules": zod.string().max(getPromptsResponseDefaultsDateRulesMax),
+  "titleStyle": zod.string().max(getPromptsResponseDefaultsTitleStyleMax),
+  "personalContext": zod.string().max(getPromptsResponseDefaultsPersonalContextMax)
+}),
+  "skill": zod.string()
+})
+
+
+export const updatePromptsBodyTaskRulesMax = 6000;
+
+export const updatePromptsBodyDateRulesMax = 6000;
+
+export const updatePromptsBodyTitleStyleMax = 6000;
+
+export const updatePromptsBodyPersonalContextMax = 6000;
+
+
+
+export const UpdatePromptsBody = zod.object({
+  "taskRules": zod.string().max(updatePromptsBodyTaskRulesMax),
+  "dateRules": zod.string().max(updatePromptsBodyDateRulesMax),
+  "titleStyle": zod.string().max(updatePromptsBodyTitleStyleMax),
+  "personalContext": zod.string().max(updatePromptsBodyPersonalContextMax)
+})
+
+export const updatePromptsResponseInstructionsTaskRulesMax = 6000;
+
+export const updatePromptsResponseInstructionsDateRulesMax = 6000;
+
+export const updatePromptsResponseInstructionsTitleStyleMax = 6000;
+
+export const updatePromptsResponseInstructionsPersonalContextMax = 6000;
+
+export const updatePromptsResponseDefaultsTaskRulesMax = 6000;
+
+export const updatePromptsResponseDefaultsDateRulesMax = 6000;
+
+export const updatePromptsResponseDefaultsTitleStyleMax = 6000;
+
+export const updatePromptsResponseDefaultsPersonalContextMax = 6000;
+
+
+
+export const UpdatePromptsResponse = zod.object({
+  "instructions": zod.object({
+  "taskRules": zod.string().max(updatePromptsResponseInstructionsTaskRulesMax),
+  "dateRules": zod.string().max(updatePromptsResponseInstructionsDateRulesMax),
+  "titleStyle": zod.string().max(updatePromptsResponseInstructionsTitleStyleMax),
+  "personalContext": zod.string().max(updatePromptsResponseInstructionsPersonalContextMax)
+}),
+  "defaults": zod.object({
+  "taskRules": zod.string().max(updatePromptsResponseDefaultsTaskRulesMax),
+  "dateRules": zod.string().max(updatePromptsResponseDefaultsDateRulesMax),
+  "titleStyle": zod.string().max(updatePromptsResponseDefaultsTitleStyleMax),
+  "personalContext": zod.string().max(updatePromptsResponseDefaultsPersonalContextMax)
+}),
+  "skill": zod.string()
+})
+
+
 export const createMessageBodyTextMax = 100000;
 
 export const createMessageBodySourceTypeMax = 80;

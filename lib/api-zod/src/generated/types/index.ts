@@ -29,6 +29,8 @@ export * from './messageSource';
 export * from './organizer';
 export * from './processingJob';
 export * from './processingJobStatus';
+export * from './promptInstructions';
+export * from './promptSettings';
 export * from './receipt';
 export * from './recordingPayload';
 export * from './settings';

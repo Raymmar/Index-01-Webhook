@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Switch, Text, View } from 'react-native';
+import { router } from 'expo-router';
 import { useAuth, useUser } from '@clerk/expo';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGetSettings, useUpdateSettings, getGetSettingsQueryKey, type SettingsUpdate } from '@workspace/api-client-react';
@@ -41,6 +42,7 @@ export default function Settings() {
     <View style={[s.row, { marginVertical: 6 }]}><View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: c.secondary, alignItems: 'center', justifyContent: 'center' }}><Text style={[s.subheading, { fontSize: 25 }]}>{(user?.firstName ?? user?.primaryEmailAddress?.emailAddress ?? 'I').slice(0, 1).toUpperCase()}</Text></View><View style={{ flex: 1 }}><Copy>{user?.fullName ?? 'Your account'}</Copy><Text numberOfLines={1} style={s.muted}>{user?.primaryEmailAddress?.emailAddress}</Text></View>{settings.isOwner && <Text style={[s.label, { color: c.accent }]}>Owner</Text>}</View>
     {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}{!!notice && <Text accessibilityRole="alert" style={s.muted}>{notice}</Text>}
     <Text style={s.label}>Dates & time</Text><View style={s.card}><Copy>Timezone</Copy><Text style={s.muted}>Task dates use this zone.</Text><Button quiet label={(settings.timezone ?? deviceZone()).replaceAll('_', ' ')} disabled={update.isPending} onPress={() => { setSearch(''); setTimezone(settings.timezone ?? deviceZone()); setZoneSheet(true); }} /></View>
+    <Text style={s.label}>Extraction</Text><Pressable testID="link-prompts" accessibilityRole="button" onPress={() => router.push('/settings-prompts')} style={({ pressed }) => [s.card, s.between, { opacity: pressed ? 0.6 : 1 }]}><Copy>Prompts</Copy><Text style={s.muted}>Edit</Text></Pressable>
     {settings.isOwner && <>
       <Text style={s.label}>Access</Text><View style={s.card}><View style={s.between}><Copy style={{ flex: 1 }}>Allow additional users</Copy><Switch accessibilityLabel="Allow additional users" value={settings.allowSignups} disabled={update.isPending} trackColor={{ false: c.border, true: c.accent }} thumbColor={c.card} onValueChange={value => save({ allowSignups: value })} /></View><Text style={s.muted}>Each account keeps a private inbox.</Text></View>
       <Text style={s.label}>Understanding</Text><View style={s.card}><Copy>Provider</Copy><View style={{ gap: 8 }}>{(['replit', 'openai'] as const).map(provider => <Button key={provider} label={`${settings.aiProvider === provider ? 'Selected · ' : ''}${provider === 'replit' ? 'Replit managed' : 'OpenAI direct'}`} quiet disabled={update.isPending} onPress={() => { if (provider !== settings.aiProvider) save({ aiProvider: provider, aiModel: 'gpt-5-mini' }); }} />)}</View>

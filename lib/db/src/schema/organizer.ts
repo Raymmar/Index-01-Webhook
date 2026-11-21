@@ -11,6 +11,10 @@ export const appSettingsTable = pgTable("app_settings", {
 export const preferencesTable = pgTable("user_preferences", {
   ownerId: text("owner_id").primaryKey(),
   timezone: text("timezone"),
+  taskRules: text("task_rules"),
+  dateRules: text("date_rules"),
+  titleStyle: text("title_style"),
+  personalContext: text("personal_context"),
   skipTaskDismissConfirmation: boolean("skip_task_dismiss_confirmation").notNull().default(false),
   skipTaskDeleteConfirmation: boolean("skip_task_delete_confirmation").notNull().default(false),
   skipMessageDeleteConfirmation: boolean("skip_message_delete_confirmation").notNull().default(false),

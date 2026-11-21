@@ -11,6 +11,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Webhooks from "@/pages/webhooks";
 import SettingsPage from "@/pages/settings";
+import PromptsPage from "@/pages/settings-prompts";
 import Dashboard from "@/pages/dashboard";
 import { Shell } from "@/components/shell";
 
@@ -135,7 +136,7 @@ function HomeRedirect() {
   );
 }
 
-const PRIVATE = ["/dashboard", "/inbox", "/notes", "/tasks", "/reminders", "/webhooks", "/settings"];
+const PRIVATE = ["/dashboard", "/inbox", "/notes", "/tasks", "/reminders", "/webhooks", "/settings", "/settings/prompts"];
 
 function LegacyInboxRedirect() {
   const id = new URLSearchParams(useSearch()).get("event");
@@ -156,6 +157,7 @@ function PrivateRoutes() {
       <Route path="/tasks" component={LegacyTasksRedirect} />
       <Route path="/reminders">{() => <Redirect to="/dashboard?schedule=scheduled" />}</Route>
       <Route path="/webhooks" component={Webhooks} />
+      <Route path="/settings/prompts" component={PromptsPage} />
       <Route path="/settings" component={SettingsPage} />
     </Switch>
   );

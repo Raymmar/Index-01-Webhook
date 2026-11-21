@@ -35,6 +35,8 @@ import type {
   ListEventsParams,
   MessageInput,
   Organizer,
+  PromptInstructions,
+  PromptSettings,
   Receipt,
   RecordingPayload,
   Settings,
@@ -1832,6 +1834,183 @@ export function useGetEventAudio<TData = Awaited<ReturnType<typeof getEventAudio
 
 
 
+
+export const getGetPromptsUrl = () => {
+
+
+
+
+  return `/api/prompts`
+}
+
+export const getPrompts = async ( options?: Parameters<typeof customFetch>[1]): Promise<PromptSettings> => {
+
+  return customFetch<PromptSettings>(getGetPromptsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPromptsQueryKey = () => {
+    return [
+    `/api/prompts`
+    ] as const;
+    }
+
+
+export const getGetPromptsQueryOptions = <TData = Awaited<ReturnType<typeof getPrompts>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPrompts>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPromptsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPrompts>>> = ({ signal }) => getPrompts({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPrompts>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetPromptsQueryResult = NonNullable<Awaited<ReturnType<typeof getPrompts>>>
+export type GetPromptsQueryError = ErrorType<unknown>
+
+
+export function useGetPrompts<TData = Awaited<ReturnType<typeof getPrompts>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPrompts>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPrompts>>,
+          TError,
+          Awaited<ReturnType<typeof getPrompts>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPrompts<TData = Awaited<ReturnType<typeof getPrompts>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPrompts>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPrompts>>,
+          TError,
+          Awaited<ReturnType<typeof getPrompts>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPrompts<TData = Awaited<ReturnType<typeof getPrompts>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPrompts>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetPrompts<TData = Awaited<ReturnType<typeof getPrompts>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPrompts>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetPromptsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdatePromptsUrl = () => {
+
+
+
+
+  return `/api/prompts`
+}
+
+export const updatePrompts = async (promptInstructions: PromptInstructions, options?: Parameters<typeof customFetch>[1]): Promise<PromptSettings> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<PromptSettings>(getUpdatePromptsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(promptInstructions)
+  }
+);}
+
+
+
+
+
+export const getUpdatePromptsMutationKey = () => ['updatePrompts'] as const;
+
+export const getUpdatePromptsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePrompts>>, TError,UpdatePromptsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePrompts>>, TError,UpdatePromptsMutationVariables, TContext> => {
+
+const mutationKey = getUpdatePromptsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePrompts>>, UpdatePromptsMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updatePrompts(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePromptsMutationResult = NonNullable<Awaited<ReturnType<typeof updatePrompts>>>
+    export type UpdatePromptsMutationBody = BodyType<PromptInstructions>
+    export type UpdatePromptsMutationError = ErrorType<unknown>
+    export type UpdatePromptsMutationVariables = {data: BodyType<PromptInstructions>}
+
+    export const useUpdatePrompts = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePrompts>>, TError,UpdatePromptsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updatePrompts>>,
+        TError,
+        UpdatePromptsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdatePromptsMutationOptions(options), queryClient);
+    }
 
 export const getCreateMessageUrl = () => {
 

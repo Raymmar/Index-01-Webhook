@@ -5,6 +5,8 @@ export const directModels = ["gpt-5-mini", "gpt-5-nano", "gpt-5.4-mini", "gpt-5.
 
 export function processingFailure(error: unknown) {
   const e = error as { status?: number; code?: string; name?: string };
+  if (e?.name === "TaskDateError")
+    return { retry: true, message: "The AI returned an inconsistent reminder date. Retry this message or adjust your date instructions in Settings → Prompts." };
   if (e?.code === "UNSUPPORTED_MODEL" || e?.code === "model_not_found")
     return { retry: false, message: "The selected model is unavailable for this provider. Choose a model in Settings, then retry." };
   if (e?.status === 401 || e?.status === 403)

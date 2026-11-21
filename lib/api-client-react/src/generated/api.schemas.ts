@@ -5,6 +5,23 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface PromptInstructions {
+  /** @maxLength 6000 */
+  taskRules: string;
+  /** @maxLength 6000 */
+  dateRules: string;
+  /** @maxLength 6000 */
+  titleStyle: string;
+  /** @maxLength 6000 */
+  personalContext: string;
+}
+
+export interface PromptSettings {
+  instructions: PromptInstructions;
+  defaults: PromptInstructions;
+  skill: string;
+}
+
 export type MessageInputMetadata = { [key: string]: unknown };
 
 export interface MessageInput {

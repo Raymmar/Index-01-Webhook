@@ -35,9 +35,8 @@ primitive. Notes means sources with no remaining children, including closed ones
 Do not restore archived extractions or speculatively split historical summaries.
 **Why:** The user explicitly superseded the one-message/one-action scope with
 independent multi-action extraction, while preserving original transcript/audio.
-**How to apply:** Extract only explicit instructions or definite commitments with
-transcript-local action and object context. Preserve the user's substantive prompt
-and examples; do not infer unspecified referents such as “Send this to production”.
+**How to apply:** Keep extraction preferences in the user's editable skill, not
+hardcoded editorial rules or examples in the system prompt.
 Do not cap extraction to one task or combine distinct deliverables into a summary.
 Task count and each task's scope come from the recording. Shared action/object
 context can support separate tasks for independently named shows or dates.
@@ -49,6 +48,16 @@ save it, and provide a settings override.
 Resolve reminder dates from message receipt time. Date-only phrases such as
 "tomorrow" should receive a concrete time, not be left undated for review.
 **Why:** The user explicitly rejected leaving these reminders at "Check time".
+
+Historical dates in a recording are context, not automatically task deadlines.
+“Yesterday I did XYZ; remind me on this date” must use the requested action date,
+interpreted relative to the message receipt timestamp. Do not shift a deadline
+backward merely because the narrative mentions the past.
+**Why:** The user explicitly corrected treating “yesterday” as a past-deadline
+policy question instead of interpreting its role in the message.
+**How to apply:** Distinguish narrative timing from action timing. Keep date
+conventions and extraction preferences editable in Settings > Prompts; the
+system prompt should contain processing instructions and the output contract.
 
 The first person who logs in becomes the owner automatically, with no additional
 setup. Default to one owner per remix. Provide a simple owner-controlled Settings
@@ -74,8 +83,9 @@ Keep this simple: prioritize reliable core behavior before adding a more
 powerful assistant, user-defined keyword rules, contacts, or dictated email drafts.
 **Why:** The user explicitly rejected unnecessary complexity while describing a
 future “chief of staff” role.
-**How to apply:** Prefer small extensions to existing infrastructure over an
-upfront general-purpose automation framework.
+**How to apply:** Connect external intelligence using a central editable skill.
+The user does want a workflow builder; avoiding a custom AI runtime does not
+mean omitting workflow controls or inventing extra data layers.
 
 Dashboard is the primary signed-in view, based on the Week Ahead design.
 Inbox is a toggleable drawer available in every signed-in view, not a standalone

@@ -38,7 +38,7 @@ export function refreshInbox(client: QueryClient) {
   return client.invalidateQueries({ predicate: query => {
     const key = query.queryKey[0];
     return typeof key === "string" && (
-      ["/api/events", "/api/organizer", "/api/webhooks", "/api/settings"].includes(key) ||
+      ["/api/events", "/api/organizer", "/api/webhooks", "/api/settings", "/api/prompts"].includes(key) ||
       key.startsWith("/api/events/")
     );
   } });

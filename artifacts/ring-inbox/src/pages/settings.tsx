@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetSettings, getGetSettingsQueryKey, useUpdateSettings, type SettingsUpdate } from "@workspace/api-client-react";
+import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { browserZone, zones } from "@/lib/tz";
@@ -75,6 +76,12 @@ export default function SettingsPage() {
             {zoneList.map((z) => <option key={z} value={z}>{z.replace(/_/g, " ")}</option>)}
           </select>
         </Row>
+      </Section>
+
+      <Section title="Extraction">
+        <Link href="/settings/prompts" data-testid="link-prompts" className="flex items-center justify-between px-4 py-3 text-sm hover:bg-secondary/50">
+          <span>Prompts</span><span className="text-muted-foreground">&rsaquo;</span>
+        </Link>
       </Section>
 
       {s.isOwner && (

@@ -5,11 +5,12 @@ import { startJobWakeups } from "./job-wakeups";
 import { extractActions } from "./understanding";
 import { logger } from "./logger";
 import { processingFailure } from "./ai-models";
+import { resolveInstructions } from "./extraction-skill";
 
 export async function processNextJob() {
   const leaseId = randomUUID();
   const job = await db.transaction(async tx => {
-    const [candidate] = await tx.select({ job: jobsTable, timezone: preferencesTable.timezone }).from(jobsTable)
+    const [candidate] = await tx.select({ job: jobsTable, timezone: preferencesTable.timezone, preferences: preferencesTable }).from(jobsTable)
       .innerJoin(preferencesTable, eq(preferencesTable.ownerId, jobsTable.ownerId))
       .innerJoin(appSettingsTable, eq(appSettingsTable.id, 1))
       .where(and(
@@ -33,7 +34,7 @@ export async function processNextJob() {
       availableAt: new Date(Date.now() + 5 * 60_000), error: null,
     }).where(eq(jobsTable.eventId, candidate.job.eventId));
     await tx.execute(sql`SELECT pg_notify('ring_inbox_changed', ${candidate.job.ownerId})`);
-    return { ...candidate.job, attempts: candidate.job.attempts + 1, timezone: candidate.timezone!, provider: app.aiProvider, model: app.aiModel };
+    return { ...candidate.job, instructions: resolveInstructions(candidate.preferences), attempts: candidate.job.attempts + 1, timezone: candidate.timezone!, provider: app.aiProvider, model: app.aiModel };
   });
   if (!job) return false;
   try {
@@ -46,7 +47,7 @@ export async function processNextJob() {
     if (!note?.transcription) throw new Error("No transcript");
     const actions = await extractActions({
       transcript: note.transcription, recordedAt: note.recordedAt ?? note.receivedAt, receivedAt: note.receivedAt,
-      timezone: job.timezone, provider: job.provider, model: job.model,
+      timezone: job.timezone, provider: job.provider, model: job.model, instructions: job.instructions,
     });
     await db.transaction(async tx => {
       const [locked] = await tx.select().from(jobsTable).where(and(eq(jobsTable.eventId, job.eventId), eq(jobsTable.leaseId, leaseId))).for("update");

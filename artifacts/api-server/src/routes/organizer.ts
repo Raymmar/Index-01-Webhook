@@ -9,6 +9,8 @@ import { managedModels, directModels } from "../lib/ai-models";
 import { publicAction } from "../lib/unified-items";
 import { ingestMessage, DeliveryConflict } from "../lib/message-ingestion";
 import { CreateMessageBody } from "@workspace/api-zod";
+import { UpdatePromptsBody, GetPromptsResponse } from "@workspace/api-zod";
+import { defaultInstructions, resolveInstructions, renderSkill } from "../lib/extraction-skill";
 
 const router: IRouter = Router();
 router.use(async (req, res, next) => {
@@ -82,6 +84,20 @@ router.get("/organizer", async (_req, res) => {
   });
   const [messages] = await db.select({ total: sql<number>`count(*)::int` }).from(eventsTable).where(and(eq(eventsTable.ownerId, res.locals.ownerId), isNull(eventsTable.deletedAt)));
   res.json({ items: items.map(({ action, deletedAt }) => ({ ...publicAction(action), sourceDeleted: !!deletedAt })), jobs, messageCount: messages.total });
+});
+router.get("/prompts", async (_req, res): Promise<void> => {
+  const [saved] = await db.select().from(preferencesTable).where(eq(preferencesTable.ownerId, res.locals.ownerId));
+  const instructions = resolveInstructions(saved);
+  res.json(GetPromptsResponse.parse({ instructions, defaults: defaultInstructions, skill: renderSkill(instructions) }));
+});
+router.put("/prompts", async (req, res): Promise<void> => {
+  const parsed = UpdatePromptsBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Each prompt field must be text of at most 6,000 characters." }); return; }
+  await db.transaction(async tx => {
+    await tx.update(preferencesTable).set(parsed.data).where(eq(preferencesTable.ownerId, res.locals.ownerId));
+    await tx.execute(sql`SELECT pg_notify('ring_inbox_changed', ${res.locals.ownerId})`);
+  });
+  res.json(GetPromptsResponse.parse({ instructions: parsed.data, defaults: defaultInstructions, skill: renderSkill(parsed.data) }));
 });
 router.post("/messages", async (req, res): Promise<void> => {
   const parsed = CreateMessageBody.safeParse(req.body);

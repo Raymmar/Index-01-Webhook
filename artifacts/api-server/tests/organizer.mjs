@@ -85,6 +85,18 @@ export async function check() {
     assert.equal((await api("/events", "GET", "other")).status, 403);
     assert.equal((await api("/settings", "PATCH", "owner", { timezone: "Invalid/Zone" })).status, 400);
     assert.equal((await api("/settings", "PATCH", "owner", { timezone: "America/Los_Angeles", allowSignups: true })).status, 200);
+    const initialPrompts = await (await api("/prompts")).json();
+    assert.equal(typeof initialPrompts.instructions.dateRules, "string");
+    assert.equal((await api("/prompts", "GET", "")).status, 401);
+    const customPrompts = {...initialPrompts.instructions, personalContext:"My project is the garden.", titleStyle:"Use short verb-first titles."};
+    assert.equal((await notifiedMutation("/prompts", "PUT", customPrompts)).status, 200);
+    assert.deepEqual((await (await api("/prompts")).json()).instructions, customPrompts);
+    assert.equal((await (await api("/prompts", "GET", "other")).json()).instructions.personalContext, "");
+    assert.equal((await api("/prompts", "PUT", "owner", {...customPrompts, taskRules:"x".repeat(6001)})).status, 400);
+    assert.equal((await api("/prompts", "PUT", "owner", {personalContext:"partial"})).status, 400);
+    assert.equal((await api("/prompts", "PUT", "owner", {...customPrompts, personalContext:""})).status, 200);
+    assert.equal((await (await api("/prompts")).json()).instructions.personalContext, "");
+    await api("/prompts", "PUT", "owner", customPrompts);
     // Personal confirmation preferences persist across sessions, remain isolated,
     // and notify the account's other connected clients.
     for (const key of ["skipTaskDismissConfirmation", "skipTaskDeleteConfirmation", "skipMessageDeleteConfirmation"]) {
@@ -129,6 +141,9 @@ export async function check() {
     assert.equal((await db.select().from(jobsTable)).length, 0, "receipt does not create AI jobs");
     await dispatchNextMessage();
     await Promise.all([processNextJob(), processNextJob()]);
+    assert.ok(globalThis.lastExtractionRequest.messages[1].content.includes("My project is the garden."));
+    assert.equal(JSON.parse(globalThis.lastExtractionRequest.messages.at(-1).content).messageContext.receivedAt, "2026-11-15T16:58:00.000Z");
+    await api("/prompts", "PUT", "owner", initialPrompts.defaults);
     let data = await (await api("/organizer")).json();
     assert.equal(data.messageCount, 1);
     const job = data.jobs.find(j => j.eventId === receipt.id);
@@ -240,7 +255,7 @@ export async function check() {
     assert.equal(validated[0].dueAt,null);
     globalThis.aiItems = null;
     const fixture = async id => {
-      await db.insert(eventsTable).values({id,ownerId:"owner",kind:"json",payload:{},transcription:"I need to buy printer paper."});
+      await db.insert(eventsTable).values({id,ownerId:"owner",kind:"json",payload:{},receivedAt:new Date("2026-11-15T16:58:00Z"),transcription:"I need to buy printer paper."});
       await db.insert(jobsTable).values({eventId:id,ownerId:"owner",availableAt:new Date(0)});
     };
     await fixture("four-actions");
@@ -537,7 +552,8 @@ export async function check() {
             if (/exactly ONE annotation|summarize them together/i.test(prompt)) throw new Error("Single-task instruction regression");
             if (globalThis.aiGate) await globalThis.aiGate();
             if (globalThis.aiError) throw globalThis.aiError;
-            const text = request.messages[1].content;
+            globalThis.lastExtractionRequest = request;
+            const text = JSON.parse(request.messages.at(-1).content).transcript;
             const item = (title,sourceAction,minutes=null,local=null,time=null) => ({title,sourceAction,minutesFromRecording:minutes,localDueAt:local,originalTimeText:time,needsReview:false});
             const items = globalThis.aiItems ?? (text.startsWith("Add update") ? [
               item("Update landing page","Add update the landing page to my task list."),
