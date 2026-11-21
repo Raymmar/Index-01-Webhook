@@ -89,6 +89,13 @@ All batch understanding and synthesis belongs in a separate layer on top of the
 existing message and task primitives.
 **Why:** The user explicitly rejected changing the initial extraction flow or
 making it gather broader context as part of adding review workflows.
+Allow multiple independently configurable review rules to be combined or layered.
+Triggers include a batch of more than one message followed by a user-configured
+quiet period, hourly intervals, and daily intervals.
+**Why:** The user explicitly confirmed that original extraction is the core
+primitive and additional rule versions sit above it at different intervals.
+**How to apply:** Keep review prompts and triggers configurable per rule, without
+coupling these rules back into initial extraction.
 **Why:** The product is a voice-note thinking partner between meetings, not only
 a task inbox or long-form meeting summarizer. Repeated mentions can refine an
 existing task instead of creating another, and non-actionable thoughts still
