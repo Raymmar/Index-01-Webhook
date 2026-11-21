@@ -5,7 +5,7 @@ import { addDays, format, startOfWeek } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Feather } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { useGetOrganizer, useGetSettings, useUpdateItem, usePinItem, getGetOrganizerQueryKey, getListEventsQueryKey, type Organizer, type ActionItem, type ItemUpdate } from '@workspace/api-client-react';
+import { useGetOrganizer, useGetSettings, useUpdateItem, getGetOrganizerQueryKey, getListEventsQueryKey, type Organizer, type ActionItem, type ItemUpdate } from '@workspace/api-client-react';
 import { Page, Copy, Skeleton, Failure, Empty, IconButton, Button, Confirm, Sheet, s, c, errorMessage } from '@/components/ui';
 import { useConfirmationPreferences } from '@workspace/api-client-react';
 import { ItemEditor } from '@/components/item-editor';
@@ -13,7 +13,7 @@ import { deviceZone, useLive } from '@/lib/session';
 import { useHorizontalSwipe } from '@/hooks/use-horizontal-swipe';
 import { SwipeTaskRow } from '@/components/swipe-task-row';
 import { compareTasks } from '@/lib/task-order';
-import { useUnpinItem } from '@workspace/api-client-react';
+import { useTaskPins } from '@/hooks/use-task-pins';
 import { useTaskUndo } from '@/hooks/use-task-undo';
 import { TaskUndoMessages } from '@/components/task-undo-messages';
 
@@ -65,15 +65,13 @@ export default function Dashboard() {
   }
   const [error, setError] = useState('');
   const update = useUpdateItem();
-  const pin = usePinItem();
-  const unpin = useUnpinItem();
+  const pins = useTaskPins(e => setError(errorMessage(e)));
   const pending = useRef(new Set<string>());
-  const pendingPins = useRef(new Set<string>());
-  const queuedPins = useRef(new Set<string>());
   const [pendingIds, setPendingIds] = useState(new Set<string>());
   const qc = useQueryClient();
   const invalidate = () => { void qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() }); void qc.invalidateQueries({ queryKey: getListEventsQueryKey() }); };
   const undo = useTaskUndo(invalidate, errorMessage);
+  const isPending = (id: string) => pendingIds.has(id) || pins.pending(id);
   async function removeTask(item: ActionItem) {
     setError('');
     try {
@@ -87,14 +85,18 @@ export default function Dashboard() {
     } catch (e) { setError(errorMessage(e)); }
   }
   async function taskAction(item: ActionItem, kind: 'pin' | 'delete' | 'unpin') {
-    if (kind === 'pin' && pendingPins.current.has(item.id)) { queuedPins.current.add(item.id); return; }
-    if (pending.current.has(item.id) || update.isPending) return;
+    if (pending.current.has(item.id) || pins.pending(item.id) || update.isPending) return;
+    if (kind !== 'delete') {
+      setError('');
+      await pins.set(item, kind === 'pin');
+      setMenu(null);
+      return;
+    }
     pending.current.add(item.id);
-    if (kind !== 'delete') pendingPins.current.add(item.id);
     setPendingIds(new Set(pending.current));
     setError('');
     try {
-      const saved = kind === 'pin' ? await pin.mutateAsync({ id: item.id }) : kind === 'unpin' ? await unpin.mutateAsync({ id: item.id }) : await update.mutateAsync({ id: item.id, data: { status: 'dismissed' } });
+      const saved = await update.mutateAsync({ id: item.id, data: { status: 'dismissed' } });
       // Cancel in-flight reads before applying the authoritative mutation response.
       await qc.cancelQueries({ queryKey: getGetOrganizerQueryKey() });
       qc.setQueryData<Organizer>(getGetOrganizerQueryKey(), previous => previous && ({
@@ -105,14 +107,12 @@ export default function Dashboard() {
     } catch (e) { setError(errorMessage(e)); }
     finally {
       pending.current.delete(item.id);
-      pendingPins.current.delete(item.id);
       setPendingIds(new Set(pending.current));
-      if (queuedPins.current.delete(item.id)) void taskAction(item, 'pin');
-      else invalidate();
+      invalidate();
     }
   }
   function patch(item: ActionItem, data: ItemUpdate) {
-    if (pending.current.has(item.id)) return;
+    if (pending.current.has(item.id) || pins.pending(item.id)) return;
     setError('');
     update.mutate({ id: item.id, data }, { onSuccess: () => { invalidate(); setMenu(null); setConfirm(null); }, onError: e => setError(errorMessage(e)) });
   }
@@ -154,8 +154,8 @@ export default function Dashboard() {
     </View>
     {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
     {q.isLoading ? <Skeleton /> : q.isError ? <Failure error={q.error} retry={() => void q.refetch()} /> : !visible.length ? <Empty title={status === 'open' ? 'A little breathing room.' : 'Nothing here yet.'} text={date ? 'No tasks scheduled for this day.' : status === 'open' ? 'Speak to your ring, or add a task.' : `Your ${status} tasks will appear here.`} icon="check-circle" /> :
-      <View style={[s.card, { padding: 0, gap: 0, overflow: 'hidden' }]}>{visible.map((item, i) => <SwipeTaskRow key={item.id} id={item.id} disabled={pendingIds.has(item.id) || update.isPending || undo.deleting} allowPendingPin={pendingPins.current.has(item.id)} onPin={() => void taskAction(item, 'pin')} onDelete={() => requestTaskAction(item, 'delete')}>{guard => <View style={{ padding: 14, borderTopWidth: i ? 1 : 0, borderTopColor: c.border }}>
-        {!!item.pinnedAt && <Pressable accessibilityRole="button" accessibilityLabel={`Unpin ${item.title}`} disabled={pendingIds.has(item.id)} onPress={() => guard(() => void taskAction(item, 'unpin'))} style={{ minHeight: 44, paddingLeft: 51, flexDirection: 'row', alignItems: 'center', gap: 5 }}><Feather name="map-pin" size={12} color={c.accent} /><Text style={[s.muted, { color: c.accent }]}>Pinned</Text></Pressable>}
+      <View style={[s.card, { padding: 0, gap: 0, overflow: 'hidden' }]}>{visible.map((item, i) => <SwipeTaskRow key={item.id} id={item.id} pinned={pins.intended(item)} disabled={pendingIds.has(item.id) || pins.pending(item.id) || update.isPending || undo.deleting} allowPendingPin={pins.acceptsToggle(item.id) && !update.isPending && !undo.deleting} onPin={() => { setError(''); void pins.toggle(item); }} onDelete={() => requestTaskAction(item, 'delete')}>{guard => <View style={{ padding: 14, borderTopWidth: i ? 1 : 0, borderTopColor: c.border }}>
+        {!!item.pinnedAt && <Pressable accessibilityRole="button" accessibilityLabel={`Unpin ${item.title}`} disabled={isPending(item.id)} onPress={() => guard(() => void taskAction(item, 'unpin'))} style={{ minHeight: 44, paddingLeft: 51, flexDirection: 'row', alignItems: 'center', gap: 5 }}><Feather name="map-pin" size={12} color={c.accent} /><Text style={[s.muted, { color: c.accent }]}>Pinned</Text></Pressable>}
         {item.sourceDeleted && <Text style={[s.muted, { paddingLeft: 51 }]}>Original content deleted</Text>}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 7 }}>
           <IconButton name={item.status === 'completed' ? 'check-circle' : item.status === 'dismissed' ? 'rotate-ccw' : 'circle'} label={`${item.status === 'open' ? 'Complete' : 'Reopen'} ${item.title}`} disabled={update.isPending || pendingIds.has(item.id)} onPress={() => guard(() => patch(item, { status: item.status === 'open' ? 'completed' : 'open' }))} color={item.status === 'completed' ? c.success : c.mutedForeground} />
@@ -165,16 +165,16 @@ export default function Dashboard() {
       </View>}</SwipeTaskRow>)}</View>}
     <Text style={s.muted}>{tz.replaceAll('_', ' ')}</Text>
     {editor && <ItemEditor item={editor === 'new' ? undefined : editor} tasks={editorTasks} tz={tz} onClose={() => setEditor(null)} />}
-    {!!menu && <Sheet visible title="Task actions" onClose={() => setMenu(null)}><View pointerEvents={pendingIds.has(menu.id) ? 'none' : 'auto'} style={{ gap: 12 }}>
+    {!!menu && <Sheet visible title="Task actions" onClose={() => setMenu(null)}><View pointerEvents={isPending(menu.id) ? 'none' : 'auto'} style={{ gap: 12 }}>
       <Copy>{menu.title}</Copy>
-      <Button label={menu.pinnedAt ? 'Repin task' : 'Pin task'} quiet disabled={pendingIds.has(menu.id) || update.isPending} onPress={() => void taskAction(menu, 'pin')} />
-      {!!menu.pinnedAt && <Button label="Unpin task" quiet disabled={pendingIds.has(menu.id) || update.isPending} onPress={() => void taskAction(menu, 'unpin')} />}
+      <Button label={menu.pinnedAt ? 'Repin task' : 'Pin task'} quiet disabled={isPending(menu.id) || update.isPending} onPress={() => void taskAction(menu, 'pin')} />
+      {!!menu.pinnedAt && <Button label="Unpin task" quiet disabled={isPending(menu.id) || update.isPending} onPress={() => void taskAction(menu, 'unpin')} />}
       <Button label="Edit task" quiet onPress={() => { openEditor(menu); setMenu(null); }} />
       {menu.sourceDeleted ? <Text style={s.muted}>Original content deleted</Text> : <Button label="Original message" quiet onPress={() => { router.navigate({ pathname: '/inbox', params: { focus: menu.sourceEventId } }); setMenu(null); }} />}
       <Button label={menu.status === 'dismissed' ? 'Restore task' : 'Dismiss task'} quiet disabled={update.isPending} onPress={() => menu.status === 'dismissed' ? patch(menu, { status: 'open' }) : requestTaskAction(menu, 'dismiss')} />
       <Text style={s.muted}>Dismissed tasks can be restored from the Dismissed filter.</Text>
       <Button label="Make a note" quiet onPress={() => requestTaskAction(menu, 'note')} />
-      <Button label="Delete task" danger disabled={pendingIds.has(menu.id) || update.isPending} onPress={() => requestTaskAction(menu, 'delete')} />
+      <Button label="Delete task" danger disabled={isPending(menu.id) || update.isPending} onPress={() => requestTaskAction(menu, 'delete')} />
       {!!error && <Text style={s.error}>{error}</Text>}
     </View></Sheet>}
     {!!confirm && <Confirm preference={confirm.kind === 'dismiss' ? 'skipTaskDismissConfirmation' : 'skipTaskDeleteConfirmation'} title={confirm.kind === 'dismiss' ? 'Dismiss task' : confirm.kind === 'note' ? 'Make a note' : 'Delete task'} message={confirm.kind === 'dismiss' ? 'It moves out of your open list. You can restore it later from Dismissed.' : 'Remove only this task. The original message, audio, and other tasks remain unchanged. Undo is available for 15 seconds.'} pending={update.isPending || undo.deleting} error={error || undefined} onClose={() => { setConfirm(null); setError(''); }} onConfirm={() => confirm.kind === 'dismiss' ? taskAction(confirm.item, 'delete') : removeTask(confirm.item)} />}

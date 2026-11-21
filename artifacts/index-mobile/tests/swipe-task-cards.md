@@ -1,61 +1,76 @@
-# Swipe task cards verification
+# Mobile swipe task cards verification
 
 Run from the workspace root:
 
-- `pnpm --filter @workspace/api-spec run codegen`
-- `pnpm run typecheck`
-- `node artifacts/api-server/tests/task-paragraphs.mjs`
-- `node artifacts/index-mobile/tests/swipe-task-row.mjs`
-- `node artifacts/index-mobile/tests/web-swipe-delete.mjs`
+```sh
+pnpm --filter @workspace/index-mobile typecheck
+node artifacts/index-mobile/tests/swipe-task-row.mjs
+node artifacts/index-mobile/tests/dashboard-swipes.mjs
+node artifacts/index-mobile/tests/task-undo.mjs
+NODE_ENV=production node artifacts/api-server/tests/task-paragraphs.mjs
+```
 
-Updated behavior: mobile left swipes dismiss and can be restored through the
-Dismissed filter. The pin label and menu allow unpinning. Web task swipes remove
-only the task; web inbox swipes soft-delete the original message, retaining
-derived objects and displaying “Original content deleted” on associated tasks.
+## Behavior
 
-The database test also covers unpin, dismiss/restore, message deletion ownership,
-redacted source responses, blocked deleted audio/extraction, and preserved
-derived tasks. Run with `NODE_ENV=production` when the inbox router is included
-to avoid the temporary test bundle resolving the development logging transport.
-The additional web touch test verifies left-only deletion, nested task isolation,
-canceled and reversed swipes, failed deletion, and retry.
-It also verifies mouse drags and touch gestures over task-title textareas,
-transcript paragraphs, and audio controls do not delete. Web deletion gestures
-are touch-only on noninteractive row areas; mouse users use the delete action.
-Deleted queued sources are canceled, and stale jobs check deletion before any
-model invocation; the database regression asserts zero model calls.
+Dashboard right swipes toggle pinning. The reveal says **Pin** for an unpinned
+task and **Unpin** for a pinned task. During a pending request it reflects the
+latest intended state; the badge and ordering only change on authoritative
+responses. Explicit menu Pin/Repin and Unpin remain explicit commands.
 
-Repinning regression: right swipes during an unfinished pin/unpin are accepted
-and coalesced into a serialized pending pin, rather than discarded. The touch
-harness checks repeated pin acceptance during pending operations and the
-left-only mobile Inbox configuration. Database coverage repeats unpin → pin →
-fresh read five times. The mobile Inbox uses this same left-only row, opens a
-confirmation, and keeps linked tasks after deletion. The desktop Inbox delete
-command is in each card's top-right actions menu.
+Both directions require release **strictly beyond half the measured row width**.
+Exactly halfway, short fast flicks, canceled gestures, vertical scrolls, and
+drags returning inside halfway do nothing. Movement tracks horizontal distance
+from the initial touch, without early resistance. A 200ms cubic ease-out returns
+the row without bounce; accepted actions run after the return finishes, so
+reordering and delete confirmation cannot reset a visibly displaced row.
+Touches during that brief return are ignored rather than interrupting it.
 
-The database test runs actual organizer routes against an isolated PostgreSQL
-schema and test identities. It covers null defaults, pin A / pin B / repin A,
-rapid concurrent pins, fresh-read persistence, unrelated edits preserving pins,
-owner scoping, removal, and unchanged source messages and siblings.
+Left swipes request task deletion, not dismissal. Confirmation preferences and
+15-second Undo remain unchanged. Mobile Inbox uses the same row in left-only
+mode; message deletion still retains linked tasks. Desktop gestures, pin ranking,
+API routes, schema, palette and deletion scope are unchanged.
 
-The browser test bundles the actual row with React Native Web in a local,
-test-only harness. Chromium touch events cover both directions, threshold
-reversal, touch cancellation, pending-state disabling, edit taps, suppressed
-swipe clicks, and vertical scrolling. It does not bypass app authentication.
-Set `CHROMIUM_PATH` if Chromium is installed elsewhere.
+## Automated evidence
 
-The running Expo preview was checked at mobile size and rendered sign-in.
-The authenticated Dashboard was not visually verified. No native simulator or
-physical iOS device was available, so native scroll/responder arbitration remains
-a device-testing limitation.
+- **Actual RN Web row with Chromium touch events:** below/exactly/above-half
+  boundaries in both directions at widths 240, 320 and 360; resizing the same row,
+  including during a drag; direct tracking beyond the old resistance point;
+  sampled intermediate return frames with no overshoot and no mutation before
+  rest; reverse/cancel in both directions; short fast flicks; multi-touch
+  cancellation; pending right-only acceptance; Pin/Unpin labels; Inbox left-only
+  mode; nested media isolation; ordinary edit taps, swipe tap suppression and
+  actual vertical scrolling.
+- **Actual Dashboard in an isolated HTTP harness:** generated API hooks and a
+  real QueryClient; pin → unpin → pin via touch; explicit Pin/Repin/Unpin menu
+  commands; delayed POST followed by intended DELETE; three pending gestures
+  coalescing to the latest state; failed requests, including a server write
+  followed by a failed response; queued-intent cleanup and retry; badges and
+  ordering after refetch; exact-half delete cancellation, above-half confirmation,
+  cancel, successful deletion and Undo. Only the surrounding UI, session and
+  calendar/editor shell are stubbed. No application authentication is bypassed.
+- **Undo hook/message regression:** delete failure, independent removals,
+  restore failure/retry, duplicate taps, server expiry, suspended-app expiry,
+  accessible messages and refresh callbacks.
+- **Real organizer routes and isolated PostgreSQL schema:** pin/repin recency,
+  concurrent pins, repeated unpin/pin with fresh reads, unrelated edits retaining
+  pins, owner scoping, task removal/restore/expiry, source redaction and retained
+  sibling tasks. This is server persistence coverage rather than a browser fixture.
 
-The broader existing `organizer.mjs` suite was attempted but stopped before
-these operations: its extraction fixture remained pending instead of completed.
-The focused database test above does not depend on the extraction worker.
+The touch harnesses use development mode: React Native Web substitutes instant
+mock animations in test mode, which would invalidate animation verification.
+`CHROMIUM_PATH` overrides the default Chromium executable. Explicit menu and
+confirmation controls in the Dashboard harness use clicks; swipes use actual
+touch events. The row harness independently verifies ordinary edit taps.
 
-Failed pin/delete requests do not optimistically remove or reorder rows. The
-Dashboard displays the request error, releases its synchronous per-row lock, and
-invalidates the organizer query. Successful mutations apply the server response
-before refetching; existing account-scoped live notifications refresh other
-sessions. These cache/error paths were inspected in code, not exercised in a
-signed-in browser session.
+## Visual and native-device limits
+
+The running Expo preview renders the existing sign-in screen at 402×874, without
+application errors. The signed-in UI was **not** visually verified in the app.
+The isolated Dashboard harness was visually inspected, and real return-animation
+frames were measured in Chromium. Those harnesses do not establish native feel.
+
+No physical iOS/Android device or native simulator was available. Before a native
+release, check slow drags, short flicks, both return directions, orientation/width
+changes, vertical scrolling, rapid repeated pin toggles under slow networking,
+and delete confirmation on a device. Verify that the card stays aligned with
+the finger through halfway and returns without a jump, bounce, or shifted row.

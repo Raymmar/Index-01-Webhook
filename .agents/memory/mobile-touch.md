@@ -18,3 +18,12 @@ fall short of the release threshold in real browser touch tests.
 
 **How to apply:** Verify release thresholds with actual touch events, including
 reversed drags and scroll cancellation, rather than calling callbacks directly.
+
+Animation assertions in React Native Web touch harnesses must run with
+`NODE_ENV=development`, not `test`.
+
+**Why:** React Native Web silently substitutes instant mock animations in test
+mode. Gesture counts can pass while no real snap-back animation runs.
+
+**How to apply:** Sample intermediate frames and verify that mutations that
+reorder rows or open confirmations occur only after the displaced row returns.
