@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@clerk/react";
 import { usePromptForm, PROMPT_FIELDS, PROMPT_MAX } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TaskTitleField as GrowingTextField } from "@/components/task-title-field";
 
 const btn = "rounded-md px-3 py-1.5 text-sm disabled:opacity-50";
 
@@ -80,10 +81,11 @@ export default function PromptsPage() {
                 <span className="font-display text-xl">{field.label}&hellip;</span>
                 <span className={`font-mono text-[11px] ${v.length > PROMPT_MAX ? "text-destructive" : "text-muted-foreground"}`}>{v.length > PROMPT_MAX * 0.8 ? `${v.length}/${PROMPT_MAX}` : ""}</span>
               </div>
-              <textarea value={v} disabled={f.saving} rows={Math.min(10, Math.max(3, v.split("\n").length + 1))}
+              <GrowingTextField value={v}
                 onChange={e => f.setField(field.key, e.target.value)}
                 data-testid={`input-${field.key}`}
-                className="app-content-text mt-1 w-full resize-y bg-transparent text-[15px] outline-none placeholder:text-muted-foreground disabled:opacity-60" placeholder="(blank)" />
+                style={{ minHeight: 104, fontSize: 16, lineHeight: "26px" }}
+                className="app-content-text mt-2 w-full bg-transparent outline-none placeholder:text-muted-foreground" placeholder="(blank)" />
             </label>
           );
         })}
@@ -96,7 +98,7 @@ export default function PromptsPage() {
           {showSkill && copy === "manual" && <span role="status" className="text-xs text-muted-foreground">Copying is blocked here. Text is selected; press Ctrl+C or ⌘C.</span>}
           {showSkill && dirty && <span className="text-xs text-muted-foreground">Reflects last save</span>}
         </div>
-        {showSkill && <pre ref={pre} data-testid="text-skill" className="max-h-96 overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-card p-4 font-mono text-xs">{data.skill}</pre>}
+        {showSkill && <pre ref={pre} data-testid="text-skill" className="whitespace-pre-wrap break-words rounded-lg border border-border bg-card p-4 font-mono text-sm">{data.skill}</pre>}
       </section>
     </div>
   );

@@ -89,6 +89,18 @@ try{
     failSave=false;
     await field.fill('x'.repeat(6001));
     assert.ok(await save.isDisabled());
+    assert.ok(await field.evaluate(el => el.scrollHeight <= el.clientHeight + 1), mode+' long text must fit without an inner scrollbar');
+    await field.fill(('A readable paragraph with a date and a task. ').repeat(50));
+    await field.press('Control+End');
+    await field.pressSequentially(' Typed text remains editable.');
+    assert.ok((await field.inputValue()).endsWith(' Typed text remains editable.'), (await field.inputValue()).slice(-160));
+    assert.ok(await field.evaluate(el => el.scrollHeight <= el.clientHeight + 1), mode+' wrapped text must fit');
+    await page.setViewportSize({width:320,height:900});
+    await page.waitForTimeout(100);
+    assert.ok(await field.evaluate(el => el.scrollHeight <= el.clientHeight + 1), mode+' resized field must fit');
+    const tallHeight=await field.evaluate(el=>el.clientHeight);
+    await field.fill('Short');
+    assert.ok(await field.evaluate(el=>el.clientHeight)<tallHeight, mode+' field shrinks after deleting text');
     await field.fill('Owner-only unsaved context');
     await page.evaluate(()=>window.__switchPrompts('other'));
     await page.waitForFunction(()=>document.querySelector('[data-testid=\"input-personalContext\"]').value==='Other account');

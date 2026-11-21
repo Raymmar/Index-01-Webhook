@@ -86,7 +86,9 @@ export function usePromptForm(accountId: string | null | undefined) {
       // Drop late responses after sign-out, account switch, or unmount.
       if (!saveAccount || currentAccount.current !== saveAccount) return;
       qc.setQueryData(promptsQueryKey(saveAccount), next);
-      retained.delete(saveAccount);
+      // Editing remains available during saves; keep any newer unsaved draft.
+      const retainedDraft = retained.get(saveAccount);
+      if (retainedDraft && samePrompts(retainedDraft, draft)) retained.delete(saveAccount);
       if (!mounted.current) return;
       setDraftState((d) => (d === draft ? null : d));
       setSaved(true);
