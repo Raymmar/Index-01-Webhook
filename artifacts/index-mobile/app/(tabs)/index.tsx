@@ -145,8 +145,8 @@ export default function Dashboard() {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 1, flexShrink: 1, minWidth: 0 }}>{(['all', 'scheduled', 'unscheduled'] as const).map(kind => <Pressable key={kind} testID={`filter-${kind}`} accessibilityRole="button" accessibilityState={{ selected: filter === kind }} onPress={() => { setFilter(kind); if (kind === 'unscheduled') setDate(null); }} style={{ minHeight: 44, paddingHorizontal: 5, justifyContent: 'center', flexShrink: 1 }}><Text numberOfLines={1} style={[s.muted, { fontSize: 11, lineHeight: 22, textTransform: 'capitalize', color: filter === kind ? c.foreground : c.mutedForeground, fontFamily: filter === kind ? 'Geist_500Medium' : 'Geist_400Regular', borderBottomWidth: 2, borderBottomColor: filter === kind ? c.accent : 'transparent' }]}>{kind}</Text></Pressable>)}</View>
       <StatusDropdown value={status} onChange={setStatus} />
     </View>
-    <View style={[s.between, { minHeight: date ? 44 : 18 }]}>
-      {date ? <Pressable testID="button-show-all-tasks" accessibilityRole="button" accessibilityLabel="Show all days" onPress={() => setDate(null)} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 5, paddingRight: 12 }}>
+    <View style={[s.between, { height: 18 }]}>
+      {date ? <Pressable testID="button-show-all-tasks" accessibilityRole="button" accessibilityLabel="Show all days" hitSlop={8} onPress={() => setDate(null)} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
         <Feather name="arrow-left" size={14} color={c.mutedForeground} />
         <Text style={[s.muted, { fontSize: 11 }]}>Show all</Text>
       </Pressable> : <View />}
