@@ -70,6 +70,13 @@ separation between ingestion, AI understanding, and future connectors.
 web/mobile on shared domain primitives and API contracts. Treat these future
 capabilities as direction, not authorization to implement them.
 
+Keep this simple: prioritize reliable core behavior before adding a more
+powerful assistant, user-defined keyword rules, contacts, or dictated email drafts.
+**Why:** The user explicitly rejected unnecessary complexity while describing a
+future “chief of staff” role.
+**How to apply:** Prefer small extensions to existing infrastructure over an
+upfront general-purpose automation framework.
+
 Dashboard is the primary signed-in view, based on the Week Ahead design.
 Inbox is a toggleable drawer available in every signed-in view, not a standalone
 page. On wide screens it opens between main navigation and page content; on

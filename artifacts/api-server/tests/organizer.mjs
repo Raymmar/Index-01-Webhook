@@ -27,7 +27,7 @@ import organizer from "./src/routes/organizer";
 import inbox from "./src/routes/inbox";
 import receive from "./src/routes/receive";
 import { accountFor } from "./src/lib/account";
-import { processNextJob } from "./src/lib/understanding-worker";
+import { processNextJob, startUnderstandingWorker } from "./src/lib/understanding-worker";
 import { resolveDue, extractActions } from "./src/lib/understanding";
 import { migrateUnifiedItems } from "./src/lib/unified-items";
 import { processingFailure } from "./src/lib/ai-models";
@@ -383,6 +383,29 @@ export async function check() {
     console.log("PASS: mocked AI extracts independent tasks with optional due dates");
     console.log("PASS: concurrent workers and repeated processing do not duplicate items or notes");
     console.log("PASS: cross-account isolation, CRUD/undo, original note retention, DST validation");
+    // The worker listens through a separate connection and sees only committed work.
+    await db.delete(jobsTable);
+    await db.insert(eventsTable).values({
+      id: "notification-worker-fixture", ownerId: "owner", kind: "json",
+      transcription: "Index webhook test event", payload: {},
+    });
+    const stopWorker = startUnderstandingWorker();
+    try {
+      await new Promise(resolve => setTimeout(resolve, 150));
+      const started = Date.now();
+      await db.transaction(async tx => {
+        await tx.insert(jobsTable).values({ eventId: "notification-worker-fixture", ownerId: "owner" });
+        await tx.execute(sql\`SELECT pg_notify('ring_inbox_changed', 'owner')\`);
+      });
+      let completed = false;
+      while (Date.now() - started < 4000) {
+        const [row] = await db.select().from(jobsTable).where(eq(jobsTable.eventId, "notification-worker-fixture"));
+        if (row?.status === "completed") { completed = true; break; }
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+      assert.ok(completed, "Committed jobs must wake the worker without a five-second polling delay");
+      console.log("PASS: real PostgreSQL notification wakes the AI worker and completes queued work");
+    } finally { stopWorker(); }
   } finally {
     await listener.query("UNLISTEN ring_inbox_changed");
     listener.release();

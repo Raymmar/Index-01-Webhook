@@ -1,18 +1,19 @@
 import { randomUUID } from "node:crypto";
-import { db, jobsTable, eventsTable, actionsTable, appSettingsTable, preferencesTable } from "@workspace/db";
+import { db, pool, jobsTable, eventsTable, actionsTable, appSettingsTable, preferencesTable } from "@workspace/db";
 import { and, eq, lte, lt, or, sql } from "drizzle-orm";
-import { batchProcess } from "@workspace/integrations-openai-ai-server/batch";
+import { startJobWakeups } from "./job-wakeups";
 import { extractActions } from "./understanding";
 import { logger } from "./logger";
 import { processingFailure } from "./ai-models";
 
-let running = false;
 export async function processNextJob() {
   const leaseId = randomUUID();
   const job = await db.transaction(async tx => {
     const [candidate] = await tx.select({ job: jobsTable, timezone: preferencesTable.timezone }).from(jobsTable)
       .innerJoin(preferencesTable, eq(preferencesTable.ownerId, jobsTable.ownerId))
+      .innerJoin(appSettingsTable, eq(appSettingsTable.id, 1))
       .where(and(
+        or(eq(appSettingsTable.allowSignups, true), eq(appSettingsTable.ownerId, jobsTable.ownerId)),
         sql`${preferencesTable.timezone} IS NOT NULL`,
         lte(jobsTable.availableAt, new Date()),
         or(eq(jobsTable.status, "pending"), eq(jobsTable.status, "processing")),
@@ -82,19 +83,33 @@ export async function processNextJob() {
   return true;
 }
 export function startUnderstandingWorker() {
-  const tick = async () => {
-    if (running) return;
-    running = true;
-    try {
+  return startJobWakeups({
+    pool,
+    onError: () => logger.warn("Understanding worker reconnecting or recovering"),
+    async drain() {
       // A crashed final attempt must not remain stuck in processing forever.
-      await db.update(jobsTable).set({ status: "failed", leaseId: null, error: "Processing interrupted. Retry this note." })
-        .where(and(eq(jobsTable.status, "processing"), sql`${jobsTable.attempts} >= 3`, lte(jobsTable.availableAt, new Date())));
-      await batchProcess([0], () => processNextJob(), { concurrency: 1, retries: 0 });
-    } catch { logger.warn("Understanding worker will retry on its next run"); }
-    finally { running = false; }
-  };
-  void tick();
-  const timer = setInterval(() => void tick(), 5_000);
-  timer.unref();
-  return () => clearInterval(timer);
+      await db.transaction(async tx => {
+        const expired = await tx.update(jobsTable).set({ status: "failed", leaseId: null, error: "Processing interrupted. Retry this note." })
+          .where(and(eq(jobsTable.status, "processing"), sql`${jobsTable.attempts} >= 3`, lte(jobsTable.availableAt, new Date())))
+          .returning({ ownerId: jobsTable.ownerId });
+        for (const owner of new Set(expired.map(row => row.ownerId))) {
+          await tx.execute(sql`SELECT pg_notify('ring_inbox_changed', ${owner})`);
+        }
+      });
+      return processNextJob();
+    },
+    async nextDeadline() {
+      // Only schedule actual retries/lease recovery, never poll an empty queue.
+      // Settings changes already notify this channel when timezone/access changes.
+      const [next] = await db.select({ at: sql<Date | null>`min(${jobsTable.availableAt})` }).from(jobsTable)
+        .innerJoin(preferencesTable, eq(preferencesTable.ownerId, jobsTable.ownerId))
+        .innerJoin(appSettingsTable, eq(appSettingsTable.id, 1))
+        .where(and(
+          sql`${preferencesTable.timezone} IS NOT NULL`,
+          or(eq(appSettingsTable.allowSignups, true), eq(appSettingsTable.ownerId, jobsTable.ownerId)),
+          or(eq(jobsTable.status, "processing"), and(eq(jobsTable.status, "pending"), lt(jobsTable.attempts, 3))),
+        ));
+      return next?.at ? new Date(next.at).getTime() : null;
+    },
+  });
 }
