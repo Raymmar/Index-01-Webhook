@@ -11,6 +11,105 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /rules:
+    get:
+      operationId: listReviewRules
+      responses:
+        "200":
+          description: Account review rules
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/ReviewRule" } }
+    post:
+      operationId: createReviewRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReviewRuleInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReviewRule" }
+  /rules/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getReviewRule
+      responses:
+        "200":
+          description: Rule
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReviewRule" }
+    put:
+      operationId: updateReviewRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReviewRuleInput" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReviewRule" }
+    delete:
+      operationId: deleteReviewRule
+      responses:
+        "204": { description: "Removed rule and its reports, not source messages or tasks" }
+  /rules/{id}/runs:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: listReviewRuns
+      parameters:
+        - { name: before, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Latest fifty runs, newest first; before loads earlier runs
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/ReviewRun" } }
+    post:
+      operationId: runReviewRule
+      responses:
+        "202":
+          description: Queued or already running
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReviewRun" }
+  /rules/{id}/overview:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    put:
+      operationId: updateReviewOverview
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReviewOverviewInput" }
+      responses:
+        "200":
+          description: Updated editable overview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReviewRule" }
+  /rules/{id}/runs/{runId}/undo:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+      - { name: runId, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: undoReviewRun
+      responses:
+        "200":
+          description: Restored task changes if tasks have not subsequently changed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReviewRun" }
   /settings:
     get:
       operationId: getSettings
@@ -335,6 +434,69 @@ components:
   securitySchemes:
     webhookToken: { type: http, scheme: bearer }
   schemas:
+    ReviewRuleInput:
+      type: object
+      required: [name, prompt, enabled, trigger, quietMinutes, intervalHours, dailyTime, timezone, lookbackHours, includeMessages, includeTasks, inputRuleIds, output]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        prompt: { type: string, minLength: 1, maxLength: 12000 }
+        enabled: { type: boolean }
+        trigger: { type: string, enum: [manual, quiet, hourly, daily] }
+        quietMinutes: { type: integer, minimum: 1, maximum: 1440 }
+        intervalHours: { type: integer, minimum: 1, maximum: 168 }
+        dailyTime: { type: string, pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
+        timezone: { type: string, minLength: 1, maxLength: 100 }
+        lookbackHours: { type: integer, minimum: 1, maximum: 720 }
+        includeMessages: { type: boolean }
+        includeTasks: { type: boolean }
+        inputRuleIds:
+          type: array
+          maxItems: 10
+          items: { type: string }
+        output: { type: string, enum: [report, overview, tasks] }
+    ReviewOverviewInput:
+      type: object
+      required: [text, revision]
+      properties:
+        text: { type: string, maxLength: 24000 }
+        revision: { type: integer, minimum: 1 }
+    ReviewRule:
+      allOf:
+        - { $ref: "#/components/schemas/ReviewRuleInput" }
+        - type: object
+          required: [id, revision, createdAt, updatedAt, nextRunAt, overview, overviewUpdatedAt]
+          properties:
+            id: { type: string }
+            revision: { type: integer }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+            nextRunAt: { type: [string, "null"], format: date-time }
+            overview: { type: string }
+            overviewUpdatedAt: { type: [string, "null"], format: date-time }
+    ReviewSource:
+      type: object
+      required: [kind, id, label]
+      properties:
+        kind: { type: string, enum: [message, task, review] }
+        id: { type: string }
+        label: { type: string }
+    ReviewRun:
+      type: object
+      required: [id, ruleId, status, createdAt, completedAt, windowStart, windowEnd, report, error, sources, changedTaskIds, undoneAt, ruleRevision]
+      properties:
+        id: { type: string }
+        ruleId: { type: string }
+        status: { type: string, enum: [pending, waiting, processing, completed, failed, cancelled] }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: [string, "null"], format: date-time }
+        windowStart: { type: string, format: date-time }
+        windowEnd: { type: string, format: date-time }
+        report: { type: [string, "null"] }
+        error: { type: [string, "null"] }
+        sources: { type: array, items: { $ref: "#/components/schemas/ReviewSource" } }
+        changedTaskIds: { type: array, items: { type: string } }
+        undoneAt: { type: [string, "null"], format: date-time }
+        ruleRevision: { type: integer }
     PromptInstructions:
       type: object
       required: [taskRules, dateRules, titleStyle, personalContext]

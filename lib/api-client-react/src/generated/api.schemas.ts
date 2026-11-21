@@ -5,6 +5,133 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type ReviewRuleInputTrigger = typeof ReviewRuleInputTrigger[keyof typeof ReviewRuleInputTrigger];
+
+
+export const ReviewRuleInputTrigger = {
+  manual: 'manual',
+  quiet: 'quiet',
+  hourly: 'hourly',
+  daily: 'daily',
+} as const;
+
+export type ReviewRuleInputOutput = typeof ReviewRuleInputOutput[keyof typeof ReviewRuleInputOutput];
+
+
+export const ReviewRuleInputOutput = {
+  report: 'report',
+  overview: 'overview',
+  tasks: 'tasks',
+} as const;
+
+export interface ReviewRuleInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name: string;
+  /**
+     * @minLength 1
+     * @maxLength 12000
+     */
+  prompt: string;
+  enabled: boolean;
+  trigger: ReviewRuleInputTrigger;
+  /**
+     * @minimum 1
+     * @maximum 1440
+     */
+  quietMinutes: number;
+  /**
+     * @minimum 1
+     * @maximum 168
+     */
+  intervalHours: number;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]$ */
+  dailyTime: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  timezone: string;
+  /**
+     * @minimum 1
+     * @maximum 720
+     */
+  lookbackHours: number;
+  includeMessages: boolean;
+  includeTasks: boolean;
+  /** @maxItems 10 */
+  inputRuleIds: string[];
+  output: ReviewRuleInputOutput;
+}
+
+export interface ReviewOverviewInput {
+  /** @maxLength 24000 */
+  text: string;
+  /** @minimum 1 */
+  revision: number;
+}
+
+export type ReviewRule = ReviewRuleInput & ({
+  id: string;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+  /** @nullable */
+  nextRunAt: string | null;
+  overview: string;
+  /** @nullable */
+  overviewUpdatedAt: string | null;
+});
+
+export type ReviewSourceKind = typeof ReviewSourceKind[keyof typeof ReviewSourceKind];
+
+
+export const ReviewSourceKind = {
+  message: 'message',
+  task: 'task',
+  review: 'review',
+} as const;
+
+export interface ReviewSource {
+  kind: ReviewSourceKind;
+  id: string;
+  label: string;
+}
+
+export type ReviewRunStatus = typeof ReviewRunStatus[keyof typeof ReviewRunStatus];
+
+
+export const ReviewRunStatus = {
+  pending: 'pending',
+  waiting: 'waiting',
+  processing: 'processing',
+  completed: 'completed',
+  failed: 'failed',
+  cancelled: 'cancelled',
+} as const;
+
+export interface ReviewRun {
+  id: string;
+  ruleId: string;
+  status: ReviewRunStatus;
+  createdAt: string;
+  /** @nullable */
+  completedAt: string | null;
+  windowStart: string;
+  windowEnd: string;
+  /** @nullable */
+  report: string | null;
+  /** @nullable */
+  error: string | null;
+  sources: ReviewSource[];
+  changedTaskIds: string[];
+  /** @nullable */
+  undoneAt: string | null;
+  ruleRevision: number;
+}
+
 export interface PromptInstructions {
   /** @maxLength 6000 */
   taskRules: string;
@@ -337,6 +464,10 @@ export interface Receipt {
 export interface HealthStatus {
   status: string;
 }
+
+export type ListReviewRunsParams = {
+before?: string;
+};
 
 export type ListEventsParams = {
 before?: string;

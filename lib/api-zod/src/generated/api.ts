@@ -8,6 +8,393 @@
 import * as zod from 'zod';
 
 
+export const listReviewRulesResponseOneNameMax = 120;
+
+export const listReviewRulesResponseOnePromptMax = 12000;
+
+export const listReviewRulesResponseOneQuietMinutesMax = 1440;
+
+export const listReviewRulesResponseOneIntervalHoursMax = 168;
+
+export const listReviewRulesResponseOneDailyTimeRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+export const listReviewRulesResponseOneTimezoneMax = 100;
+
+export const listReviewRulesResponseOneLookbackHoursMax = 720;
+
+export const listReviewRulesResponseOneInputRuleIdsMax = 10;
+
+
+
+export const ListReviewRulesResponseItem = zod.object({
+  "name": zod.string().min(1).max(listReviewRulesResponseOneNameMax),
+  "prompt": zod.string().min(1).max(listReviewRulesResponseOnePromptMax),
+  "enabled": zod.boolean(),
+  "trigger": zod.enum(['manual', 'quiet', 'hourly', 'daily']),
+  "quietMinutes": zod.number().int().min(1).max(listReviewRulesResponseOneQuietMinutesMax),
+  "intervalHours": zod.number().int().min(1).max(listReviewRulesResponseOneIntervalHoursMax),
+  "dailyTime": zod.string().regex(listReviewRulesResponseOneDailyTimeRegExp),
+  "timezone": zod.string().min(1).max(listReviewRulesResponseOneTimezoneMax),
+  "lookbackHours": zod.number().int().min(1).max(listReviewRulesResponseOneLookbackHoursMax),
+  "includeMessages": zod.boolean(),
+  "includeTasks": zod.boolean(),
+  "inputRuleIds": zod.array(zod.string()).max(listReviewRulesResponseOneInputRuleIdsMax),
+  "output": zod.enum(['report', 'overview', 'tasks'])
+}).and(zod.object({
+  "id": zod.string(),
+  "revision": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "nextRunAt": zod.coerce.date().nullable(),
+  "overview": zod.string(),
+  "overviewUpdatedAt": zod.coerce.date().nullable()
+}))
+export const ListReviewRulesResponse = zod.array(ListReviewRulesResponseItem)
+
+
+export const createReviewRuleBodyNameMax = 120;
+
+export const createReviewRuleBodyPromptMax = 12000;
+
+export const createReviewRuleBodyQuietMinutesMax = 1440;
+
+export const createReviewRuleBodyIntervalHoursMax = 168;
+
+export const createReviewRuleBodyDailyTimeRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+export const createReviewRuleBodyTimezoneMax = 100;
+
+export const createReviewRuleBodyLookbackHoursMax = 720;
+
+export const createReviewRuleBodyInputRuleIdsMax = 10;
+
+
+
+export const CreateReviewRuleBody = zod.object({
+  "name": zod.string().min(1).max(createReviewRuleBodyNameMax),
+  "prompt": zod.string().min(1).max(createReviewRuleBodyPromptMax),
+  "enabled": zod.boolean(),
+  "trigger": zod.enum(['manual', 'quiet', 'hourly', 'daily']),
+  "quietMinutes": zod.number().int().min(1).max(createReviewRuleBodyQuietMinutesMax),
+  "intervalHours": zod.number().int().min(1).max(createReviewRuleBodyIntervalHoursMax),
+  "dailyTime": zod.string().regex(createReviewRuleBodyDailyTimeRegExp),
+  "timezone": zod.string().min(1).max(createReviewRuleBodyTimezoneMax),
+  "lookbackHours": zod.number().int().min(1).max(createReviewRuleBodyLookbackHoursMax),
+  "includeMessages": zod.boolean(),
+  "includeTasks": zod.boolean(),
+  "inputRuleIds": zod.array(zod.string()).max(createReviewRuleBodyInputRuleIdsMax),
+  "output": zod.enum(['report', 'overview', 'tasks'])
+})
+
+export const createReviewRuleResponseOneNameMax = 120;
+
+export const createReviewRuleResponseOnePromptMax = 12000;
+
+export const createReviewRuleResponseOneQuietMinutesMax = 1440;
+
+export const createReviewRuleResponseOneIntervalHoursMax = 168;
+
+export const createReviewRuleResponseOneDailyTimeRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+export const createReviewRuleResponseOneTimezoneMax = 100;
+
+export const createReviewRuleResponseOneLookbackHoursMax = 720;
+
+export const createReviewRuleResponseOneInputRuleIdsMax = 10;
+
+
+
+export const CreateReviewRuleResponse = zod.object({
+  "name": zod.string().min(1).max(createReviewRuleResponseOneNameMax),
+  "prompt": zod.string().min(1).max(createReviewRuleResponseOnePromptMax),
+  "enabled": zod.boolean(),
+  "trigger": zod.enum(['manual', 'quiet', 'hourly', 'daily']),
+  "quietMinutes": zod.number().int().min(1).max(createReviewRuleResponseOneQuietMinutesMax),
+  "intervalHours": zod.number().int().min(1).max(createReviewRuleResponseOneIntervalHoursMax),
+  "dailyTime": zod.string().regex(createReviewRuleResponseOneDailyTimeRegExp),
+  "timezone": zod.string().min(1).max(createReviewRuleResponseOneTimezoneMax),
+  "lookbackHours": zod.number().int().min(1).max(createReviewRuleResponseOneLookbackHoursMax),
+  "includeMessages": zod.boolean(),
+  "includeTasks": zod.boolean(),
+  "inputRuleIds": zod.array(zod.string()).max(createReviewRuleResponseOneInputRuleIdsMax),
+  "output": zod.enum(['report', 'overview', 'tasks'])
+}).and(zod.object({
+  "id": zod.string(),
+  "revision": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "nextRunAt": zod.coerce.date().nullable(),
+  "overview": zod.string(),
+  "overviewUpdatedAt": zod.coerce.date().nullable()
+}))
+
+
+export const GetReviewRuleParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const getReviewRuleResponseOneNameMax = 120;
+
+export const getReviewRuleResponseOnePromptMax = 12000;
+
+export const getReviewRuleResponseOneQuietMinutesMax = 1440;
+
+export const getReviewRuleResponseOneIntervalHoursMax = 168;
+
+export const getReviewRuleResponseOneDailyTimeRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+export const getReviewRuleResponseOneTimezoneMax = 100;
+
+export const getReviewRuleResponseOneLookbackHoursMax = 720;
+
+export const getReviewRuleResponseOneInputRuleIdsMax = 10;
+
+
+
+export const GetReviewRuleResponse = zod.object({
+  "name": zod.string().min(1).max(getReviewRuleResponseOneNameMax),
+  "prompt": zod.string().min(1).max(getReviewRuleResponseOnePromptMax),
+  "enabled": zod.boolean(),
+  "trigger": zod.enum(['manual', 'quiet', 'hourly', 'daily']),
+  "quietMinutes": zod.number().int().min(1).max(getReviewRuleResponseOneQuietMinutesMax),
+  "intervalHours": zod.number().int().min(1).max(getReviewRuleResponseOneIntervalHoursMax),
+  "dailyTime": zod.string().regex(getReviewRuleResponseOneDailyTimeRegExp),
+  "timezone": zod.string().min(1).max(getReviewRuleResponseOneTimezoneMax),
+  "lookbackHours": zod.number().int().min(1).max(getReviewRuleResponseOneLookbackHoursMax),
+  "includeMessages": zod.boolean(),
+  "includeTasks": zod.boolean(),
+  "inputRuleIds": zod.array(zod.string()).max(getReviewRuleResponseOneInputRuleIdsMax),
+  "output": zod.enum(['report', 'overview', 'tasks'])
+}).and(zod.object({
+  "id": zod.string(),
+  "revision": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "nextRunAt": zod.coerce.date().nullable(),
+  "overview": zod.string(),
+  "overviewUpdatedAt": zod.coerce.date().nullable()
+}))
+
+
+export const UpdateReviewRuleParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const updateReviewRuleBodyNameMax = 120;
+
+export const updateReviewRuleBodyPromptMax = 12000;
+
+export const updateReviewRuleBodyQuietMinutesMax = 1440;
+
+export const updateReviewRuleBodyIntervalHoursMax = 168;
+
+export const updateReviewRuleBodyDailyTimeRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+export const updateReviewRuleBodyTimezoneMax = 100;
+
+export const updateReviewRuleBodyLookbackHoursMax = 720;
+
+export const updateReviewRuleBodyInputRuleIdsMax = 10;
+
+
+
+export const UpdateReviewRuleBody = zod.object({
+  "name": zod.string().min(1).max(updateReviewRuleBodyNameMax),
+  "prompt": zod.string().min(1).max(updateReviewRuleBodyPromptMax),
+  "enabled": zod.boolean(),
+  "trigger": zod.enum(['manual', 'quiet', 'hourly', 'daily']),
+  "quietMinutes": zod.number().int().min(1).max(updateReviewRuleBodyQuietMinutesMax),
+  "intervalHours": zod.number().int().min(1).max(updateReviewRuleBodyIntervalHoursMax),
+  "dailyTime": zod.string().regex(updateReviewRuleBodyDailyTimeRegExp),
+  "timezone": zod.string().min(1).max(updateReviewRuleBodyTimezoneMax),
+  "lookbackHours": zod.number().int().min(1).max(updateReviewRuleBodyLookbackHoursMax),
+  "includeMessages": zod.boolean(),
+  "includeTasks": zod.boolean(),
+  "inputRuleIds": zod.array(zod.string()).max(updateReviewRuleBodyInputRuleIdsMax),
+  "output": zod.enum(['report', 'overview', 'tasks'])
+})
+
+export const updateReviewRuleResponseOneNameMax = 120;
+
+export const updateReviewRuleResponseOnePromptMax = 12000;
+
+export const updateReviewRuleResponseOneQuietMinutesMax = 1440;
+
+export const updateReviewRuleResponseOneIntervalHoursMax = 168;
+
+export const updateReviewRuleResponseOneDailyTimeRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+export const updateReviewRuleResponseOneTimezoneMax = 100;
+
+export const updateReviewRuleResponseOneLookbackHoursMax = 720;
+
+export const updateReviewRuleResponseOneInputRuleIdsMax = 10;
+
+
+
+export const UpdateReviewRuleResponse = zod.object({
+  "name": zod.string().min(1).max(updateReviewRuleResponseOneNameMax),
+  "prompt": zod.string().min(1).max(updateReviewRuleResponseOnePromptMax),
+  "enabled": zod.boolean(),
+  "trigger": zod.enum(['manual', 'quiet', 'hourly', 'daily']),
+  "quietMinutes": zod.number().int().min(1).max(updateReviewRuleResponseOneQuietMinutesMax),
+  "intervalHours": zod.number().int().min(1).max(updateReviewRuleResponseOneIntervalHoursMax),
+  "dailyTime": zod.string().regex(updateReviewRuleResponseOneDailyTimeRegExp),
+  "timezone": zod.string().min(1).max(updateReviewRuleResponseOneTimezoneMax),
+  "lookbackHours": zod.number().int().min(1).max(updateReviewRuleResponseOneLookbackHoursMax),
+  "includeMessages": zod.boolean(),
+  "includeTasks": zod.boolean(),
+  "inputRuleIds": zod.array(zod.string()).max(updateReviewRuleResponseOneInputRuleIdsMax),
+  "output": zod.enum(['report', 'overview', 'tasks'])
+}).and(zod.object({
+  "id": zod.string(),
+  "revision": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "nextRunAt": zod.coerce.date().nullable(),
+  "overview": zod.string(),
+  "overviewUpdatedAt": zod.coerce.date().nullable()
+}))
+
+
+export const DeleteReviewRuleParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteReviewRuleResponse = zod.void()
+
+
+export const ListReviewRunsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ListReviewRunsQueryParams = zod.object({
+  "before": zod.date().optional()
+})
+
+export const ListReviewRunsResponseItem = zod.object({
+  "id": zod.string(),
+  "ruleId": zod.string(),
+  "status": zod.enum(['pending', 'waiting', 'processing', 'completed', 'failed', 'cancelled']),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullable(),
+  "windowStart": zod.coerce.date(),
+  "windowEnd": zod.coerce.date(),
+  "report": zod.string().nullable(),
+  "error": zod.string().nullable(),
+  "sources": zod.array(zod.object({
+  "kind": zod.enum(['message', 'task', 'review']),
+  "id": zod.string(),
+  "label": zod.string()
+})),
+  "changedTaskIds": zod.array(zod.string()),
+  "undoneAt": zod.coerce.date().nullable(),
+  "ruleRevision": zod.number().int()
+})
+export const ListReviewRunsResponse = zod.array(ListReviewRunsResponseItem)
+
+
+export const RunReviewRuleParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const RunReviewRuleResponse = zod.object({
+  "id": zod.string(),
+  "ruleId": zod.string(),
+  "status": zod.enum(['pending', 'waiting', 'processing', 'completed', 'failed', 'cancelled']),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullable(),
+  "windowStart": zod.coerce.date(),
+  "windowEnd": zod.coerce.date(),
+  "report": zod.string().nullable(),
+  "error": zod.string().nullable(),
+  "sources": zod.array(zod.object({
+  "kind": zod.enum(['message', 'task', 'review']),
+  "id": zod.string(),
+  "label": zod.string()
+})),
+  "changedTaskIds": zod.array(zod.string()),
+  "undoneAt": zod.coerce.date().nullable(),
+  "ruleRevision": zod.number().int()
+})
+
+
+export const UpdateReviewOverviewParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const updateReviewOverviewBodyTextMax = 24000;
+
+
+
+
+export const UpdateReviewOverviewBody = zod.object({
+  "text": zod.string().max(updateReviewOverviewBodyTextMax),
+  "revision": zod.number().int().min(1)
+})
+
+export const updateReviewOverviewResponseOneNameMax = 120;
+
+export const updateReviewOverviewResponseOnePromptMax = 12000;
+
+export const updateReviewOverviewResponseOneQuietMinutesMax = 1440;
+
+export const updateReviewOverviewResponseOneIntervalHoursMax = 168;
+
+export const updateReviewOverviewResponseOneDailyTimeRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+export const updateReviewOverviewResponseOneTimezoneMax = 100;
+
+export const updateReviewOverviewResponseOneLookbackHoursMax = 720;
+
+export const updateReviewOverviewResponseOneInputRuleIdsMax = 10;
+
+
+
+export const UpdateReviewOverviewResponse = zod.object({
+  "name": zod.string().min(1).max(updateReviewOverviewResponseOneNameMax),
+  "prompt": zod.string().min(1).max(updateReviewOverviewResponseOnePromptMax),
+  "enabled": zod.boolean(),
+  "trigger": zod.enum(['manual', 'quiet', 'hourly', 'daily']),
+  "quietMinutes": zod.number().int().min(1).max(updateReviewOverviewResponseOneQuietMinutesMax),
+  "intervalHours": zod.number().int().min(1).max(updateReviewOverviewResponseOneIntervalHoursMax),
+  "dailyTime": zod.string().regex(updateReviewOverviewResponseOneDailyTimeRegExp),
+  "timezone": zod.string().min(1).max(updateReviewOverviewResponseOneTimezoneMax),
+  "lookbackHours": zod.number().int().min(1).max(updateReviewOverviewResponseOneLookbackHoursMax),
+  "includeMessages": zod.boolean(),
+  "includeTasks": zod.boolean(),
+  "inputRuleIds": zod.array(zod.string()).max(updateReviewOverviewResponseOneInputRuleIdsMax),
+  "output": zod.enum(['report', 'overview', 'tasks'])
+}).and(zod.object({
+  "id": zod.string(),
+  "revision": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "nextRunAt": zod.coerce.date().nullable(),
+  "overview": zod.string(),
+  "overviewUpdatedAt": zod.coerce.date().nullable()
+}))
+
+
+export const UndoReviewRunParams = zod.object({
+  "id": zod.coerce.string(),
+  "runId": zod.coerce.string()
+})
+
+export const UndoReviewRunResponse = zod.object({
+  "id": zod.string(),
+  "ruleId": zod.string(),
+  "status": zod.enum(['pending', 'waiting', 'processing', 'completed', 'failed', 'cancelled']),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullable(),
+  "windowStart": zod.coerce.date(),
+  "windowEnd": zod.coerce.date(),
+  "report": zod.string().nullable(),
+  "error": zod.string().nullable(),
+  "sources": zod.array(zod.object({
+  "kind": zod.enum(['message', 'task', 'review']),
+  "id": zod.string(),
+  "label": zod.string()
+})),
+  "changedTaskIds": zod.array(zod.string()),
+  "undoneAt": zod.coerce.date().nullable(),
+  "ruleRevision": zod.number().int()
+})
+
+
 export const GetSettingsResponse = zod.object({
   "skipTaskDismissConfirmation": zod.boolean().optional(),
   "skipTaskDeleteConfirmation": zod.boolean().optional(),

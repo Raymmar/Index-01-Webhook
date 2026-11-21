@@ -19,8 +19,8 @@ const bundle = await build({
   absWorkingDir: root, stdin: { resolveDir: root, loader: 'tsx', contents: `
     import React from 'react'; import {createRoot} from 'react-dom/client';
     import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
-    import Mobile from './app/settings-prompts';
-    import Web from '../ring-inbox/src/pages/settings-prompts';
+    import Mobile from './app/settings-extraction';
+    import Web from '../ring-inbox/src/pages/settings-extraction';
     window.__promptAccount='owner';
     const realFetch=window.fetch;
     window.fetch=(input,init={})=>realFetch(input,{...init,headers:{...init.headers,'x-fixture-account':window.__promptAccount}});
@@ -103,9 +103,9 @@ try{
     assert.ok(await field.evaluate(el=>el.clientHeight)<tallHeight, mode+' field shrinks after deleting text');
     await field.fill('Owner-only unsaved context');
     await page.evaluate(()=>window.__switchPrompts('other'));
-    await page.waitForFunction(()=>document.querySelector('[data-testid=\"input-personalContext\"]').value==='Other account');
+    await page.waitForFunction(()=>document.querySelector('[data-testid=\"input-personalContext\"]')?.value==='Other account');
     await page.evaluate(()=>window.__switchPrompts('owner'));
-    await page.waitForFunction(()=>document.querySelector('[data-testid=\"input-personalContext\"]').value==='Owner-only unsaved context');
+    await page.waitForFunction(()=>document.querySelector('[data-testid=\"input-personalContext\"]')?.value==='Owner-only unsaved context');
     assert.deepEqual(errors,[]);
     console.log('PASS: '+mode+' prompt edit/save/empty/reset/failure/length guard, clean SSE refresh, dirty draft protection and account isolation');
     await page.close();

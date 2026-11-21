@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { startUnderstandingWorker } from "./lib/understanding-worker";
 import { startMessageDispatcher } from "./lib/message-dispatcher";
+import { startReviewWorker } from "./lib/review-worker";
 import { migrateUnifiedItems } from "./lib/unified-items";
 
 const rawPort = process.env["PORT"];
@@ -28,4 +29,5 @@ app.listen(port, (err) => {
   logger.info({ port }, "Server listening");
   startUnderstandingWorker();
   startMessageDispatcher();
+  startReviewWorker();
 });

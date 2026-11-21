@@ -39,7 +39,7 @@ export function refreshInbox(client: QueryClient) {
     const key = query.queryKey[0];
     return typeof key === "string" && (
       ["/api/events", "/api/organizer", "/api/webhooks", "/api/settings", "/api/prompts"].includes(key) ||
-      key.startsWith("/api/events/")
+      key.startsWith("/api/events/") || key === "/api/rules" || key.startsWith("/api/rules/")
     );
   } });
 }

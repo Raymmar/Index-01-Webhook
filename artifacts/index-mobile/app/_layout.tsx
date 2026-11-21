@@ -28,7 +28,7 @@ function PrivateWorkspace() {
   // Clearing a singleton alone would let an old in-flight settings save populate
   // the next account's cache after a user switch.
   const [privateClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 20000, refetchOnWindowFocus: false }, mutations: { retry: false } } }));
-  return <QueryClientProvider client={privateClient}><BearerBinding><AccessGate><Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.background } }}><Stack.Screen name="(tabs)" /><Stack.Screen name="settings-prompts" /><Stack.Screen name="oauth-callback" /><Stack.Screen name="+not-found" /></Stack></AccessGate></BearerBinding></QueryClientProvider>;
+  return <QueryClientProvider client={privateClient}><BearerBinding><AccessGate><Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.background } }}><Stack.Screen name="(tabs)" /><Stack.Screen name="settings-prompts" /><Stack.Screen name="settings-extraction" /><Stack.Screen name="settings-rule" /><Stack.Screen name="oauth-callback" /><Stack.Screen name="+not-found" /></Stack></AccessGate></BearerBinding></QueryClientProvider>;
 }
 function SessionRouter() {
   const { isLoaded, isSignedIn, userId } = useAuth();

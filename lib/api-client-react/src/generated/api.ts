@@ -33,12 +33,17 @@ import type {
   ItemInput,
   ItemUpdate,
   ListEventsParams,
+  ListReviewRunsParams,
   MessageInput,
   Organizer,
   PromptInstructions,
   PromptSettings,
   Receipt,
   RecordingPayload,
+  ReviewOverviewInput,
+  ReviewRule,
+  ReviewRuleInput,
+  ReviewRun,
   Settings,
   SettingsUpdate,
   SourceDeletion,
@@ -73,6 +78,760 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getListReviewRulesUrl = () => {
+
+
+
+
+  return `/api/rules`
+}
+
+export const listReviewRules = async ( options?: Parameters<typeof customFetch>[1]): Promise<ReviewRule[]> => {
+
+  return customFetch<ReviewRule[]>(getListReviewRulesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListReviewRulesQueryKey = () => {
+    return [
+    `/api/rules`
+    ] as const;
+    }
+
+
+export const getListReviewRulesQueryOptions = <TData = Awaited<ReturnType<typeof listReviewRules>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listReviewRules>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListReviewRulesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listReviewRules>>> = ({ signal }) => listReviewRules({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listReviewRules>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListReviewRulesQueryResult = NonNullable<Awaited<ReturnType<typeof listReviewRules>>>
+export type ListReviewRulesQueryError = ErrorType<unknown>
+
+
+export function useListReviewRules<TData = Awaited<ReturnType<typeof listReviewRules>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listReviewRules>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listReviewRules>>,
+          TError,
+          Awaited<ReturnType<typeof listReviewRules>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListReviewRules<TData = Awaited<ReturnType<typeof listReviewRules>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listReviewRules>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listReviewRules>>,
+          TError,
+          Awaited<ReturnType<typeof listReviewRules>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListReviewRules<TData = Awaited<ReturnType<typeof listReviewRules>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listReviewRules>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useListReviewRules<TData = Awaited<ReturnType<typeof listReviewRules>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listReviewRules>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListReviewRulesQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateReviewRuleUrl = () => {
+
+
+
+
+  return `/api/rules`
+}
+
+export const createReviewRule = async (reviewRuleInput: ReviewRuleInput, options?: Parameters<typeof customFetch>[1]): Promise<ReviewRule> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ReviewRule>(getCreateReviewRuleUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(reviewRuleInput)
+  }
+);}
+
+
+
+
+
+export const getCreateReviewRuleMutationKey = () => ['createReviewRule'] as const;
+
+export const getCreateReviewRuleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReviewRule>>, TError,CreateReviewRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createReviewRule>>, TError,CreateReviewRuleMutationVariables, TContext> => {
+
+const mutationKey = getCreateReviewRuleMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createReviewRule>>, CreateReviewRuleMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createReviewRule(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateReviewRuleMutationResult = NonNullable<Awaited<ReturnType<typeof createReviewRule>>>
+    export type CreateReviewRuleMutationBody = BodyType<ReviewRuleInput>
+    export type CreateReviewRuleMutationError = ErrorType<unknown>
+    export type CreateReviewRuleMutationVariables = {data: BodyType<ReviewRuleInput>}
+
+    export const useCreateReviewRule = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReviewRule>>, TError,CreateReviewRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createReviewRule>>,
+        TError,
+        CreateReviewRuleMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateReviewRuleMutationOptions(options), queryClient);
+    }
+
+export const getGetReviewRuleUrl = (id: string,) => {
+
+
+
+
+  return `/api/rules/${id}`
+}
+
+export const getReviewRule = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<ReviewRule> => {
+
+  return customFetch<ReviewRule>(getGetReviewRuleUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetReviewRuleQueryKey = (id: string,) => {
+    return [
+    `/api/rules/${id}`
+    ] as const;
+    }
+
+
+export const getGetReviewRuleQueryOptions = <TData = Awaited<ReturnType<typeof getReviewRule>>, TError = ErrorType<unknown>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getReviewRule>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetReviewRuleQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getReviewRule>>> = ({ signal }) => getReviewRule(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getReviewRule>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetReviewRuleQueryResult = NonNullable<Awaited<ReturnType<typeof getReviewRule>>>
+export type GetReviewRuleQueryError = ErrorType<unknown>
+
+
+export function useGetReviewRule<TData = Awaited<ReturnType<typeof getReviewRule>>, TError = ErrorType<unknown>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getReviewRule>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getReviewRule>>,
+          TError,
+          Awaited<ReturnType<typeof getReviewRule>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetReviewRule<TData = Awaited<ReturnType<typeof getReviewRule>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getReviewRule>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getReviewRule>>,
+          TError,
+          Awaited<ReturnType<typeof getReviewRule>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetReviewRule<TData = Awaited<ReturnType<typeof getReviewRule>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getReviewRule>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetReviewRule<TData = Awaited<ReturnType<typeof getReviewRule>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getReviewRule>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetReviewRuleQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateReviewRuleUrl = (id: string,) => {
+
+
+
+
+  return `/api/rules/${id}`
+}
+
+export const updateReviewRule = async (id: string,
+    reviewRuleInput: ReviewRuleInput, options?: Parameters<typeof customFetch>[1]): Promise<ReviewRule> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ReviewRule>(getUpdateReviewRuleUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(reviewRuleInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateReviewRuleMutationKey = () => ['updateReviewRule'] as const;
+
+export const getUpdateReviewRuleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateReviewRule>>, TError,UpdateReviewRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateReviewRule>>, TError,UpdateReviewRuleMutationVariables, TContext> => {
+
+const mutationKey = getUpdateReviewRuleMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateReviewRule>>, UpdateReviewRuleMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateReviewRule(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateReviewRuleMutationResult = NonNullable<Awaited<ReturnType<typeof updateReviewRule>>>
+    export type UpdateReviewRuleMutationBody = BodyType<ReviewRuleInput>
+    export type UpdateReviewRuleMutationError = ErrorType<unknown>
+    export type UpdateReviewRuleMutationVariables = {id: string;data: BodyType<ReviewRuleInput>}
+
+    export const useUpdateReviewRule = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateReviewRule>>, TError,UpdateReviewRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateReviewRule>>,
+        TError,
+        UpdateReviewRuleMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateReviewRuleMutationOptions(options), queryClient);
+    }
+
+export const getDeleteReviewRuleUrl = (id: string,) => {
+
+
+
+
+  return `/api/rules/${id}`
+}
+
+export const deleteReviewRule = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteReviewRuleUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteReviewRuleMutationKey = () => ['deleteReviewRule'] as const;
+
+export const getDeleteReviewRuleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteReviewRule>>, TError,DeleteReviewRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteReviewRule>>, TError,DeleteReviewRuleMutationVariables, TContext> => {
+
+const mutationKey = getDeleteReviewRuleMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteReviewRule>>, DeleteReviewRuleMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteReviewRule(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteReviewRuleMutationResult = NonNullable<Awaited<ReturnType<typeof deleteReviewRule>>>
+
+    export type DeleteReviewRuleMutationError = ErrorType<unknown>
+    export type DeleteReviewRuleMutationVariables = {id: string}
+
+    export const useDeleteReviewRule = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteReviewRule>>, TError,DeleteReviewRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteReviewRule>>,
+        TError,
+        DeleteReviewRuleMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteReviewRuleMutationOptions(options), queryClient);
+    }
+
+export const getListReviewRunsUrl = (id: string,
+    params?: ListReviewRunsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/rules/${id}/runs?${stringifiedParams}` : `/api/rules/${id}/runs`
+}
+
+export const listReviewRuns = async (id: string,
+    params?: ListReviewRunsParams, options?: Parameters<typeof customFetch>[1]): Promise<ReviewRun[]> => {
+
+  return customFetch<ReviewRun[]>(getListReviewRunsUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListReviewRunsQueryKey = (id: string,
+    params?: ListReviewRunsParams,) => {
+    return [
+    `/api/rules/${id}/runs`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListReviewRunsQueryOptions = <TData = Awaited<ReturnType<typeof listReviewRuns>>, TError = ErrorType<unknown>>(id: string,
+    params?: ListReviewRunsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listReviewRuns>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListReviewRunsQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listReviewRuns>>> = ({ signal }) => listReviewRuns(id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listReviewRuns>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListReviewRunsQueryResult = NonNullable<Awaited<ReturnType<typeof listReviewRuns>>>
+export type ListReviewRunsQueryError = ErrorType<unknown>
+
+
+export function useListReviewRuns<TData = Awaited<ReturnType<typeof listReviewRuns>>, TError = ErrorType<unknown>>(
+ id: string,
+    params: undefined |  ListReviewRunsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listReviewRuns>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listReviewRuns>>,
+          TError,
+          Awaited<ReturnType<typeof listReviewRuns>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListReviewRuns<TData = Awaited<ReturnType<typeof listReviewRuns>>, TError = ErrorType<unknown>>(
+ id: string,
+    params?: ListReviewRunsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listReviewRuns>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listReviewRuns>>,
+          TError,
+          Awaited<ReturnType<typeof listReviewRuns>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListReviewRuns<TData = Awaited<ReturnType<typeof listReviewRuns>>, TError = ErrorType<unknown>>(
+ id: string,
+    params?: ListReviewRunsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listReviewRuns>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useListReviewRuns<TData = Awaited<ReturnType<typeof listReviewRuns>>, TError = ErrorType<unknown>>(
+ id: string,
+    params?: ListReviewRunsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listReviewRuns>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListReviewRunsQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRunReviewRuleUrl = (id: string,) => {
+
+
+
+
+  return `/api/rules/${id}/runs`
+}
+
+export const runReviewRule = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<ReviewRun> => {
+
+  return customFetch<ReviewRun>(getRunReviewRuleUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRunReviewRuleMutationKey = () => ['runReviewRule'] as const;
+
+export const getRunReviewRuleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runReviewRule>>, TError,RunReviewRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runReviewRule>>, TError,RunReviewRuleMutationVariables, TContext> => {
+
+const mutationKey = getRunReviewRuleMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runReviewRule>>, RunReviewRuleMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  runReviewRule(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunReviewRuleMutationResult = NonNullable<Awaited<ReturnType<typeof runReviewRule>>>
+
+    export type RunReviewRuleMutationError = ErrorType<unknown>
+    export type RunReviewRuleMutationVariables = {id: string}
+
+    export const useRunReviewRule = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runReviewRule>>, TError,RunReviewRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof runReviewRule>>,
+        TError,
+        RunReviewRuleMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRunReviewRuleMutationOptions(options), queryClient);
+    }
+
+export const getUpdateReviewOverviewUrl = (id: string,) => {
+
+
+
+
+  return `/api/rules/${id}/overview`
+}
+
+export const updateReviewOverview = async (id: string,
+    reviewOverviewInput: ReviewOverviewInput, options?: Parameters<typeof customFetch>[1]): Promise<ReviewRule> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ReviewRule>(getUpdateReviewOverviewUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(reviewOverviewInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateReviewOverviewMutationKey = () => ['updateReviewOverview'] as const;
+
+export const getUpdateReviewOverviewMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateReviewOverview>>, TError,UpdateReviewOverviewMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateReviewOverview>>, TError,UpdateReviewOverviewMutationVariables, TContext> => {
+
+const mutationKey = getUpdateReviewOverviewMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateReviewOverview>>, UpdateReviewOverviewMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateReviewOverview(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateReviewOverviewMutationResult = NonNullable<Awaited<ReturnType<typeof updateReviewOverview>>>
+    export type UpdateReviewOverviewMutationBody = BodyType<ReviewOverviewInput>
+    export type UpdateReviewOverviewMutationError = ErrorType<unknown>
+    export type UpdateReviewOverviewMutationVariables = {id: string;data: BodyType<ReviewOverviewInput>}
+
+    export const useUpdateReviewOverview = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateReviewOverview>>, TError,UpdateReviewOverviewMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateReviewOverview>>,
+        TError,
+        UpdateReviewOverviewMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateReviewOverviewMutationOptions(options), queryClient);
+    }
+
+export const getUndoReviewRunUrl = (id: string,
+    runId: string,) => {
+
+
+
+
+  return `/api/rules/${id}/runs/${runId}/undo`
+}
+
+export const undoReviewRun = async (id: string,
+    runId: string, options?: Parameters<typeof customFetch>[1]): Promise<ReviewRun> => {
+
+  return customFetch<ReviewRun>(getUndoReviewRunUrl(id,runId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getUndoReviewRunMutationKey = () => ['undoReviewRun'] as const;
+
+export const getUndoReviewRunMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof undoReviewRun>>, TError,UndoReviewRunMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof undoReviewRun>>, TError,UndoReviewRunMutationVariables, TContext> => {
+
+const mutationKey = getUndoReviewRunMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof undoReviewRun>>, UndoReviewRunMutationVariables> = (props) => {
+          const {id,runId} = props ?? {};
+
+          return  undoReviewRun(id,runId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UndoReviewRunMutationResult = NonNullable<Awaited<ReturnType<typeof undoReviewRun>>>
+
+    export type UndoReviewRunMutationError = ErrorType<unknown>
+    export type UndoReviewRunMutationVariables = {id: string;runId: string}
+
+    export const useUndoReviewRun = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof undoReviewRun>>, TError,UndoReviewRunMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof undoReviewRun>>,
+        TError,
+        UndoReviewRunMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUndoReviewRunMutationOptions(options), queryClient);
+    }
 
 export const getGetSettingsUrl = () => {
 

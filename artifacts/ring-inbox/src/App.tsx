@@ -12,6 +12,8 @@ import Home from "@/pages/home";
 import Webhooks from "@/pages/webhooks";
 import SettingsPage from "@/pages/settings";
 import PromptsPage from "@/pages/settings-prompts";
+import ExtractionPage from "@/pages/settings-extraction";
+import RulePage from "@/pages/settings-rule";
 import Dashboard from "@/pages/dashboard";
 import { Shell } from "@/components/shell";
 
@@ -157,6 +159,9 @@ function PrivateRoutes() {
       <Route path="/tasks" component={LegacyTasksRedirect} />
       <Route path="/reminders">{() => <Redirect to="/dashboard?schedule=scheduled" />}</Route>
       <Route path="/webhooks" component={Webhooks} />
+      <Route path="/settings/prompts/extraction" component={ExtractionPage} />
+      <Route path="/settings/prompts/new" component={RulePage} />
+      <Route path="/settings/prompts/:id" component={RulePage} />
       <Route path="/settings/prompts" component={PromptsPage} />
       <Route path="/settings" component={SettingsPage} />
     </Switch>
@@ -165,7 +170,7 @@ function PrivateRoutes() {
 
 function Fallback() {
   const [loc] = useLocation();
-  if (!PRIVATE.includes(loc)) return <NotFound />;
+  if (!PRIVATE.includes(loc) && !loc.startsWith("/settings/prompts/")) return <NotFound />;
   return <Private><PrivateRoutes /></Private>;
 }
 

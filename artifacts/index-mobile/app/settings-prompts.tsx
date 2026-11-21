@@ -1,34 +1,30 @@
-import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@clerk/expo';
-import { usePromptForm, PROMPT_FIELDS, PROMPT_MAX } from '@workspace/api-client-react';
-import { Page, Copy, Skeleton, Failure, Button, Confirm, IconButton, s, c } from '@/components/ui';
-import { TaskTitleField as GrowingTextField } from '@/components/task-title-field';
+import { useListReviewRules, listRulesKey, triggerSummary, OUTPUTS } from '@workspace/api-client-react';
+import { Page, Copy, Skeleton, Failure, Button, IconButton, s } from '@/components/ui';
 
 export default function Prompts() {
   const { userId } = useAuth();
-  const f = usePromptForm(userId);
-  const [confirmLeave, setConfirmLeave] = useState(false);
-  const [skill, setSkill] = useState(false);
-  const { query: q, data, values, dirty } = f;
+  const acct = userId ?? '';
+  const q = useListReviewRules({ query: { queryKey: listRulesKey(acct), enabled: !!acct } });
+  const back = <IconButton name="chevron-left" label="Back to settings" onPress={() => (router.canGoBack() ? router.back() : router.replace('/settings'))} />;
+  const rules = q.data ?? [];
 
-  function leave() { f.discard(); if (router.canGoBack()) router.back(); else router.replace('/settings'); }
-  const back = <IconButton name="chevron-left" label="Back to settings" onPress={() => dirty ? setConfirmLeave(true) : leave()} />;
-
-  if (q.isLoading || !userId) return <Page compact title="Prompts" action={back}><Skeleton /></Page>;
-  if (q.isError || !data || !values) return <Page compact title="Prompts" action={back}><Failure error={q.error} retry={() => void q.refetch()} /></Page>;
-
-  return <Page compact title="Prompts" eyebrow="Settings / Extraction" action={back} keyboardDismissMode="none">
-    <Text accessibilityRole="alert" style={f.error ? s.error : s.muted}>{f.error || (f.saving ? 'Saving…' : dirty ? 'Unsaved' : f.saved ? 'Saved' : ' ')}</Text>
-    {PROMPT_FIELDS.map(field => { const v = values[field.key]; return <View key={field.key} style={{ gap: 8 }}>
-      <View style={s.between}><Text style={[s.subheading, { fontSize: 22, lineHeight: 28 }]}>{field.label}…</Text>{v.length > PROMPT_MAX * 0.8 && <Text style={[s.muted, v.length > PROMPT_MAX && { color: c.destructive }]}>{v.length}/{PROMPT_MAX}</Text>}</View>
-      <GrowingTextField testID={`input-${field.key}`} accessibilityLabel={field.label} placeholder="(blank)" value={v} onChangeText={t => f.setField(field.key, t)} />
-    </View>; })}
-    <Button label={f.saving ? 'Saving…' : 'Save'} disabled={!f.canSave} onPress={() => void f.save()} />
-    <Button label="Reset to defaults" quiet disabled={f.atDefaults || f.saving} onPress={f.resetToDefaults} />
-    <Button label={skill ? 'Hide compiled skill' : 'Show compiled skill'} quiet onPress={() => setSkill(v => !v)} />
-    {skill && <View style={s.card}>{dirty && <Text style={s.muted}>Reflects last save</Text>}<Copy selectable testID="text-skill" style={{ fontSize: 12, lineHeight: 18 }}>{data.skill}</Copy></View>}
-    {confirmLeave && <Confirm title="Discard changes" message="Your unsaved prompt edits will be lost." onClose={() => setConfirmLeave(false)} onConfirm={() => { setConfirmLeave(false); leave(); }} />}
+  return <Page compact title="Prompts" eyebrow="Settings" action={back}>
+    <Text style={s.label}>Always on</Text>
+    <Pressable testID="link-extraction" accessibilityRole="button" onPress={() => router.push('/settings-extraction')} style={({ pressed }) => [s.card, s.between, { opacity: pressed ? 0.6 : 1 }]}>
+      <View style={{ flex: 1, gap: 2 }}><Copy>Task extraction</Copy><Text style={s.muted}>Runs on every new message. Cannot be disabled.</Text></View>
+      <Text style={s.muted}>Edit</Text>
+    </Pressable>
+    <Text style={s.label}>Additional rules</Text>
+    {(q.isLoading || !acct) && <Skeleton />}
+    {q.isError && <Failure error={q.error} retry={() => void q.refetch()} />}
+    {q.isSuccess && rules.length === 0 && <Text style={s.muted} testID="text-no-rules">No additional rules yet. A rule reads recent messages, tasks, or other rules' output and writes a report, keeps an overview, or tidies open tasks.</Text>}
+    {rules.map(r => <Pressable key={r.id} testID={`link-rule-${r.id}`} accessibilityRole="button" onPress={() => router.push({ pathname: '/settings-rule', params: { id: r.id } })} style={({ pressed }) => [s.card, s.between, { opacity: pressed ? 0.6 : 1 }]}>
+      <View style={{ flex: 1, gap: 2 }}><Copy numberOfLines={1}>{r.name}</Copy><Text style={s.muted}>{triggerSummary(r)} · {OUTPUTS.find(o => o.value === r.output)?.label}</Text></View>
+      <Text style={s.muted}>{r.enabled ? 'On' : 'Off'}</Text>
+    </Pressable>)}
+    <Button label="New rule" testID="link-new-rule" onPress={() => router.push('/settings-rule')} />
   </Page>;
 }

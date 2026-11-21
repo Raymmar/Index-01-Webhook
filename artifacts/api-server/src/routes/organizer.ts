@@ -11,6 +11,7 @@ import { ingestMessage, DeliveryConflict } from "../lib/message-ingestion";
 import { CreateMessageBody } from "@workspace/api-zod";
 import { UpdatePromptsBody, GetPromptsResponse } from "@workspace/api-zod";
 import { defaultInstructions, resolveInstructions, renderSkill } from "../lib/extraction-skill";
+import reviewRulesRouter from "./review-rules";
 
 const router: IRouter = Router();
 router.use(async (req, res, next) => {
@@ -38,6 +39,7 @@ router.use((_req, res, next) => {
   if (!res.locals.account.allowed) { res.status(403).json({ error: "This workspace is private" }); return; }
   next();
 });
+router.use(reviewRulesRouter);
 router.patch("/settings", async (req, res): Promise<void> => {
   const body = UpdateSettingsBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Invalid settings" }); return; }
