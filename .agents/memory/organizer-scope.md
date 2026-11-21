@@ -61,6 +61,15 @@ Replit for AI or connected services.
 The current scope is ingestion and understanding only. Connectors stay separate;
 external actions will be connected through a workflow layer later.
 
+The long-term product is a personal thinking partner: adaptable inputs from voice
+assistants and other sources, user-guided workflows, related sequential thought
+grouping, and daily higher-level insights.
+**Why:** The user explicitly described this direction and requested modular
+separation between ingestion, AI understanding, and future connectors.
+**How to apply:** Preserve source messages independently of processing and keep
+web/mobile on shared domain primitives and API contracts. Treat these future
+capabilities as direction, not authorization to implement them.
+
 Dashboard is the primary signed-in view, based on the Week Ahead design.
 Inbox is a toggleable drawer available in every signed-in view, not a standalone
 page. On wide screens it opens between main navigation and page content; on
