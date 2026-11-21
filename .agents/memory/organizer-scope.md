@@ -83,6 +83,12 @@ The user wants two workflow types: individual task extraction and batch/timed
 review, each driven by editable prompts rather than one hardcoded recursive loop.
 Review should connect rapid sequences of thoughts, reconcile existing tasks,
 and maintain a rolling overview of topics, projects, and current focus.
+Leave initial task extraction unchanged: it processes individual messages, without
+adding related messages, existing-board context, or cross-message reconciliation.
+All batch understanding and synthesis belongs in a separate layer on top of the
+existing message and task primitives.
+**Why:** The user explicitly rejected changing the initial extraction flow or
+making it gather broader context as part of adding review workflows.
 **Why:** The product is a voice-note thinking partner between meetings, not only
 a task inbox or long-form meeting summarizer. Repeated mentions can refine an
 existing task instead of creating another, and non-actionable thoughts still
