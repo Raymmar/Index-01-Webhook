@@ -96,6 +96,11 @@ quiet period, hourly intervals, and daily intervals.
 primitive and additional rule versions sit above it at different intervals.
 **How to apply:** Keep review prompts and triggers configurable per rule, without
 coupling these rules back into initial extraction.
+Manage these rules in the existing Settings > Prompts area. It must always
+include the basic task extraction rule; users can add further rules, each with
+its own individual prompt editing screen.
+**Why:** The user explicitly confirmed the existing prompts interface as the
+place to create, edit, and manage layered rules, rather than a separate surface.
 **Why:** The product is a voice-note thinking partner between meetings, not only
 a task inbox or long-form meeting summarizer. Repeated mentions can refine an
 existing task instead of creating another, and non-actionable thoughts still
