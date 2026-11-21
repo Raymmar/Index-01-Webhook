@@ -59,7 +59,7 @@ export function Message({ event, job, tz, focused = false, onDeleted }: { event:
         <View style={[s.row, { gap: 7 }]}>{processing && <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: c.accent, flexShrink: 0 }} />}<Text style={[s.label, { flexShrink: 1, color: processing ? c.accent : job?.status === 'failed' ? c.destructive : c.mutedForeground }]}>{label}</Text></View>
         <Text style={[s.muted, { fontSize: 10 }]}>{formatInTimeZone(event.recordedAt ?? event.receivedAt, tz, 'MMM d · h:mm a')}</Text>
       </View>
-      {!event.deletedAt && <IconButton name="more-vertical" size={18} label="Message actions" onPress={() => guard(() => setMenu(true))} />}
+      {!event.deletedAt && <IconButton compact name="more-vertical" size={18} label="Message actions" onPress={() => guard(() => setMenu(true))} />}
     </View>
     {event.deletedAt ? <Copy>Original content deleted</Copy> : event.transcription ? <Copy selectable style={{ fontSize: 16, lineHeight: 26 }}>{event.transcription}</Copy> : <Text style={s.muted}>{event.kind === 'recording' ? 'No transcript was included.' : 'JSON event received.'}</Text>}
     {!!event.audioUrl && <View onTouchStart={e => e.stopPropagation()}><Recording url={event.audioUrl} /></View>}

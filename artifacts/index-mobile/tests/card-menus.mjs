@@ -72,9 +72,13 @@ try {
     const box = await button.boundingBox();
     const card = await row.locator(':scope > div').last().locator(':scope > div').boundingBox();
     assert.ok(box && card);
-    assert.equal(box.width, 44);
-    assert.equal(box.height, 44);
-    assert.ok(Math.abs(box.y - card.y - 14) <= 1, 'menu stays at the card top');
+    assert.equal(box.width, 22);
+    assert.equal(box.height, 22);
+    const title = row.getByRole('button', { name: /^Edit / });
+    if (await title.count()) {
+      const titleBox = await title.boundingBox();
+      assert.ok(Math.abs(box.y - titleBox.y) <= 1, 'menu aligns with task title');
+    } else assert.ok(Math.abs(box.y - card.y - 14) <= 1, 'menu stays at the card top');
     assert.ok(Math.abs(card.x + card.width - box.x - box.width - 14) <= 1, 'shared right inset');
     assert.equal(await button.locator('[data-icon]').getAttribute('data-icon'), 'more-vertical');
     assert.equal(await button.locator('[data-icon]').getAttribute('data-size'), '18');
@@ -139,7 +143,7 @@ try {
   await page.getByRole('button', { name: 'Message actions', exact: true }).click();
   await page.getByRole('button', { name: 'Delete note', exact: true }).waitFor();
   assert.deepEqual(errors, []);
-  console.log('PASS: top-right vertical compact menus, 44pt targets, 320/375/402px layouts, pinned/deleted notices, all processing states, payload, guarded touch presses and original-message sheet');
+  console.log('PASS: 22pt title-aligned menus, 320/375/402px layouts, pinned/deleted notices, all processing states, payload, guarded touch presses and original-message sheet');
 } finally {
   await browser.close();
   await new Promise(r => server.close(r));

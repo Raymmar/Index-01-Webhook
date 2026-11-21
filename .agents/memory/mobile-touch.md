@@ -4,6 +4,12 @@ description: User expectation for task-detail and calendar swipe navigation.
 ---
 Requested mobile swipes must work with fingers; arrow buttons are not a substitute.
 
+Card action menus must use the smallest practical layout space and sit across
+from the card title, without making the row taller.
+**Why:** The user explicitly rejected oversized buttons on both task and message cards.
+**How to apply:** Keep the visible layout compact; use invisible touch padding
+instead of expanding the card header.
+
 **Why:** The user explicitly corrected task-detail and calendar navigation that did not respond to finger swipes.
 
 **How to apply:** Preserve direct horizontal gestures in those views without interfering with text editing, date pickers, or audio controls. Do not treat working navigation buttons as proof that swiping works.
