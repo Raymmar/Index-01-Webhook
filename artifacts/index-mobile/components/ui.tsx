@@ -55,7 +55,7 @@ export function Sheet({ visible, title, onClose, children, panHandlers }: { visi
   const insets = useSafeAreaInsets();
   return <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}><View style={s.screen}><KeyboardAwareScrollViewCompat {...panHandlers} directionalLockEnabled bottomOffset={30} contentContainerStyle={[s.content, { paddingTop: 22 + (Platform.OS === 'android' ? insets.top : Platform.OS === 'web' ? 67 : 0), paddingBottom: 32 + insets.bottom }]}><View style={s.between}><Text style={s.subheading}>{title}</Text><IconButton name="x" label="Close" onPress={onClose} /></View>{children}</KeyboardAwareScrollViewCompat></View></Modal>;
 }
-export function Confirm({ title, message, onConfirm, onClose, pending, error, preference }: { title: string; message: string; onConfirm: () => void | Promise<void>; onClose: () => void; pending?: boolean; error?: unknown; preference?: ConfirmationPreference }) {
+export function Confirm({ title, message, onConfirm, onClose, pending, error, preference }: { title: string; message: string; onConfirm: () => void | Promise<void>; onClose: () => void; pending?: boolean; error?: unknown; preference?: ConfirmationPreference | ConfirmationPreference[] }) {
   const [skip, setSkip] = useState(false);
   const [saveError, setSaveError] = useState('');
   const confirmations = useConfirmationPreferences();

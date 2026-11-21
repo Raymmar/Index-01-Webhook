@@ -222,6 +222,23 @@ paths:
               schema: { type: string }
         "401":
           description: Sign in required
+  /events/{id}/deletion:
+    post:
+      operationId: deleteSource
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, minLength: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SourceDeletion" }
+      responses:
+        "204":
+          description: Selected source scope soft-deleted atomically
+        "400":
+          description: Invalid scope
+        "404":
+          description: Source not found in your account
   /events/{id}:
     delete:
       operationId: deleteEvent
@@ -279,6 +296,11 @@ components:
   securitySchemes:
     webhookToken: { type: http, scheme: bearer }
   schemas:
+    SourceDeletion:
+      type: object
+      required: [scope]
+      properties:
+        scope: { type: string, enum: [note, tasks, all], description: Only the selected source and its related tasks }
     Settings:
       type: object
       required: [isOwner, allowed, allowSignups, timezone, aiProvider, aiModel, directKeyConfigured, managedConfigured, availableModels]

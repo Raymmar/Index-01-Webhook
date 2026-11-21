@@ -341,6 +341,20 @@ export const StreamEventsResponse = zod.unknown()
 
 
 
+export const DeleteSourceParams = zod.object({
+  "id": zod.coerce.string().min(1)
+})
+
+export const DeleteSourceBody = zod.object({
+  "scope": zod.enum(['note', 'tasks', 'all']).describe('Only the selected source and its related tasks')
+})
+
+export const DeleteSourceResponse = zod.void()
+
+
+
+
+
 export const DeleteEventParams = zod.object({
   "id": zod.coerce.string().min(1)
 })

@@ -5,6 +5,23 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+/**
+ * Only the selected source and its related tasks
+ */
+export type SourceDeletionScope = typeof SourceDeletionScope[keyof typeof SourceDeletionScope];
+
+
+export const SourceDeletionScope = {
+  note: 'note',
+  tasks: 'tasks',
+  all: 'all',
+} as const;
+
+export interface SourceDeletion {
+  /** Only the selected source and its related tasks */
+  scope: SourceDeletionScope;
+}
+
 export type SettingsAiProvider = typeof SettingsAiProvider[keyof typeof SettingsAiProvider];
 
 

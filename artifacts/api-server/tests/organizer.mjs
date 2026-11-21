@@ -287,6 +287,63 @@ export async function check() {
     assert.equal((await db.select().from(actionsTable).where(eq(actionsTable.sourceEventId,"rollback"))).length,1);
     console.log("PASS: evidence, duplicates, expired/replaced leases, manual tombstones and transactional rollback");
 
+    // Every scope covers zero/one/many children regardless of status or pinning.
+    for (const scope of ["note", "tasks", "all"]) for (const count of [0, 1, 4]) {
+      const id = "scope-" + scope + count;
+      await fixture(id);
+      const beforeRemoved = new Date("2020-01-01");
+      await db.insert(actionsTable).values([
+        {id:id+"-old",ownerId:"owner",sourceEventId:id,title:"Already removed",timezone:"UTC",removedAt:beforeRemoved},
+        ...Array.from({length:count},(_,i)=>({id:id+i,ownerId:"owner",sourceEventId:id,title:"Task",timezone:"UTC",status:["open","completed","dismissed","open"][i],pinnedAt:i===3?new Date():null})),
+      ]);
+      assert.equal((await api("/events/"+id+"/deletion","POST","other",{scope})).status,404);
+      assert.equal((await api("/events/"+id+"/deletion","POST","",{scope})).status,401);
+      assert.equal((await api("/events/"+id+"/deletion","POST","owner",{scope:"account"})).status,400);
+      const unrelatedBefore = await db.select().from(actionsTable).where(eq(actionsTable.sourceEventId,"four-actions"));
+      assert.equal((await notifiedMutation("/events/"+id+"/deletion","POST",{scope})).status,204);
+      const source = (await db.select().from(eventsTable).where(eq(eventsTable.id,id)))[0];
+      const children = await db.select().from(actionsTable).where(eq(actionsTable.sourceEventId,id));
+      assert.equal(!!source.deletedAt,scope!=="tasks");
+      assert.equal(source.transcription,"I need to buy printer paper.");
+      assert.equal(children.filter(t=>!t.removedAt).length,scope==="note"?count:0);
+      assert.equal(children.find(t=>t.id===id+"-old").removedAt.toISOString(),beforeRemoved.toISOString());
+      assert.deepEqual(await db.select().from(actionsTable).where(eq(actionsTable.sourceEventId,"four-actions")),unrelatedBefore);
+      const org = await (await api("/organizer")).json();
+      assert.ok(org.items.filter(t=>t.sourceEventId===id).every(t=>t.sourceDeleted));
+      if(scope==="tasks") {
+        assert.ok((await (await api("/events?view=notes")).json()).items.some(e=>e.id===id));
+        assert.ok(source.actionsInitializedAt);
+      }
+      assert.equal((await api("/events/"+id+"/deletion","POST","owner",{scope})).status,204);
+    }
+    // Deletion while a provider call is running must revoke its lease and
+    // permanently fence insertion, even when there were initially no children.
+    for (const scope of ["tasks","all"]) {
+      const id = "scope-race-"+scope;
+      await fixture(id);
+      let release, entered;
+      const started = new Promise(r=>entered=r);
+      globalThis.aiGate = () => { entered(); return new Promise(r=>release=r); };
+      const work = processNextJob(); await started;
+      assert.equal((await api("/events/"+id+"/deletion","POST","owner",{scope})).status,204);
+      release(); await work; globalThis.aiGate=null;
+      assert.equal((await db.select().from(actionsTable).where(eq(actionsTable.sourceEventId,id))).length,0);
+      await db.update(jobsTable).set({status:"pending",availableAt:new Date(0)}).where(eq(jobsTable.eventId,id));
+      await processNextJob();
+      assert.equal((await db.select().from(actionsTable).where(eq(actionsTable.sourceEventId,id))).length,0);
+    }
+    await fixture("scope-rollback");
+    await db.insert(actionsTable).values({id:"scope-rollback-task",ownerId:"owner",sourceEventId:"scope-rollback",title:"Keep",timezone:"UTC"});
+    await db.execute(sql\`CREATE FUNCTION reject_scope() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN IF NEW.source_event_id='scope-rollback' THEN RAISE EXCEPTION 'test failure'; END IF; RETURN NEW; END $$\`);
+    await db.execute(sql\`CREATE TRIGGER reject_scope BEFORE UPDATE ON active_actions FOR EACH ROW EXECUTE FUNCTION reject_scope()\`);
+    assert.equal((await api("/events/scope-rollback/deletion","POST","owner",{scope:"all"})).status,500);
+    assert.equal((await db.select().from(eventsTable).where(eq(eventsTable.id,"scope-rollback")))[0].deletedAt,null);
+    assert.equal((await db.select().from(jobsTable).where(eq(jobsTable.eventId,"scope-rollback")))[0].status,"pending");
+    assert.equal((await db.select().from(actionsTable).where(eq(actionsTable.id,"scope-rollback-task")))[0].removedAt,null);
+    await db.execute(sql\`DROP TRIGGER reject_scope ON active_actions\`);
+    console.log("PASS: scoped deletion zero/one/many, all statuses, ownership, notifications, extraction fences and atomic rollback");
+
     // Migration preserves originals and dates, archives old rows, and is idempotent.
     await db.insert(eventsTable).values({ ...original, id: "legacy-message", audioPath:"fixture-original-audio",audioSize:123, actionsInitializedAt: null, isActionable:true, actionTitle:"Current edited combined summary", dueAt:new Date("2026-11-20T18:00:00Z"),status:"completed",editedAt:new Date() });
     await db.insert(eventsTable).values({ ...original, id: "legacy-test", transcription: "Index webhook test event", actionsInitializedAt:null, unifiedAt: null });
@@ -315,6 +372,9 @@ export async function check() {
     await migrateUnifiedItems();
     assert.deepEqual(await db.select().from(eventsTable).where(eq(eventsTable.id,"legacy-message")),once);
     assert.equal((await db.select().from(itemsTable)).length,4);
+    const archive = await db.select().from(itemsTable);
+    await api("/events/legacy-message/deletion","POST","owner",{scope:"all"});
+    assert.deepEqual(await db.select().from(itemsTable),archive);
     assert.equal((await (await api("/organizer")).json()).items.filter(i=>i.sourceEventId==="legacy-message").length,0);
     console.log("PASS: multiple independent children, safe idempotent migration without archive resurrection");
     await api("/settings", "PATCH", "owner", { allowSignups: false });

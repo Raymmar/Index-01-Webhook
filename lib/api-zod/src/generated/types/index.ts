@@ -30,6 +30,8 @@ export * from './settings';
 export * from './settingsAiProvider';
 export * from './settingsUpdate';
 export * from './settingsUpdateAiProvider';
+export * from './sourceDeletion';
+export * from './sourceDeletionScope';
 export * from './webhook';
 export * from './webhookCredentials';
 export * from './webhookInput';

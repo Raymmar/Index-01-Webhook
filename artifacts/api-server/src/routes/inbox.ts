@@ -7,6 +7,7 @@ import { CreateWebhookBody, CreateWebhookResponse, ListWebhooksResponse, ListEve
 import { hashToken } from "./receive";
 import { audioFile } from "../lib/recording-storage";
 import { openInboxStream } from "../lib/inbox-stream";
+import { DeleteSourceBody, DeleteSourceParams } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 const publicHook = (hook: WebhookRow) => ({
@@ -106,6 +107,31 @@ router.get("/events", async (req, res): Promise<void> => {
   }));
   const last = items.at(-1);
   res.json(ListEventsResponse.parse({ items, nextCursor: rows.length > pageSize && last ? `${rows[pageSize - 1]!.cursorTime}|${last.id}` : null }));
+});
+
+router.post("/events/:id/deletion", async (req, res): Promise<void> => {
+  const params = DeleteSourceParams.safeParse(req.params);
+  const body = DeleteSourceBody.safeParse(req.body);
+  if (!params.success || !body.success) { res.status(400).json({ error: "Invalid deletion scope" }); return; }
+  const { scope } = body.data;
+  const ownerId = res.locals.ownerId;
+  const event = await db.transaction(async tx => {
+    // Same job -> source -> actions ordering as extraction. The source barrier
+    // also fences jobs inserted concurrently when no job existed yet.
+    await tx.update(jobsTable).set({ status: "completed", leaseId: null, error: null })
+      .where(and(eq(jobsTable.eventId, params.data.id), eq(jobsTable.ownerId, ownerId)));
+    const [source] = await tx.update(eventsTable).set({
+      ...(scope !== "tasks" ? { deletedAt: sql`coalesce(${eventsTable.deletedAt}, now())` } : {}),
+      ...(scope !== "note" ? { actionsInitializedAt: sql`coalesce(${eventsTable.actionsInitializedAt}, now())` } : {}),
+    }).where(and(eq(eventsTable.id, params.data.id), eq(eventsTable.ownerId, ownerId))).returning({ id: eventsTable.id });
+    if (!source) return null;
+    if (scope !== "note") await tx.update(actionsTable).set({ removedAt: new Date(), editedAt: new Date() })
+      .where(and(eq(actionsTable.sourceEventId, source.id), eq(actionsTable.ownerId, ownerId), isNull(actionsTable.removedAt)));
+    await tx.execute(sql`SELECT pg_notify('ring_inbox_changed', ${ownerId})`);
+    return source;
+  });
+  if (!event) { res.status(404).json({ error: "Note not found" }); return; }
+  res.status(204).end();
 });
 
 router.delete("/events/:id", async (req, res): Promise<void> => {

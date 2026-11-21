@@ -8,34 +8,40 @@ import { useGetOrganizer, useGetSettings, useUnderstandEvent, getGetOrganizerQue
 import { Copy, Skeleton, Failure, Empty, IconButton, Button, Sheet, s, c, errorMessage } from '@/components/ui';
 import { Recording } from '@/components/recording';
 import { useInboxPages, useLive, deviceZone } from '@/lib/session';
-import { useDeleteEvent, getGetEventQueryKey } from '@workspace/api-client-react';
+import { useDeleteSource, getGetEventQueryKey, sourceDeletionPreferences, sourceDeletionLabel, sourceDeletionDescription, type SourceDeletionScope } from '@workspace/api-client-react';
 import { Confirm } from '@/components/ui';
 import { useConfirmationPreferences } from '@workspace/api-client-react';
 import { SwipeTaskRow } from '@/components/swipe-task-row';
 import { LinkedTasks } from '@/components/linked-tasks';
 
-function Message({ event, job, tz, focused = false, onDeleted }: { event: InboxEvent; job?: ProcessingJob; tz: string; focused?: boolean; onDeleted?: () => void }) {
+export function Message({ event, job, tz, focused = false, onDeleted }: { event: InboxEvent; job?: ProcessingJob; tz: string; focused?: boolean; onDeleted?: () => void }) {
   const [payload, setPayload] = useState(false);
   const [error, setError] = useState('');
   const retry = useUnderstandEvent();
   const qc = useQueryClient();
-  const deletion = useDeleteEvent();
+  const deletion = useDeleteSource();
+  const organizer = useGetOrganizer();
+  const hasTasks = organizer.data?.items.some(item => item.sourceEventId === event.id) ?? false;
+  const [scope, setScope] = useState<SourceDeletionScope>('note');
   const deleting = useRef(false);
   const [deleted, setDeleted] = useState(false);
   const [menu, setMenu] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const confirmations = useConfirmationPreferences();
-  function requestDelete() {
+  function requestDelete(scope: SourceDeletionScope = 'note') {
+    if (deleting.current || confirmations.pending) return;
+    setScope(scope);
     setError(''); setMenu(false);
-    if (confirmations.skips('skipMessageDeleteConfirmation')) void remove();
+    if (sourceDeletionPreferences(scope).every(confirmations.skips)) void remove(scope);
     else setConfirmDelete(true);
   }
-  async function remove() {
+  async function remove(selectedScope = scope) {
     if (deleting.current) return;
     deleting.current = true; setError('');
     try {
-      await deletion.mutateAsync({ id: event.id });
-      setDeleted(true); setConfirmDelete(false); onDeleted?.();
+      await deletion.mutateAsync({ id: event.id, data: { scope: selectedScope } });
+      setConfirmDelete(false);
+      if (selectedScope !== 'tasks') { setDeleted(true); onDeleted?.(); }
       await Promise.all([
         qc.invalidateQueries({ queryKey: getListEventsQueryKey() }),
         qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() }),
@@ -62,8 +68,8 @@ function Message({ event, job, tz, focused = false, onDeleted }: { event: InboxE
     </View>
     {payload && <View style={{ backgroundColor: c.secondary, padding: 12, borderRadius: 6 }}><Text selectable style={{ color: c.foreground, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 11, lineHeight: 18 }}>{JSON.stringify(event.payload, null, 2)}</Text><Text style={[s.muted, { marginTop: 12, fontSize: 10 }]}>Received {formatInTimeZone(event.receivedAt, tz, 'PPpp')} · {event.id}</Text></View>}
   </View>}</SwipeTaskRow>
-    {menu && <Sheet visible title="Message actions" onClose={() => setMenu(false)}><Button label="Delete message" danger onPress={requestDelete} /></Sheet>}
-    {confirmDelete && <Confirm preference="skipMessageDeleteConfirmation" title="Delete message" message="The original message and audio will be hidden. Linked tasks remain and will show that the original content was deleted." pending={deletion.isPending} error={error || undefined} onClose={() => setConfirmDelete(false)} onConfirm={remove} />}
+    {menu && <Sheet visible title="Message actions" onClose={() => setMenu(false)}>{(['note', 'tasks', 'all'] as const).map(scope => <Button key={scope} label={sourceDeletionLabel(scope)} danger disabled={deletion.isPending || confirmations.pending || (scope !== 'note' && !hasTasks)} onPress={() => requestDelete(scope)} />)}</Sheet>}
+    {confirmDelete && <Confirm preference={sourceDeletionPreferences(scope)} title={sourceDeletionLabel(scope)} message={sourceDeletionDescription(scope)} pending={deletion.isPending} error={error || undefined} onClose={() => setConfirmDelete(false)} onConfirm={() => remove()} />}
   </>;
 }
 

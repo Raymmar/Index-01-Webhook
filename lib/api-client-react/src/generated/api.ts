@@ -38,6 +38,7 @@ import type {
   RecordingPayload,
   Settings,
   SettingsUpdate,
+  SourceDeletion,
   Webhook,
   WebhookCredentials,
   WebhookInput
@@ -1483,6 +1484,89 @@ export function useStreamEvents<TData = Awaited<ReturnType<typeof streamEvents>>
 
 
 
+
+export const getDeleteSourceUrl = (id: string,) => {
+
+
+
+
+  return `/api/events/${id}/deletion`
+}
+
+export const deleteSource = async (id: string,
+    sourceDeletion: SourceDeletion, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getDeleteSourceUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(sourceDeletion)
+  }
+);}
+
+
+
+
+
+export const getDeleteSourceMutationKey = () => ['deleteSource'] as const;
+
+export const getDeleteSourceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSource>>, TError,DeleteSourceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteSource>>, TError,DeleteSourceMutationVariables, TContext> => {
+
+const mutationKey = getDeleteSourceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteSource>>, DeleteSourceMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  deleteSource(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteSourceMutationResult = NonNullable<Awaited<ReturnType<typeof deleteSource>>>
+    export type DeleteSourceMutationBody = BodyType<SourceDeletion>
+    export type DeleteSourceMutationError = ErrorType<void>
+    export type DeleteSourceMutationVariables = {id: string;data: BodyType<SourceDeletion>}
+
+    export const useDeleteSource = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSource>>, TError,DeleteSourceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteSource>>,
+        TError,
+        DeleteSourceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteSourceMutationOptions(options), queryClient);
+    }
 
 export const getDeleteEventUrl = (id: string,) => {
 

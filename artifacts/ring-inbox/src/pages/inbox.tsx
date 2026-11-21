@@ -12,7 +12,7 @@ import { ActionItemRow } from "./items";
 import { SwipeDelete } from "@/components/swipe-delete";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
-import { useDeleteEvent, getListEventsQueryKey, getGetEventQueryKey, type EventPage } from "@workspace/api-client-react";
+import { useDeleteSource, getListEventsQueryKey, getGetEventQueryKey, sourceDeletionPreferences, sourceDeletionLabel, sourceDeletionDescription, type SourceDeletionScope } from "@workspace/api-client-react";
 import { useConfirmationPreferences } from "@workspace/api-client-react";
 
 function ts(s: string) { return format(new Date(s), "MMM d, h:mm a"); }
@@ -38,31 +38,31 @@ function Organize({ e, items, job, pending, error, onOrganize }: { e: InboxEvent
 
 export const EventCard = memo(function EventCard({ e, items, job, highlight, embedded, localPending }: { e: InboxEvent; items: ActionItem[]; job?: ProcessingJob; highlight: boolean; embedded: boolean; localPending: boolean }) {
   const qc = useQueryClient();
-  const deletion = useDeleteEvent();
+  const deletion = useDeleteSource();
+  const [scope, setScope] = useState<SourceDeletionScope>("note");
   const [skipDelete, setSkipDelete] = useState(false);
   const confirmations = useConfirmationPreferences();
   const [preferenceError, setPreferenceError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const deleting = useRef(false);
-  function requestDelete() {
+  function requestDelete(scope: SourceDeletionScope = "note") {
     if (deleting.current) return;
+    setScope(scope);
     deletion.reset();
     setPreferenceError("");
     setSkipDelete(false);
-    if (confirmations.skips("skipMessageDeleteConfirmation")) {
-      void remove().catch(() => setConfirmDelete(true));
+    if (sourceDeletionPreferences(scope).every(confirmations.skips)) {
+      void remove(scope).catch(() => setConfirmDelete(true));
       return;
     }
     setConfirmDelete(true);
   }
-  async function remove() {
+  async function remove(selectedScope = scope) {
     if (deleting.current) return;
     deleting.current = true;
     try {
-    await deletion.mutateAsync({ id: e.id });
+    await deletion.mutateAsync({ id: e.id, data: { scope: selectedScope } });
     setConfirmDelete(false);
-    await qc.cancelQueries({ queryKey: getListEventsQueryKey() });
-    qc.setQueriesData<EventPage>({ queryKey: getListEventsQueryKey() }, previous => previous && ({ ...previous, items: previous.items.filter(item => item.id !== e.id) }));
     await Promise.all([
       qc.invalidateQueries({ queryKey: getListEventsQueryKey() }),
       qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() }),
@@ -80,7 +80,7 @@ export const EventCard = memo(function EventCard({ e, items, job, highlight, emb
     <SwipeDelete disabled={deletion.isPending || confirmDelete} onDelete={async () => requestDelete()}><article ref={ref} tabIndex={-1} data-event-id={e.id} id={`${embedded ? "incoming" : "event"}-${e.id}`} className={`min-w-0 rounded-lg border p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${busy ? "bg-accent/5" : "bg-card"} ${highlight ? "border-accent" : "border-border"}`} data-testid={`card-event-${e.id}`}>
       <div className="flex items-start gap-2"><div className="min-w-0 flex-1">
       {e.transcription ? <p className="app-content-text whitespace-pre-wrap break-words" data-testid={`text-transcription-${e.id}`}>{e.transcription}</p> : <p className="text-sm text-muted-foreground">{e.kind === "recording" ? "Transcript unavailable" : "Webhook event received"}</p>}
-      </div><DropdownMenu><DropdownMenuTrigger asChild><button type="button" aria-label="Message actions" data-testid={`button-message-actions-${e.id}`} disabled={deletion.isPending} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"><MoreVertical className="h-4 w-4" /></button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={requestDelete} data-testid={`button-delete-message-${e.id}`}><Trash2 className="mr-2 h-4 w-4" />Delete message</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>
+       </div><DropdownMenu><DropdownMenuTrigger asChild><button type="button" aria-label="Message actions" data-testid={`button-message-actions-${e.id}`} disabled={deletion.isPending || confirmations.pending} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"><MoreVertical className="h-4 w-4" /></button></DropdownMenuTrigger><DropdownMenuContent align="end">{(["note", "tasks", "all"] as const).map(scope => <DropdownMenuItem key={scope} disabled={scope !== "note" && !items.length} onSelect={() => requestDelete(scope)} data-testid={`button-delete-${scope}-${e.id}`}><Trash2 className="mr-2 h-4 w-4" />{sourceDeletionLabel(scope)}</DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu></div>
       {e.audioUrl && (
         <div className="mt-2">
           <audio controls preload="none" src={e.audioUrl} onPlay={event => {
@@ -110,8 +110,8 @@ export const EventCard = memo(function EventCard({ e, items, job, highlight, emb
       <AlertDialog open={confirmDelete} onOpenChange={value => { if (!deleting.current && !confirmations.pending) setConfirmDelete(value); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this message?</AlertDialogTitle>
-            <AlertDialogDescription>The original message and audio will be hidden. Tasks and other objects created from it will remain, with a notice that the original content was deleted.</AlertDialogDescription>
+            <AlertDialogTitle>{sourceDeletionLabel(scope)}?</AlertDialogTitle>
+            <AlertDialogDescription>{sourceDeletionDescription(scope)}</AlertDialogDescription>
           </AlertDialogHeader>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={skipDelete} disabled={deletion.isPending}
@@ -119,7 +119,7 @@ export const EventCard = memo(function EventCard({ e, items, job, highlight, emb
               data-testid="checkbox-skip-message-delete-confirmation" className="h-4 w-4 accent-primary" />
             Don't show this again
           </label>
-          {deletion.isError && <p role="alert" className="text-sm text-destructive">Could not delete. Your message is still here. Try again.</p>}
+          {deletion.isError && <p role="alert" className="text-sm text-destructive">Could not delete. Try again.</p>}
           {preferenceError && <p role="alert" className="text-sm text-destructive">{preferenceError}</p>}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deletion.isPending || confirmations.pending}>Cancel</AlertDialogCancel>
@@ -127,10 +127,10 @@ export const EventCard = memo(function EventCard({ e, items, job, highlight, emb
               event.preventDefault();
               setPreferenceError("");
               void (async () => {
-                if (skipDelete) await confirmations.remember("skipMessageDeleteConfirmation");
+                if (skipDelete) await confirmations.remember(sourceDeletionPreferences(scope));
                 await remove();
-              })().catch(() => setPreferenceError("Could not save your choice or delete the message. Please try again."));
-            }}>{deletion.isPending ? "Deleting…" : "Delete message"}</AlertDialogAction>
+               })().catch(() => setPreferenceError("Could not save your choice or finish deletion. Please try again."));
+             }}>{deletion.isPending ? "Deleting…" : sourceDeletionLabel(scope)}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
