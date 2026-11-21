@@ -12,6 +12,7 @@ import { useDeleteEvent, getGetEventQueryKey } from '@workspace/api-client-react
 import { Confirm } from '@/components/ui';
 import { useConfirmationPreferences } from '@workspace/api-client-react';
 import { SwipeTaskRow } from '@/components/swipe-task-row';
+import { LinkedTasks } from '@/components/linked-tasks';
 
 function Message({ event, job, tz, focused = false, onDeleted }: { event: InboxEvent; job?: ProcessingJob; tz: string; focused?: boolean; onDeleted?: () => void }) {
   const [payload, setPayload] = useState(false);
@@ -50,6 +51,7 @@ function Message({ event, job, tz, focused = false, onDeleted }: { event: InboxE
     <View style={s.between}><View style={[s.row, { gap: 7 }]}>{processing && <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: c.accent }} />}<Text style={[s.label, { color: processing ? c.accent : job?.status === 'failed' ? c.destructive : c.mutedForeground }]}>{label}</Text></View><Text style={[s.muted, { fontSize: 10 }]}>{formatInTimeZone(event.recordedAt ?? event.receivedAt, tz, 'MMM d · h:mm a')}</Text></View>
     {event.deletedAt ? <Copy>Original content deleted</Copy> : event.transcription ? <Copy selectable style={{ fontSize: 16, lineHeight: 26 }}>{event.transcription}</Copy> : <Text style={s.muted}>{event.kind === 'recording' ? 'No transcript was included.' : 'JSON event received.'}</Text>}
     {!!event.audioUrl && <View onTouchStart={e => e.stopPropagation()}><Recording url={event.audioUrl} /></View>}
+    <LinkedTasks eventId={event.id} tz={tz} />
     {job?.status === 'failed' && <View style={{ gap: 9 }}><Text style={s.error}>{job.error || 'This message could not be understood.'}</Text><Button label={retry.isPending ? 'Retrying…' : 'Try understanding again'} quiet disabled={retry.isPending} onPress={() => { setError(''); retry.mutate({ id: event.id }, { onSuccess: () => { void qc.invalidateQueries({ queryKey: getGetOrganizerQueryKey() }); void qc.invalidateQueries({ queryKey: getListEventsQueryKey() }); }, onError: e => setError(errorMessage(e)) }); }} />{!!error && <Text style={s.error}>{error}</Text>}</View>}
     <View style={s.between}>
       <View style={[s.row, { flex: 1, minWidth: 0, gap: 6 }]}>
