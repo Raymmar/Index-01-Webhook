@@ -8,6 +8,7 @@ const palette = {
   muted: '#eae7e1', mutedForeground: '#636e74',
   accent: '#e86b4b', accentForeground: '#faf8f5',
   destructive: '#be302d', destructiveForeground: '#faf8f5',
+  pin: '#1670d2', pinForeground: '#ffffff',
   border: '#dbd7cd', input: '#dbd7cd',
   processing: '#f7e9df', success: '#527a72',
 };

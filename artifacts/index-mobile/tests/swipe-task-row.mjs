@@ -26,8 +26,10 @@ const bundle = await build({
   alias: { 'react-native': 'react-native-web' },
   define: { 'process.env.NODE_ENV': '"test"', __DEV__: 'true' },
   plugins: [{ name: 'theme-only', setup(b) {
+    b.onResolve({filter:/^@expo\/vector-icons$/}, () => ({path:'icons',namespace:'icons'}));
+    b.onLoad({filter:/.*/,namespace:'icons'}, () => ({loader:'tsx',resolveDir:resolve('artifacts/index-mobile'),contents:'import React from "react";export const Feather=({name})=><span data-icon={name}/>;'}));
     b.onResolve({filter:/^\.\/ui$/}, () => ({path:'theme',namespace:'test'}));
-    b.onLoad({filter:/.*/,namespace:'test'}, () => ({contents:'export const c={card:"white",secondary:"#eee",accent:"green",destructive:"red"};export const s={muted:{}};'}));
+    b.onLoad({filter:/.*/,namespace:'test'}, () => ({contents:'export const c={card:"white",pin:"blue",pinForeground:"white",destructive:"red",destructiveForeground:"white"};export const s={muted:{}};'}));
   }}],
 });
 const server = createServer((req,res) => {
@@ -50,6 +52,17 @@ try {
     await page.waitForTimeout(50);
   }
   const counts = () => page.evaluate(()=>window.counts);
+  for (const [x, label, color, icon] of [[240,'Pin','rgb(0, 0, 255)','map-pin'],[120,'Delete','rgb(255, 0, 0)','trash-2']]) {
+    await touch('touchStart'); await touch('touchMove',x,70);
+    await page.waitForTimeout(40);
+    const action=page.getByTestId('swipe-action-test');
+    assert.equal((await action.textContent()).trim(),label);
+    assert.equal(await action.evaluate(node=>getComputedStyle(node).backgroundColor),color);
+    assert.equal(await action.locator(`[data-icon="${icon}"]`).count(),1);
+    await touch('touchCancel'); await page.waitForTimeout(350);
+    assert.ok(Number(await action.evaluate(node=>getComputedStyle(node).opacity))<0.02);
+  }
+  assert.deepEqual(await counts(),{pin:0,delete:0,edit:0});
   await drag([[210,70],[250,70],[285,70]]);
   assert.deepEqual(await counts(),{pin:1,delete:0,edit:0});
   await drag([[150,70],[110,70],[75,70]]);
